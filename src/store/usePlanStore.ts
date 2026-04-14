@@ -404,6 +404,13 @@ usePlanStore.subscribe((state, prev) => {
 
 /** Initial persist så att nya pass listas direkt. */
 if (typeof window !== "undefined") {
-  savePlan(usePlanStore.getState().plan);
-  setActivePlanId(usePlanStore.getState().plan.id);
+  try {
+    savePlan(usePlanStore.getState().plan);
+    setActivePlanId(usePlanStore.getState().plan.id);
+  } catch (err) {
+    // LocalStorage kan vara blockerad (privat läge på iOS Safari t.ex.)
+    // – inte ett kritiskt fel, appen fortsätter utan persist.
+    // eslint-disable-next-line no-console
+    console.warn("[store] kunde inte spara initialt pass:", err);
+  }
 }

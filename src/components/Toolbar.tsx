@@ -33,14 +33,14 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   const snapToGrid = usePlanStore((s) => s.snapToGrid);
   const setSnapToGrid = usePlanStore((s) => s.setSnapToGrid);
 
-  const { undo, redo, pastStates, futureStates } = useStore(
+  // Viktigt: välj primitiva fält var för sig så att Zustand 5 inte
+  // kräver egen equality-funktion (annars → "getSnapshot should be cached").
+  const undo = useStore(useTemporalStore, (s) => s.undo);
+  const redo = useStore(useTemporalStore, (s) => s.redo);
+  const pastCount = useStore(useTemporalStore, (s) => s.pastStates.length);
+  const futureCount = useStore(
     useTemporalStore,
-    (s) => ({
-      undo: s.undo,
-      redo: s.redo,
-      pastStates: s.pastStates,
-      futureStates: s.futureStates,
-    }),
+    (s) => s.futureStates.length,
   );
 
   const [exportOpen, setExportOpen] = useState(false);
@@ -115,14 +115,14 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           <IconButton
             title="Ångra"
             onClick={() => undo()}
-            disabled={pastStates.length === 0}
+            disabled={pastCount === 0}
           >
             <Undo2 size={16} />
           </IconButton>
           <IconButton
             title="Gör om"
             onClick={() => redo()}
-            disabled={futureStates.length === 0}
+            disabled={futureCount === 0}
           >
             <Redo2 size={16} />
           </IconButton>

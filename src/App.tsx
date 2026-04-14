@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type Konva from "konva";
 import { Toolbar } from "./components/Toolbar";
 import { EquipmentPalette } from "./components/Sidebar/EquipmentPalette";
@@ -22,10 +22,9 @@ export default function App() {
   const [propertyOpen, setPropertyOpen] = useState(false);
 
   // Öppna property-sheet på mobil när något markeras
-  if (!isDesktop && selectedId && !propertyOpen) {
-    // lazy trigger – undvik setState-i-render genom microtask
-    queueMicrotask(() => setPropertyOpen(true));
-  }
+  useEffect(() => {
+    if (!isDesktop && selectedId) setPropertyOpen(true);
+  }, [isDesktop, selectedId]);
 
   return (
     <div className="flex h-full flex-col">
