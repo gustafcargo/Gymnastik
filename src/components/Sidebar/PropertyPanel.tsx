@@ -633,7 +633,7 @@ function GymnastsSection({
   onRemove: (id: string) => void;
   onUpdate: (id: string, patch: Partial<GymnastConfig>) => void;
 }) {
-  const MAX = 3;
+  const MAX = 1;
   return (
     <Field label="Gymnaster">
       <div className="space-y-2">
