@@ -169,48 +169,37 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Tablet layout: overlay slide-in panels ── */}
+      {/* ── Tablet layout: collapsible push-in panels (like desktop) ── */}
       {isTablet && (
-        <div className="relative flex min-h-0 flex-1">
-          {/* Left: equipment palette */}
-          <aside
-            className="absolute inset-y-0 left-0 z-30 flex w-72 flex-col overflow-hidden border-r border-surface-3 bg-surface-1 shadow-2xl transition-transform duration-300"
-            style={{
-              transform: paletteOpen ? "translateX(0)" : "translateX(-100%)",
-            }}
-          >
-            <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
-              <span className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-                Redskap
-              </span>
-              <button
-                type="button"
-                onClick={() => setPaletteOpen(false)}
-                className="grid h-7 w-7 place-items-center rounded-md text-slate-500 hover:bg-surface-2"
-              >
-                <X size={15} />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <EquipmentPalette />
-            </div>
-          </aside>
-
-          {/* Main canvas */}
+        <div className="flex min-h-0 flex-1">
+          {paletteOpen && (
+            <aside className="flex w-72 shrink-0 flex-col border-r border-surface-3 bg-surface-1">
+              <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
+                <span className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+                  Redskap
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPaletteOpen(false)}
+                  className="grid h-7 w-7 place-items-center rounded-md text-slate-500 hover:bg-surface-2"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <EquipmentPalette />
+              </div>
+            </aside>
+          )}
           <main className="relative flex min-w-0 flex-1 flex-col">
             {canvasArea}
             <StationTimeline />
           </main>
-
-          {/* Right: property panel */}
-          <aside
-            className="absolute inset-y-0 right-0 z-30 w-80 overflow-hidden border-l border-surface-3 bg-surface-1 shadow-2xl transition-transform duration-300"
-            style={{
-              transform: propertyOpen ? "translateX(0)" : "translateX(100%)",
-            }}
-          >
-            <PropertyPanel onClose={() => setPropertyOpen(false)} />
-          </aside>
+          {propertyOpen && (
+            <aside className="w-80 shrink-0 border-l border-surface-3 bg-surface-1">
+              <PropertyPanel onClose={() => setPropertyOpen(false)} />
+            </aside>
+          )}
         </div>
       )}
 
