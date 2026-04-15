@@ -30,6 +30,7 @@ export type EquipmentDetail =
   | { kind: "beam" }
   | { kind: "pommel-horse" }
   | { kind: "rings" }
+  | { kind: "rings-free" }
   | { kind: "vault" }
   | { kind: "trampette" }
   | { kind: "mini-tramp" }
@@ -41,7 +42,17 @@ export type EquipmentDetail =
   | { kind: "plinth" }
   | { kind: "buck" }
   | { kind: "foam-pit" }
-  | { kind: "uneven-bars" };
+  | { kind: "uneven-bars" }
+  | { kind: "wall-bars" }
+  | { kind: "gym-bench" }
+  | { kind: "climbing-rope" };
+
+/** Hur redskapet är orienterat (välts eller vänds). Standard: "normal" = upprätt. */
+export type EquipmentOrientation =
+  | "normal"
+  | "upside-down"   // 180° kring X-axeln — upp-och-ned
+  | "on-long-side"  // 90° kring Z-axeln — liggandes på lång sida
+  | "on-short-side";// 90° kring X-axeln — liggandes på kort sida
 
 export type PlacedEquipment = {
   id: string;
@@ -61,6 +72,8 @@ export type PlacedEquipment = {
   params?: Record<string, number>;
   /** Höjd från golvet i meter (för mattstack mm.). Standard: 0. */
   z?: number;
+  /** Orientering (välts/vänds). Standard: undefined = "normal". */
+  orientation?: EquipmentOrientation;
   /** Förskjutning (meter) av anteckningsbubblan relativt redskapets centrum. */
   noteOffset?: { x: number; y: number };
   /** Om redskapet skapades från en sparad mall, dess mall-id. */

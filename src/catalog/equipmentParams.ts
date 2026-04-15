@@ -37,6 +37,9 @@ export const EQUIPMENT_PARAMS: Partial<Record<string, EquipmentParamDef[]>> = {
   rings: [
     { key: "ringH",        label: "Ringarnas höjd",       min: 1.5,  max: 5.5,  step: 0.05,  unit: "m",  defaultValue: 2.75 },
   ],
+  "rings-free": [
+    { key: "ringH",        label: "Ringarnas höjd",       min: 1.5,  max: 5.5,  step: 0.05,  unit: "m",  defaultValue: 2.75 },
+  ],
   vault: [
     { key: "standH",       label: "Pelarhöjd",            min: 0.5,  max: 1.4,  step: 0.05,  unit: "m",  defaultValue: 1.12 },
     { key: "padH",         label: "Kudde/pad höjd",       min: 0.1,  max: 0.6,  step: 0.05,  unit: "m",  defaultValue: 0.22 },
@@ -58,5 +61,14 @@ export const EQUIPMENT_PARAMS: Partial<Record<string, EquipmentParamDef[]>> = {
   ],
   "air-track": [
     { key: "trackH",       label: "Luftmadrass tjocklek", min: 0.1,  max: 0.5,  step: 0.025, unit: "m",  defaultValue: 0.28 },
+  ],
+  "wall-bars": [
+    { key: "rungs",        label: "Antal pinnar",         min: 6,    max: 16,   step: 1,     unit: "st", defaultValue: 10   },
+  ],
+  "gym-bench": [
+    { key: "tilt",         label: "Lutningsvinkel",       min: 0,    max: 45,   step: 5,     unit: "°",  defaultValue: 0    },
+  ],
+  "climbing-rope": [
+    { key: "ropeH",        label: "Replängd",             min: 2.0,  max: 8.0,  step: 0.5,   unit: "m",  defaultValue: 5.0  },
   ],
 };

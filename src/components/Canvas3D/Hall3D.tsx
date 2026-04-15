@@ -244,10 +244,12 @@ function HallScene({ W, H }: { W: number; H: number }) {
 
   return (
     <>
-      <ambientLight intensity={0.4} />
+      {/* Reduced ambient so dark faces stay dark — cube-like shading */}
+      <ambientLight intensity={0.18} />
+      {/* Primary sun – strong, single direction for clear face differentiation */}
       <directionalLight
-        position={[W * 0.4, Math.max(W, H) * 1.2, H * 0.3]}
-        intensity={1.8}
+        position={[W * 0.5, Math.max(W, H) * 1.3, H * 0.4]}
+        intensity={2.8}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0003}
@@ -258,7 +260,9 @@ function HallScene({ W, H }: { W: number; H: number }) {
         shadow-camera-near={0.5}
         shadow-camera-far={Math.max(W, H) * 4}
       />
-      <hemisphereLight intensity={0.3} groundColor="#5a6570" color="#c8d8e8" />
+      {/* Soft fill from the opposite side — just enough to see shadow faces */}
+      <directionalLight position={[-W * 0.3, Math.max(W, H) * 0.5, -H * 0.2]} intensity={0.5} />
+      <hemisphereLight intensity={0.15} groundColor="#3a4550" color="#b0c0cc" />
 
       {/* Hallgolv */}
       <mesh
@@ -315,6 +319,30 @@ function HallScene({ W, H }: { W: number; H: number }) {
           ? draggingNoteRef.current!.offZ
           : (eq.noteOffset?.y ?? -(type.heightM / 2 + 0.6));
 
+        // Tilt transforms (inside equipment group, pre-rotation)
+        const physH = type.physicalHeightM;
+        const eqW   = type.widthM;
+        const eqD   = type.heightM;
+        let tiltRot: [number, number, number] = [0, 0, 0];
+        let tiltPos: [number, number, number] = [0, 0, 0];
+        switch (eq.orientation) {
+          case "upside-down":
+            tiltRot = [Math.PI, 0, 0];
+            tiltPos = [0, physH, 0];
+            break;
+          case "on-long-side":
+            // rotate -90° around Z: (x,y,z)→(y,-x,z); long edge stays along X
+            tiltRot = [0, 0, -Math.PI / 2];
+            tiltPos = [-physH / 2, eqW / 2, 0];
+            break;
+          case "on-short-side":
+            // rotate -90° around X: (x,y,z)→(x,z,-y); short edge stays along Z
+            tiltRot = [-Math.PI / 2, 0, 0];
+            tiltPos = [0, eqD / 2, physH / 2];
+            break;
+        }
+        const hasTilt = eq.orientation && eq.orientation !== "normal";
+
         return (
           <group
             key={eq.id}
@@ -323,12 +351,23 @@ function HallScene({ W, H }: { W: number; H: number }) {
             rotation={[0, -(eq.rotation * Math.PI) / 180, 0]}
             scale={[eq.scaleX, 1, eq.scaleY]}
           >
-            <Equipment3D
-              type={type}
-              color={eq.customColor}
-              partColors={eq.partColors}
-              params={eq.params}
-            />
+            {hasTilt ? (
+              <group position={tiltPos} rotation={tiltRot}>
+                <Equipment3D
+                  type={type}
+                  color={eq.customColor}
+                  partColors={eq.partColors}
+                  params={eq.params}
+                />
+              </group>
+            ) : (
+              <Equipment3D
+                type={type}
+                color={eq.customColor}
+                partColors={eq.partColors}
+                params={eq.params}
+              />
+            )}
             {/* Floating label */}
             {showThisLabel && (
               <Html
@@ -520,7 +559,7 @@ export function Hall3D({ className }: Props) {
         <fog attach="fog" args={["#DDE3E8", camDist * 1.4, camDist * 3]} />
 
         <Suspense fallback={null}>
-          <Environment preset="city" background={false} environmentIntensity={0.6} />
+          <Environment preset="city" background={false} environmentIntensity={0.15} />
         </Suspense>
 
         <HallScene W={W} H={H} />
