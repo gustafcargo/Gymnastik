@@ -4,7 +4,7 @@ import { OrbitControls, Environment } from "@react-three/drei";
 import { BookmarkPlus, Copy, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
 import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
-import { EQUIPMENT_BY_ID } from "../../catalog/equipment";
+import { getEquipmentById } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
 import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
 import { Equipment3D } from "../Canvas3D/Equipment3D";
@@ -24,11 +24,13 @@ export function EquipmentEditor() {
   const deleteEquipment = usePlanStore((s) => s.deleteEquipment);
   const duplicateEquipment = usePlanStore((s) => s.duplicateEquipment);
   const addTemplate = useSavedEquipmentStore((s) => s.addTemplate);
+  const updateTemplateFn = useSavedEquipmentStore((s) => s.updateTemplate);
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const [updatedFeedback, setUpdatedFeedback] = useState(false);
 
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
   const selected = station?.equipment.find((e) => e.id === selectedId) ?? null;
-  const type = selected ? EQUIPMENT_BY_ID[selected.typeId] : null;
+  const type = selected ? getEquipmentById(selected.typeId) ?? null : null;
 
   // Close editor if equipment no longer available
   useEffect(() => {
@@ -79,6 +81,20 @@ export function EquipmentEditor() {
     });
     setSavedFeedback(true);
     setTimeout(() => setSavedFeedback(false), 2000);
+  };
+
+  const handleUpdateTemplate = () => {
+    if (!selected.templateId) return;
+    updateTemplateFn(selected.templateId, {
+      name: selected.label ?? type.name,
+      customColor: selected.customColor,
+      partColors: selected.partColors,
+      params: selected.params,
+      z: selected.z,
+      notes: selected.notes,
+    });
+    setUpdatedFeedback(true);
+    setTimeout(() => setUpdatedFeedback(false), 2000);
   };
 
   return (
@@ -405,19 +421,35 @@ export function EquipmentEditor() {
 
           {/* Footer */}
           <div className="space-y-2 border-t border-slate-800 p-4">
-            <button
-              type="button"
-              onClick={handleSaveTemplate}
-              className={
-                "flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium transition " +
-                (savedFeedback
-                  ? "border-green-700 bg-green-900/50 text-green-400"
-                  : "border-blue-700/50 bg-blue-900/30 text-blue-400 hover:bg-blue-900/50")
-              }
-            >
-              <BookmarkPlus size={15} />
-              {savedFeedback ? "Sparad som mall!" : "Spara som mall"}
-            </button>
+            {selected.templateId ? (
+              <button
+                type="button"
+                onClick={handleUpdateTemplate}
+                className={
+                  "flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium transition " +
+                  (updatedFeedback
+                    ? "border-green-700 bg-green-900/50 text-green-400"
+                    : "border-blue-700/50 bg-blue-900/30 text-blue-400 hover:bg-blue-900/50")
+                }
+              >
+                <BookmarkPlus size={15} />
+                {updatedFeedback ? "Mall uppdaterad!" : "Uppdatera mall"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSaveTemplate}
+                className={
+                  "flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium transition " +
+                  (savedFeedback
+                    ? "border-green-700 bg-green-900/50 text-green-400"
+                    : "border-blue-700/50 bg-blue-900/30 text-blue-400 hover:bg-blue-900/50")
+                }
+              >
+                <BookmarkPlus size={15} />
+                {savedFeedback ? "Sparad som mall!" : "Spara som mall"}
+              </button>
+            )}
             <div className="flex gap-2">
               <button
                 type="button"

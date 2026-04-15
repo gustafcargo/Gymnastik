@@ -31,3 +31,11 @@ export function saveTemplate(tpl: SavedEquipmentTemplate) {
 export function deleteTemplate(id: string) {
   writeAll(readAll().filter((t) => t.id !== id));
 }
+
+export function updateTemplate(
+  id: string,
+  patch: Partial<Omit<SavedEquipmentTemplate, "id" | "createdAt">>,
+) {
+  const list = readAll().map((t) => (t.id === id ? { ...t, ...patch } : t));
+  writeAll(list);
+}

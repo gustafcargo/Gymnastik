@@ -27,6 +27,7 @@ export function HallStage({ className, onStageReady }: Props) {
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const addEquipment = usePlanStore((s) => s.addEquipment);
+  const updateEquipment = usePlanStore((s) => s.updateEquipment);
   const setEquipmentNoteOffset = usePlanStore((s) => s.setEquipmentNoteOffset);
   const showLabels = usePlanStore((s) => s.showLabels);
 
@@ -42,6 +43,9 @@ export function HallStage({ className, onStageReady }: Props) {
   const [stageScale, setStageScale] = useState(1);
   const [fitScale, setFitScale] = useState(1);
   const [fitOffset, setFitOffset] = useState({ x: 0, y: 0 });
+
+  type EditingNote = { id: string; x: number; y: number; text: string };
+  const [editingNote, setEditingNote] = useState<EditingNote | null>(null);
 
   // Observera storleksändringar
   useEffect(() => {
@@ -158,6 +162,45 @@ export function HallStage({ className, onStageReady }: Props) {
       onDrop={handleDrop}
       style={{ touchAction: "none" }}
     >
+      {/* Inline note-editing textarea overlay */}
+      {editingNote && (
+        <div
+          style={{
+            position: "absolute",
+            left: editingNote.x - 65,
+            top: editingNote.y - 35,
+            zIndex: 30,
+          }}
+        >
+          <textarea
+            autoFocus
+            defaultValue={editingNote.text}
+            rows={4}
+            onBlur={(e) => {
+              updateEquipment(editingNote.id, { notes: e.target.value || undefined });
+              setEditingNote(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setEditingNote(null);
+            }}
+            style={{
+              width: "130px",
+              background: "rgba(255,251,210,0.98)",
+              border: "2px solid #3B82F6",
+              borderRadius: "6px",
+              padding: "7px",
+              fontSize: "11px",
+              color: "#374151",
+              resize: "none",
+              outline: "none",
+              lineHeight: "1.4",
+              fontFamily: "system-ui, sans-serif",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            }}
+          />
+        </div>
+      )}
+
       {isEmpty && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/85 px-5 py-4 text-center shadow-xs backdrop-blur">
@@ -226,6 +269,17 @@ export function HallStage({ className, onStageReady }: Props) {
                     onOffsetChange={(offset) =>
                       setEquipmentNoteOffset(eq.id, offset)
                     }
+                    onStartEdit={() => {
+                      const offset = eq.noteOffset ?? {
+                        x: type.widthM / 2 + 0.6,
+                        y: -(type.heightM / 2 + 1.0),
+                      };
+                      const bubbleCx = (eq.x + offset.x) * fitScale;
+                      const bubbleCy = (eq.y + offset.y) * fitScale;
+                      const screenX = stagePos.x + (fitOffset.x + bubbleCx) * stageScale;
+                      const screenY = stagePos.y + (fitOffset.y + bubbleCy) * stageScale;
+                      setEditingNote({ id: eq.id, x: screenX, y: screenY, text: eq.notes ?? "" });
+                    }}
                   />
                 );
               })}

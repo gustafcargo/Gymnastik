@@ -78,6 +78,16 @@ export function Equipment3D({ type, color, partColors, params }: Props) {
                     <sphereGeometry args={[p.w / 2, 24, 16]} />
                     <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
                   </mesh>
+                ) : p.shape === "cone" ? (
+                  <mesh castShadow receiveShadow>
+                    <coneGeometry args={[p.w / 2, p.h, 24]} />
+                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
+                  </mesh>
+                ) : p.shape === "torus" ? (
+                  <mesh castShadow receiveShadow>
+                    <torusGeometry args={[p.w / 2, Math.max(0.01, p.d / 4), 16, 48]} />
+                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
+                  </mesh>
                 ) : (
                   <mesh castShadow receiveShadow>
                     <boxGeometry args={[p.w, p.h, p.d]} />

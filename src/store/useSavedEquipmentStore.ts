@@ -5,12 +5,14 @@ import {
   listSavedTemplates,
   saveTemplate,
   deleteTemplate,
+  updateTemplate as updateTemplateLib,
 } from "../lib/savedEquipment";
 
 type State = {
   templates: SavedEquipmentTemplate[];
   addTemplate: (tpl: Omit<SavedEquipmentTemplate, "id" | "createdAt">) => void;
   removeTemplate: (id: string) => void;
+  updateTemplate: (id: string, patch: Partial<Omit<SavedEquipmentTemplate, "id" | "createdAt">>) => void;
 };
 
 export const useSavedEquipmentStore = create<State>((set) => ({
@@ -28,6 +30,11 @@ export const useSavedEquipmentStore = create<State>((set) => ({
 
   removeTemplate: (id) => {
     deleteTemplate(id);
+    set({ templates: listSavedTemplates() });
+  },
+
+  updateTemplate: (id, patch) => {
+    updateTemplateLib(id, patch);
     set({ templates: listSavedTemplates() });
   },
 }));

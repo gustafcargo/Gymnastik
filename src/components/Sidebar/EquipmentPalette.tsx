@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BookmarkMinus, Plus, Trash2, Search } from "lucide-react";
+import { BookmarkMinus, Pencil, Plus, Trash2, Search } from "lucide-react";
 import {
   CATEGORY_LABELS,
   EQUIPMENT_CATALOG,
@@ -26,6 +26,8 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
   const [showNewModal, setShowNewModal] = useState(false);
   const addEquipmentCenter = usePlanStore((s) => s.addEquipmentCenter);
   const updateEquipment = usePlanStore((s) => s.updateEquipment);
+  const openEquipmentEditor = usePlanStore((s) => s.openEquipmentEditor);
+  const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const templates = useSavedEquipmentStore((s) => s.templates);
   const removeTemplate = useSavedEquipmentStore((s) => s.removeTemplate);
   const customTypes = useCustomEquipmentStore((s) => s.customTypes);
@@ -78,6 +80,24 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
         z: tpl.z,
         notes: tpl.notes,
       });
+    }
+    if (onItemActivate) onItemActivate(tpl.baseTypeId);
+  };
+
+  const handleTemplateEdit = (tpl: SavedEquipmentTemplate) => {
+    const id = addEquipmentCenter(tpl.baseTypeId);
+    if (id) {
+      updateEquipment(id, {
+        label: tpl.name,
+        customColor: tpl.customColor,
+        partColors: tpl.partColors,
+        params: tpl.params,
+        z: tpl.z,
+        notes: tpl.notes,
+        templateId: tpl.id,
+      });
+      selectEquipment(id);
+      openEquipmentEditor();
     }
     if (onItemActivate) onItemActivate(tpl.baseTypeId);
   };
@@ -163,6 +183,7 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
                       baseType={displayType}
                       compact={compact}
                       onActivate={() => handleTemplateActivate(tpl)}
+                      onEdit={() => handleTemplateEdit(tpl)}
                       onDelete={() => removeTemplate(tpl.id)}
                     />
                   </li>
@@ -261,12 +282,14 @@ function TemplateItem({
   tpl,
   baseType,
   onActivate,
+  onEdit,
   onDelete,
   compact,
 }: {
   tpl: SavedEquipmentTemplate;
   baseType: EquipmentType;
   onActivate: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   compact?: boolean;
 }) {
@@ -301,17 +324,24 @@ function TemplateItem({
           <div className="truncate text-xs text-slate-500">{baseType.name}</div>
         </div>
       </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        title="Ta bort mall"
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 opacity-0 transition hover:bg-red-100 hover:text-red-600 group-hover:opacity-100"
-      >
-        <BookmarkMinus size={14} />
-      </button>
+      <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          title="Redigera mall"
+          className="grid h-7 w-7 place-items-center rounded-md text-slate-400 hover:bg-blue-100 hover:text-blue-600"
+        >
+          <Pencil size={13} />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          title="Ta bort mall"
+          className="grid h-7 w-7 place-items-center rounded-md text-slate-400 hover:bg-red-100 hover:text-red-600"
+        >
+          <BookmarkMinus size={14} />
+        </button>
+      </div>
     </div>
   );
 }

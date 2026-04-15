@@ -27,10 +27,13 @@ function HallScene({ W, H }: { W: number; H: number }) {
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const moveEquipment = usePlanStore((s) => s.moveEquipment);
+  const updateEquipment = usePlanStore((s) => s.updateEquipment);
   const openEquipmentEditor = usePlanStore((s) => s.openEquipmentEditor);
   const showLabels = usePlanStore((s) => s.showLabels);
   const snapToGrid = usePlanStore((s) => s.snapToGrid);
   const setEquipmentNoteOffset = usePlanStore((s) => s.setEquipmentNoteOffset);
+
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
   const cx = W / 2;
   const cz = H / 2;
@@ -363,8 +366,8 @@ function HallScene({ W, H }: { W: number; H: number }) {
                     [0, type.physicalHeightM * 0.7, 0],
                     [noteOffX, type.physicalHeightM + 0.45, noteOffZ],
                   ]}
-                  color="#94A3B8"
-                  lineWidth={1.5}
+                  color="#475569"
+                  lineWidth={1}
                   dashed
                   dashScale={6}
                 />
@@ -374,44 +377,77 @@ function HallScene({ W, H }: { W: number; H: number }) {
                   style={{ pointerEvents: "all" }}
                   zIndexRange={[15, 25]}
                 >
-                  <div
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      (e.target as Element).setPointerCapture(e.pointerId);
-                      const yPlane = (eq.z ?? 0) + type.physicalHeightM + 0.5;
-                      draggingNoteRef.current = {
-                        id: eq.id,
-                        eqX: eq.x,
-                        eqZ: eq.y,
-                        plane: new THREE.Plane(
-                          new THREE.Vector3(0, 1, 0),
-                          -yPlane,
-                        ),
-                        offX: noteOffX,
-                        offZ: noteOffZ,
-                      };
-                    }}
-                    style={{
-                      background: "rgba(255,255,255,0.92)",
-                      border: "1.5px solid rgba(100,116,139,0.45)",
-                      borderRadius: "8px",
-                      padding: "5px 10px",
-                      fontSize: "12px",
-                      fontWeight: 450,
-                      color: "#1e293b",
-                      width: "160px",
-                      fontFamily: "system-ui, sans-serif",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.14)",
-                      wordBreak: "break-word",
-                      whiteSpace: "normal",
-                      lineHeight: "1.45",
-                      cursor: "grab",
-                      userSelect: "none",
-                      backdropFilter: "blur(4px)",
-                    }}
-                  >
-                    {eq.notes}
-                  </div>
+                  {editingNoteId === eq.id ? (
+                    <textarea
+                      autoFocus
+                      defaultValue={eq.notes ?? ""}
+                      onBlur={(e) => {
+                        updateEquipment(eq.id, { notes: e.target.value || undefined });
+                        setEditingNoteId(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setEditingNoteId(null);
+                        e.stopPropagation();
+                      }}
+                      style={{
+                        background: "rgba(255,255,255,0.97)",
+                        border: "2px solid #3B82F6",
+                        borderRadius: "8px",
+                        padding: "5px 10px",
+                        fontSize: "12px",
+                        color: "#1e293b",
+                        width: "160px",
+                        minHeight: "64px",
+                        fontFamily: "system-ui, sans-serif",
+                        resize: "none",
+                        outline: "none",
+                        lineHeight: "1.45",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        (e.target as Element).setPointerCapture(e.pointerId);
+                        const yPlane = (eq.z ?? 0) + type.physicalHeightM + 0.5;
+                        draggingNoteRef.current = {
+                          id: eq.id,
+                          eqX: eq.x,
+                          eqZ: eq.y,
+                          plane: new THREE.Plane(
+                            new THREE.Vector3(0, 1, 0),
+                            -yPlane,
+                          ),
+                          offX: noteOffX,
+                          offZ: noteOffZ,
+                        };
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setEditingNoteId(eq.id);
+                      }}
+                      style={{
+                        background: "rgba(255,255,255,0.92)",
+                        border: "1.5px solid rgba(100,116,139,0.45)",
+                        borderRadius: "8px",
+                        padding: "5px 10px",
+                        fontSize: "12px",
+                        fontWeight: 450,
+                        color: "#1e293b",
+                        width: "160px",
+                        fontFamily: "system-ui, sans-serif",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.14)",
+                        wordBreak: "break-word",
+                        whiteSpace: "normal",
+                        lineHeight: "1.45",
+                        cursor: "grab",
+                        userSelect: "none",
+                        backdropFilter: "blur(4px)",
+                      }}
+                    >
+                      {eq.notes}
+                    </div>
+                  )}
                 </Html>
               </>
             )}

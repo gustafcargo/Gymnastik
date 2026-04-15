@@ -62,6 +62,8 @@ export type PlacedEquipment = {
   z?: number;
   /** Förskjutning (meter) av anteckningsbubblan relativt redskapets centrum. */
   noteOffset?: { x: number; y: number };
+  /** Om redskapet skapades från en sparad mall, dess mall-id. */
+  templateId?: string;
 };
 
 export type HallTemplate = {
@@ -96,7 +98,7 @@ export type Plan = {
  */
 export type CustomEquipmentPart = {
   id: string;
-  shape: "box" | "cylinder" | "sphere";
+  shape: "box" | "cylinder" | "sphere" | "cone" | "torus";
   offsetX: number; // m från centrum (X-axel)
   offsetY: number; // m från golv (Y-axel) = underkant av delen
   offsetZ: number; // m från centrum (Z-axel = djup i 2D)
