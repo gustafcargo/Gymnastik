@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Environment } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -35,6 +35,7 @@ const PART_SHAPES = [
   { id: "sphere" as const, label: "Sfär" },
   { id: "cone" as const, label: "Kon" },
   { id: "torus" as const, label: "Torus" },
+  { id: "wedge" as const, label: "Kil" },
 ];
 
 const COLOR_PRESETS = [
@@ -64,7 +65,7 @@ function calcDimensions(parts: CustomEquipmentPart[]) {
   for (const p of parts) {
     const hw = p.w / 2;
     const hd =
-      p.shape === "box" ? p.d / 2
+      p.shape === "box" || p.shape === "wedge" ? p.d / 2
       : p.shape === "torus" ? p.w / 2
       : p.w / 2;
     maxX = Math.max(maxX, Math.abs(p.offsetX) + hw);
@@ -76,6 +77,36 @@ function calcDimensions(parts: CustomEquipmentPart[]) {
     heightM: Math.max(0.2, maxZ * 2),
     physicalHeightM: Math.max(0.1, maxH),
   };
+}
+
+// ---------------------------------------------------------------------------
+// WedgeGeom – right-triangular prism, centered at bounding-box center
+// ---------------------------------------------------------------------------
+
+function WedgeGeom({ w, h, d }: { w: number; h: number; d: number }) {
+  const geom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const v = new Float32Array([
+      -w/2, -h/2,  d/2,
+       w/2, -h/2,  d/2,
+      -w/2, -h/2, -d/2,
+       w/2, -h/2, -d/2,
+      -w/2,  h/2, -d/2,
+       w/2,  h/2, -d/2,
+    ]);
+    const idx = new Uint16Array([
+      0,3,1, 0,2,3,
+      2,4,5, 2,5,3,
+      0,1,5, 0,5,4,
+      0,4,2,
+      1,3,5,
+    ]);
+    g.setAttribute("position", new THREE.BufferAttribute(v, 3));
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+    g.computeVertexNormals();
+    return g;
+  }, [w, h, d]);
+  return <primitive object={geom} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,6 +209,8 @@ function PreviewScene({
                 <coneGeometry args={[p.w / 2, p.h, 24]} />
               ) : p.shape === "torus" ? (
                 <torusGeometry args={[p.w / 2, Math.max(0.01, p.d / 4), 16, 48]} />
+              ) : p.shape === "wedge" ? (
+                <WedgeGeom w={p.w} h={p.h} d={p.d} />
               ) : (
                 <boxGeometry args={[p.w, p.h, p.d]} />
               )}
@@ -511,7 +544,7 @@ function PartEditor({
   onDuplicate: () => void;
   onDelete?: () => void;
 }) {
-  const showDepth = part.shape === "box" || part.shape === "torus";
+  const showDepth = part.shape === "box" || part.shape === "torus" || part.shape === "wedge";
 
   return (
     <div
@@ -608,7 +641,7 @@ function PartEditor({
                   part.shape === "cylinder" || part.shape === "sphere" || part.shape === "cone"
                     ? "Diam."
                     : part.shape === "torus" ? "Ring Ø"
-                    : "Bredd"
+                    : "Bredd"  // box, wedge
                 }
                 value={part.w}
                 min={0.05}
