@@ -54,6 +54,10 @@ export type PlacedEquipment = {
   customColor?: string;
   /** Per-del färgöverlagringar (hex), nyckel = delens namn (se EQUIPMENT_PARTS). */
   partColors?: Record<string, string>;
+  /** Per-del geometriöverlagringar (se EQUIPMENT_PARAMS). */
+  params?: Record<string, number>;
+  /** Höjd från golvet i meter (för mattstack mm.). Standard: 0. */
+  z?: number;
 };
 
 export type HallTemplate = {

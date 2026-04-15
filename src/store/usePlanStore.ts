@@ -26,6 +26,7 @@ type PlanState = {
   snapToGrid: boolean;
   snapStepM: number;
   viewMode: ViewMode;
+  equipmentEditorOpen: boolean;
 };
 
 type PlanActions = {
@@ -57,6 +58,8 @@ type PlanActions = {
   setSnapToGrid: (enabled: boolean) => void;
   setViewMode: (mode: ViewMode) => void;
   toggleViewMode: () => void;
+  openEquipmentEditor: () => void;
+  closeEquipmentEditor: () => void;
 
   // stations
   addStation: (name?: string) => string;
@@ -124,6 +127,7 @@ export const usePlanStore = create<PlanStore>()(
       snapToGrid: true,
       snapStepM: 0.25,
       viewMode: "3D" as ViewMode,
+      equipmentEditorOpen: false,
 
       newPlan: (name) =>
         set(() => {
@@ -285,6 +289,8 @@ export const usePlanStore = create<PlanStore>()(
       setViewMode: (mode) => set({ viewMode: mode }),
       toggleViewMode: () =>
         set((s) => ({ viewMode: s.viewMode === "2D" ? "3D" : "2D" })),
+      openEquipmentEditor: () => set({ equipmentEditorOpen: true }),
+      closeEquipmentEditor: () => set({ equipmentEditorOpen: false }),
 
       addStation: (name) => {
         const state = get();
@@ -388,12 +394,10 @@ export const usePlanStore = create<PlanStore>()(
           snapToGrid: _s,
           snapStepM: _ss,
           viewMode: _vm,
+          equipmentEditorOpen: _eo,
           ...rest
         } = state;
-        void _sel;
-        void _s;
-        void _ss;
-        void _vm;
+        void _sel; void _s; void _ss; void _vm; void _eo;
         return rest;
       },
       limit: 100,

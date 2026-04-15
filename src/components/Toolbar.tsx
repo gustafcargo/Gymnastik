@@ -67,19 +67,24 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   );
 
   const handleExportPng = () => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    exportStageAsPng(
-      stage,
-      `${plan.name.replace(/[^\w\-]+/g, "_")}.png`,
-    );
+    if (viewMode === "3D") {
+      window.dispatchEvent(new CustomEvent("gymnastik:export-3d-png"));
+    } else {
+      const stage = stageRef.current;
+      if (!stage) return;
+      exportStageAsPng(stage, `${plan.name.replace(/[^\w\-]+/g, "_")}.png`);
+    }
     setExportOpen(false);
   };
 
   const handleExportPdf = async () => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    await exportStageAsPdf(stage, plan);
+    if (viewMode === "3D") {
+      window.dispatchEvent(new CustomEvent("gymnastik:export-3d-pdf"));
+    } else {
+      const stage = stageRef.current;
+      if (!stage) return;
+      await exportStageAsPdf(stage, plan);
+    }
     setExportOpen(false);
   };
 

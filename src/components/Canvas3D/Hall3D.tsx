@@ -1,6 +1,5 @@
 import { Suspense, useRef, useEffect, useCallback } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import type { ThreeEvent } from "@react-three/fiber";
 import {
   Environment,
   OrbitControls,
@@ -11,6 +10,7 @@ import * as THREE from "three";
 import { usePlanStore } from "../../store/usePlanStore";
 import { EQUIPMENT_BY_ID } from "../../catalog/equipment";
 import { Equipment3D } from "./Equipment3D";
+import type { Station } from "../../types";
 
 type Props = { className?: string };
 
@@ -24,11 +24,12 @@ function HallScene({ W, H }: { W: number; H: number }) {
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const moveEquipment = usePlanStore((s) => s.moveEquipment);
+  const openEquipmentEditor = usePlanStore((s) => s.openEquipmentEditor);
 
   const cx = W / 2;
   const cz = H / 2;
 
-  const { camera, gl } = useThree();
+  const { camera, gl, scene } = useThree();
   const orbitRef = useRef<OrbitControlsImpl>(null);
   const draggingId = useRef<string | null>(null);
   const dragOffset = useRef({ dx: 0, dz: 0 });
@@ -36,7 +37,83 @@ function HallScene({ W, H }: { W: number; H: number }) {
   const hitPoint = useRef(new THREE.Vector3());
   const raycaster = useRef(new THREE.Raycaster());
 
-  // DOM-level pointer handlers for reliable drag tracking
+  // Keep latest station in a ref so event handlers don't go stale
+  const stationRef = useRef<Station | undefined>(station);
+  useEffect(() => { stationRef.current = station; }, [station]);
+
+  const startDrag = useCallback(
+    (eqId: string, point: THREE.Vector3, eqX: number, eqY: number) => {
+      draggingId.current = eqId;
+      dragOffset.current = { dx: point.x - eqX, dz: point.z - eqY };
+      if (orbitRef.current) orbitRef.current.enabled = false;
+    },
+    [],
+  );
+
+  // ── Capture-phase selection ──────────────────────────────────────────────
+  // Fires BEFORE OrbitControls can intercept, so left-click reliably selects.
+  // stopPropagation() on equipment hits prevents OrbitControls from rotating.
+  useEffect(() => {
+    const canvas = gl.domElement;
+
+    const onPointerDownCapture = (e: PointerEvent) => {
+      if (e.button !== 0) return; // only primary (left) button
+      const rect = canvas.getBoundingClientRect();
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.current.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      const hits = raycaster.current.intersectObjects(scene.children, true);
+
+      for (const hit of hits) {
+        let obj: THREE.Object3D | null = hit.object;
+        while (obj) {
+          if (obj.name?.startsWith("eq-")) {
+            const eqId = obj.name.slice(3);
+            const eq = stationRef.current?.equipment.find((e) => e.id === eqId);
+            selectEquipment(eqId);
+            if (eq) startDrag(eqId, hit.point, eq.x, eq.y);
+            e.stopPropagation(); // keep OrbitControls from rotating
+            return;
+          }
+          obj = obj.parent;
+        }
+      }
+      // Nothing hit – deselect (let OrbitControls orbit normally)
+      selectEquipment(null);
+    };
+
+    canvas.addEventListener("pointerdown", onPointerDownCapture, { capture: true });
+    return () => canvas.removeEventListener("pointerdown", onPointerDownCapture, { capture: true });
+  }, [camera, gl, scene, selectEquipment, startDrag]);
+
+  // ── Double-click → open equipment editor ────────────────────────────────
+  useEffect(() => {
+    const canvas = gl.domElement;
+
+    const onDblClick = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.current.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      const hits = raycaster.current.intersectObjects(scene.children, true);
+      for (const hit of hits) {
+        let obj: THREE.Object3D | null = hit.object;
+        while (obj) {
+          if (obj.name?.startsWith("eq-")) {
+            selectEquipment(obj.name.slice(3));
+            openEquipmentEditor();
+            return;
+          }
+          obj = obj.parent;
+        }
+      }
+    };
+
+    canvas.addEventListener("dblclick", onDblClick);
+    return () => canvas.removeEventListener("dblclick", onDblClick);
+  }, [camera, gl, scene, selectEquipment, openEquipmentEditor]);
+
+  // ── Drag: move + release ─────────────────────────────────────────────────
   useEffect(() => {
     const canvas = gl.domElement;
 
@@ -70,18 +147,45 @@ function HallScene({ W, H }: { W: number; H: number }) {
     };
   }, [camera, gl, moveEquipment]);
 
-  const startDrag = useCallback(
-    (eqId: string, point: THREE.Vector3, eqX: number, eqY: number) => {
-      draggingId.current = eqId;
-      dragOffset.current = { dx: point.x - eqX, dz: point.z - eqY };
-      if (orbitRef.current) orbitRef.current.enabled = false;
-    },
-    [],
-  );
+  // ── Export events ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const onExportPng = () => {
+      const dataUrl = gl.domElement.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = "hall-3d.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+
+    const onExportPdf = async () => {
+      const dataUrl = gl.domElement.toDataURL("image/png");
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ orientation: "landscape", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = gl.domElement.width;
+      const imgH = gl.domElement.height;
+      const ratio = Math.min(pageW / imgW, pageH / imgH);
+      const w = imgW * ratio;
+      const h = imgH * ratio;
+      pdf.addImage(dataUrl, "PNG", (pageW - w) / 2, (pageH - h) / 2, w, h);
+      pdf.save("hall-3d.pdf");
+    };
+
+    const pdfWrapper = () => { void onExportPdf(); };
+
+    window.addEventListener("gymnastik:export-3d-png", onExportPng);
+    window.addEventListener("gymnastik:export-3d-pdf", pdfWrapper);
+    return () => {
+      window.removeEventListener("gymnastik:export-3d-png", onExportPng);
+      window.removeEventListener("gymnastik:export-3d-pdf", pdfWrapper);
+    };
+  }, [gl]);
 
   return (
     <>
-      {/* Bakgrund + dimma sätts utanför scenen */}
       <ambientLight intensity={0.4} />
       <directionalLight
         position={[W * 0.4, Math.max(W, H) * 1.2, H * 0.3]}
@@ -103,9 +207,6 @@ function HallScene({ W, H }: { W: number; H: number }) {
         rotation={[-Math.PI / 2, 0, 0]}
         position={[cx, 0, cz]}
         receiveShadow
-        onClick={(e: ThreeEvent<MouseEvent>) => {
-          if (e.object === e.eventObject) selectEquipment(null);
-        }}
       >
         <planeGeometry args={[W, H]} />
         <meshPhysicalMaterial
@@ -141,21 +242,18 @@ function HallScene({ W, H }: { W: number; H: number }) {
         return (
           <group
             key={eq.id}
-            position={[eq.x, 0, eq.y]}
+            name={`eq-${eq.id}`}
+            position={[eq.x, eq.z ?? 0, eq.y]}
             rotation={[0, -(eq.rotation * Math.PI) / 180, 0]}
             scale={[eq.scaleX, 1, eq.scaleY]}
-            onPointerDown={(e: ThreeEvent<PointerEvent>) => {
-              e.stopPropagation();
-              selectEquipment(eq.id);
-              startDrag(eq.id, e.point, eq.x, eq.y);
-            }}
           >
             <Equipment3D
               type={type}
               color={eq.customColor}
               partColors={eq.partColors}
+              params={eq.params}
             />
-            {/* Markeringsindikator */}
+            {/* Selection highlight */}
             {isSelected && (
               <mesh
                 rotation={[-Math.PI / 2, 0, 0]}
@@ -186,13 +284,12 @@ function HallScene({ W, H }: { W: number; H: number }) {
         maxDistance={Math.max(W, H) * 3}
         maxPolarAngle={Math.PI / 2 - 0.05}
       />
-
     </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Exporterat wrapper
+// Exported wrapper
 // ---------------------------------------------------------------------------
 
 export function Hall3D({ className }: Props) {
@@ -215,7 +312,11 @@ export function Hall3D({ className }: Props) {
           near: 0.1,
           far: 500,
         }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={{
+          antialias: true,
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: true,
+        }}
       >
         <color attach="background" args={["#DDE3E8"]} />
         <fog attach="fog" args={["#DDE3E8", camDist * 1.4, camDist * 3]} />
