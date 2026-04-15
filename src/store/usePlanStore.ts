@@ -207,7 +207,7 @@ export const usePlanStore = create<PlanStore>()(
         })),
 
       addEquipment: (typeId, xM, yM) => {
-        const type = EQUIPMENT_BY_ID[typeId];
+        const type = getEquipmentById(typeId);
         if (!type) return undefined;
         const state = get();
         const hall = state.plan.hall;
@@ -262,7 +262,7 @@ export const usePlanStore = create<PlanStore>()(
           plan: withActiveStation(s.plan, (st) => {
             const eq = st.equipment.find((e) => e.id === id);
             if (!eq) return st;
-            const type = EQUIPMENT_BY_ID[eq.typeId];
+            const type = getEquipmentById(eq.typeId);
             const isMatKind = MAT_KINDS.has(type?.detail?.kind ?? "");
             const newZ =
               isMatKind && type
