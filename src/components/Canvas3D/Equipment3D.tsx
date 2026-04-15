@@ -246,73 +246,72 @@ function HighBar({
 }
 
 // ---------------------------------------------------------------------------
-// Bom (Balance beam) – FIG: 5 m × 10 cm surface, 1.25 m height
+// Bom (Balance beam) – FIG: 5 m × 10 cm surface at 1.25 m
 // ---------------------------------------------------------------------------
 
 function Beam({
   w, color, partColors, params,
 }: { w: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
-  const beamH   = params?.beamH   ?? 1.25;
+  const beamH     = params?.beamH    ?? 1.25;  // top surface from floor
   const beamWidth = params?.beamWidth ?? 0.10;
-  // The beam body is ~14 cm tall total; top 5 cm = leather surface
-  const bodyH   = 0.09;
-  const topH    = 0.05;
-  const postW   = 0.12;
+  const bodyH     = 0.08;   // structural aluminium body
+  const topH      = 0.05;   // leather/suede pad
 
-  const postColor = pc(partColors, "stöd",   color ?? "#C82020");
-  const bodyColor = pc(partColors, "bom",    "#5A3215");
-  const topColor  = pc(partColors, "yta",    "#B8875A");
+  // Geometry Y positions (all absolute from floor)
+  const topCenter  = beamH - topH / 2;
+  const bodyCenter = beamH - topH - bodyH / 2;
+  const pedestalH  = beamH - topH - bodyH;   // floor → underside of body ≈ 1.11 m
 
-  // Two adjustable pedestals at ~36 % from each end
+  const postColor  = pc(partColors, "stöd", color ?? "#C82020");
+  const bodyColor  = pc(partColors, "bom",  "#4A2810");
+  const topColor   = pc(partColors, "yta",  "#B8875A");
+
   const postXs = [-w * 0.36, w * 0.36] as number[];
 
   return (
     <group>
       {postXs.map((x, i) => (
         <group key={i} position={[x, 0, 0]}>
-          {/* Base plate */}
-          <mesh position={[0, 0.025, 0]} receiveShadow castShadow>
-            <boxGeometry args={[0.62, 0.05, 0.64]} />
+          {/* Floor base plate */}
+          <mesh position={[0, 0.022, 0]} receiveShadow castShadow>
+            <boxGeometry args={[0.58, 0.044, 0.60]} />
             <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
           </mesh>
-          {/* Main upright tube */}
-          <mesh position={[0, beamH * 0.46, 0]} castShadow>
-            <boxGeometry args={[postW, beamH * 0.92, postW]} />
-            <meshPhysicalMaterial color={postColor} roughness={0.12} metalness={0.92} clearcoat={0.45} />
+          {/* Outer fixed post – slim round tube */}
+          <mesh position={[0, pedestalH * 0.50, 0]} castShadow>
+            <cylinderGeometry args={[0.034, 0.038, pedestalH, 16]} />
+            <meshPhysicalMaterial color={postColor} roughness={0.10} metalness={0.95} clearcoat={0.55} clearcoatRoughness={0.10} />
           </mesh>
-          {/* Adjustment slot strip (pin-lock visual) */}
-          <mesh position={[postW / 2 + 0.005, beamH * 0.55, 0]} castShadow>
-            <boxGeometry args={[0.010, beamH * 0.44, 0.018]} />
-            <meshPhysicalMaterial color="#2A2A2A" roughness={0.4} metalness={0.7} />
+          {/* Inner telescoping section (narrower, top 40 %) */}
+          <mesh position={[0, pedestalH * 0.78, 0]} castShadow>
+            <cylinderGeometry args={[0.026, 0.030, pedestalH * 0.44, 16]} />
+            <meshPhysicalMaterial color={postColor} roughness={0.08} metalness={0.98} clearcoat={0.6} clearcoatRoughness={0.08} />
           </mesh>
-          {/* Spring / top bracket */}
-          <mesh position={[0, beamH - 0.035, 0]} castShadow>
-            <boxGeometry args={[0.20, 0.06, 0.24]} />
-            <meshPhysicalMaterial color="#3A4455" roughness={0.2} metalness={0.92} />
+          {/* Top bracket / spring cap */}
+          <mesh position={[0, pedestalH + 0.025, 0]} castShadow>
+            <boxGeometry args={[0.16, 0.05, 0.16]} />
+            <meshPhysicalMaterial color="#3A4455" roughness={0.2} metalness={0.9} />
           </mesh>
         </group>
       ))}
 
-      {/* Beam body */}
-      <group position={[0, beamH, 0]}>
-        {/* Structural body */}
-        <mesh castShadow>
-          <boxGeometry args={[w, bodyH, beamWidth * 1.2]} />
-          <meshPhysicalMaterial color={bodyColor} roughness={0.6} metalness={0.0} />
+      {/* Beam structural body (aluminium) */}
+      <mesh position={[0, bodyCenter, 0]} castShadow>
+        <boxGeometry args={[w, bodyH, beamWidth * 1.15]} />
+        <meshPhysicalMaterial color={bodyColor} roughness={0.55} metalness={0.0} />
+      </mesh>
+      {/* Leather / suede top pad */}
+      <mesh position={[0, topCenter, 0]} castShadow>
+        <boxGeometry args={[w - 0.02, topH, beamWidth]} />
+        <meshPhysicalMaterial color={topColor} roughness={0.94} metalness={0.0} />
+      </mesh>
+      {/* Rounded end profiles */}
+      {([-w / 2 + 0.035, w / 2 - 0.035] as number[]).map((x, i) => (
+        <mesh key={i} position={[x, topCenter, 0]} castShadow>
+          <cylinderGeometry args={[beamWidth * 0.46, beamWidth * 0.50, topH, 14]} />
+          <meshPhysicalMaterial color={topColor} roughness={0.92} metalness={0.0} />
         </mesh>
-        {/* Leather/suede top pad */}
-        <mesh position={[0, bodyH / 2 + topH / 2, 0]} castShadow>
-          <boxGeometry args={[w - 0.02, topH, beamWidth]} />
-          <meshPhysicalMaterial color={topColor} roughness={0.94} metalness={0.0} />
-        </mesh>
-        {/* Rounded end profiles */}
-        {([-w / 2 + 0.04, w / 2 - 0.04] as number[]).map((x, i) => (
-          <mesh key={i} position={[x, bodyH / 2 + topH / 2, 0]} castShadow>
-            <cylinderGeometry args={[beamWidth * 0.46, beamWidth * 0.52, topH, 14]} />
-            <meshPhysicalMaterial color={topColor} roughness={0.92} metalness={0.0} />
-          </mesh>
-        ))}
-      </group>
+      ))}
     </group>
   );
 }
@@ -384,8 +383,8 @@ function PommelHorse({
             <cylinderGeometry args={[stemR, stemR, riseH, 10]} />
             <meshPhysicalMaterial color={pommelColor} roughness={0.08} metalness={1.0} clearcoat={0.7} clearcoatRoughness={0.06} />
           </mesh>
-          {/* Arc (U top) in the XZ plane: torus arc, axis along Y, arc in ZX */}
-          <mesh position={[0, riseH, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          {/* Arc connecting stems in the ZY-plane: rotate torus so arc sweeps from +Z over +Y to -Z */}
+          <mesh position={[0, riseH, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow>
             <torusGeometry args={[arcR, stemR, 10, 22, Math.PI]} />
             <meshPhysicalMaterial color={pommelColor} roughness={0.08} metalness={1.0} clearcoat={0.7} clearcoatRoughness={0.06} />
           </mesh>
