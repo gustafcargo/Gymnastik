@@ -1,10 +1,14 @@
-import { Copy, RotateCw, Settings2, Trash2, X } from "lucide-react";
+import { Suspense, useState } from "react";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls, Environment } from "@react-three/drei";
+import { BookmarkPlus, Copy, RotateCw, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
+import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
 import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
 import { formatMeters } from "../../lib/geometry";
-import { EquipmentIcon } from "./EquipmentIcon";
+import { Equipment3D } from "../Canvas3D/Equipment3D";
 
 type Props = {
   onClose?: () => void;
@@ -18,7 +22,11 @@ export function PropertyPanel({ onClose }: Props) {
   const deleteEquipment = usePlanStore((s) => s.deleteEquipment);
   const duplicateEquipment = usePlanStore((s) => s.duplicateEquipment);
   const rotateEquipment = usePlanStore((s) => s.rotateEquipment);
-  const openEquipmentEditor = usePlanStore((s) => s.openEquipmentEditor);
+
+  const addTemplate = useSavedEquipmentStore((s) => s.addTemplate);
+  const updateTemplateFn = useSavedEquipmentStore((s) => s.updateTemplate);
+  const [savedFeedback, setSavedFeedback] = useState(false);
+  const [updatedFeedback, setUpdatedFeedback] = useState(false);
 
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
   const selected = station?.equipment.find((e) => e.id === selectedId) ?? null;
@@ -56,14 +64,44 @@ export function PropertyPanel({ onClose }: Props) {
   const widthM = type.widthM * selected.scaleX;
   const heightM = type.heightM * selected.scaleY;
 
+  const maxDim = Math.max(type.widthM, type.heightM, type.physicalHeightM, 0.5);
+  const camDist = maxDim * 2.5;
+  const targetY = type.physicalHeightM / 2;
+
+  const handleSaveTemplate = () => {
+    addTemplate({
+      name: selected.label ?? type.name,
+      baseTypeId: selected.typeId,
+      customColor: selected.customColor,
+      partColors: selected.partColors,
+      params: selected.params,
+      z: selected.z,
+      notes: selected.notes,
+    });
+    setSavedFeedback(true);
+    setTimeout(() => setSavedFeedback(false), 2000);
+  };
+
+  const handleUpdateTemplate = () => {
+    if (!selected.templateId) return;
+    updateTemplateFn(selected.templateId, {
+      name: selected.label ?? type.name,
+      customColor: selected.customColor,
+      partColors: selected.partColors,
+      params: selected.params,
+      z: selected.z,
+      notes: selected.notes,
+    });
+    setUpdatedFeedback(true);
+    setTimeout(() => setUpdatedFeedback(false), 2000);
+  };
+
   return (
     <div className="flex h-full flex-col">
       <Header title="Egenskaper" onClose={onClose} />
 
+      {/* Equipment name + editable label */}
       <div className="flex items-center gap-3 border-b border-surface-3 px-4 py-3">
-        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-surface-2">
-          <EquipmentIcon type={type} size={44} />
-        </div>
         <div className="min-w-0 flex-1">
           <input
             type="text"
@@ -78,14 +116,76 @@ export function PropertyPanel({ onClose }: Props) {
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto scrollbar-thin px-4 py-4">
-        {/* Open full editor */}
-        <button
-          type="button"
-          onClick={openEquipmentEditor}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-accent/40 bg-accent/10 py-2 text-sm font-medium text-accent transition hover:bg-accent/20"
-        >
-          <Settings2 size={15} /> Redigera detaljer i 3D
-        </button>
+
+        {/* ── Interactive 3D preview ── */}
+        <div className="relative h-44 overflow-hidden rounded-xl bg-slate-950">
+          <Canvas
+            shadows
+            gl={{ antialias: true }}
+            camera={{
+              position: [
+                camDist * 0.65,
+                Math.max(targetY, camDist * 0.4),
+                camDist,
+              ],
+              fov: 42,
+              near: 0.05,
+              far: 200,
+            }}
+            style={{ position: "absolute", inset: 0 }}
+          >
+            <color attach="background" args={["#090d14"]} />
+            <ambientLight intensity={0.45} />
+            <directionalLight
+              position={[3, 6, 4]}
+              intensity={1.6}
+              castShadow
+              shadow-mapSize={[512, 512]}
+            />
+            <hemisphereLight
+              intensity={0.25}
+              groundColor="#1a2030"
+              color="#8aabcc"
+            />
+            <Suspense fallback={null}>
+              <Environment
+                preset="city"
+                background={false}
+                environmentIntensity={0.4}
+              />
+            </Suspense>
+            <mesh
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={[0, -0.005, 0]}
+              receiveShadow
+            >
+              <planeGeometry args={[maxDim * 4, maxDim * 4]} />
+              <meshPhysicalMaterial
+                color="#1e2a38"
+                roughness={0.5}
+                metalness={0}
+              />
+            </mesh>
+            <Equipment3D
+              type={type}
+              color={selected.customColor}
+              partColors={selected.partColors}
+              params={selected.params}
+            />
+            <OrbitControls
+              target={[0, targetY, 0]}
+              autoRotate
+              autoRotateSpeed={1.4}
+              enablePan={false}
+              minDistance={maxDim * 0.6}
+              maxDistance={maxDim * 8}
+              maxPolarAngle={Math.PI / 2 - 0.02}
+            />
+          </Canvas>
+          <p className="pointer-events-none absolute bottom-2 right-2 text-[10px] text-slate-500">
+            {type.widthM} × {type.heightM} m · {type.physicalHeightM} m hög
+          </p>
+        </div>
 
         <Field label="Position (m)">
           <div className="grid grid-cols-2 gap-2">
@@ -290,21 +390,53 @@ export function PropertyPanel({ onClose }: Props) {
         </Field>
       </div>
 
-      <div className="flex gap-2 border-t border-surface-3 p-3">
-        <button
-          type="button"
-          onClick={() => duplicateEquipment(selected.id)}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-3 bg-white py-2 text-sm font-medium text-slate-700 transition hover:bg-surface-2"
-        >
-          <Copy size={15} /> Duplicera
-        </button>
-        <button
-          type="button"
-          onClick={() => deleteEquipment(selected.id)}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
-        >
-          <Trash2 size={15} /> Ta bort
-        </button>
+      {/* Footer: template + duplicate/delete */}
+      <div className="space-y-2 border-t border-surface-3 p-3">
+        {selected.templateId ? (
+          <button
+            type="button"
+            onClick={handleUpdateTemplate}
+            className={
+              "flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium transition " +
+              (updatedFeedback
+                ? "border-green-300 bg-green-50 text-green-700"
+                : "border-accent/40 bg-accent/10 text-accent hover:bg-accent/20")
+            }
+          >
+            <BookmarkPlus size={15} />
+            {updatedFeedback ? "Mall uppdaterad!" : "Uppdatera mall"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleSaveTemplate}
+            className={
+              "flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium transition " +
+              (savedFeedback
+                ? "border-green-300 bg-green-50 text-green-700"
+                : "border-accent/40 bg-accent/10 text-accent hover:bg-accent/20")
+            }
+          >
+            <BookmarkPlus size={15} />
+            {savedFeedback ? "Sparad som mall!" : "Spara som mall"}
+          </button>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => duplicateEquipment(selected.id)}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-3 bg-white py-2 text-sm font-medium text-slate-700 transition hover:bg-surface-2"
+          >
+            <Copy size={15} /> Duplicera
+          </button>
+          <button
+            type="button"
+            onClick={() => deleteEquipment(selected.id)}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+          >
+            <Trash2 size={15} /> Ta bort
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -26,7 +26,6 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
   const [showNewModal, setShowNewModal] = useState(false);
   const addEquipmentCenter = usePlanStore((s) => s.addEquipmentCenter);
   const updateEquipment = usePlanStore((s) => s.updateEquipment);
-  const openEquipmentEditor = usePlanStore((s) => s.openEquipmentEditor);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const templates = useSavedEquipmentStore((s) => s.templates);
   const removeTemplate = useSavedEquipmentStore((s) => s.removeTemplate);
@@ -97,7 +96,6 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
         templateId: tpl.id,
       });
       selectEquipment(id);
-      openEquipmentEditor();
     }
     if (onItemActivate) onItemActivate(tpl.baseTypeId);
   };

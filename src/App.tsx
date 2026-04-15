@@ -50,7 +50,9 @@ class ThreeDErrorBoundary extends Component<
 export default function App() {
   useKeyboardShortcuts();
   const stageRef = useRef<Konva.Stage | null>(null);
-  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  // Use desktop layout only on devices with a mouse (hover+fine pointer).
+  // This keeps iPads (touch-only) on the mobile bottom-sheet layout.
+  const isDesktop = useMediaQuery("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const viewMode = usePlanStore((s) => s.viewMode);
   const is3D = viewMode === "3D";

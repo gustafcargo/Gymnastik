@@ -9,6 +9,7 @@ type Props = {
 
 /**
  * Ritar hallgolvet med rutnät (1 m minor, 5 m major) och måttlabels.
+ * Färgschema matchar 3D-vyns kall-blå-grå golv.
  */
 export function HallFloor({ hall, pxPerM }: Props) {
   const showGrid = usePlanStore((s) => s.snapToGrid);
@@ -26,9 +27,9 @@ export function HallFloor({ hall, pxPerM }: Props) {
       <Line
         key={`vx-${m}`}
         points={[x, 0, x, hPx]}
-        stroke={isMajor ? "#8E7B52" : "#C9B896"}
-        strokeWidth={isMajor ? 0.75 : 0.4}
-        opacity={isMajor ? 0.6 : 0.35}
+        stroke={isMajor ? "#4E5F6E" : "#637585"}
+        strokeWidth={isMajor ? 0.8 : 0.4}
+        opacity={isMajor ? 0.65 : 0.35}
       />,
     );
     if (isMajor && m > 0 && m < hall.widthM) {
@@ -39,7 +40,7 @@ export function HallFloor({ hall, pxPerM }: Props) {
           y={-18}
           text={`${m} m`}
           fontSize={10}
-          fill="#6B5E3A"
+          fill="#8AABB8"
         />,
       );
     }
@@ -51,20 +52,20 @@ export function HallFloor({ hall, pxPerM }: Props) {
       <Line
         key={`hy-${m}`}
         points={[0, y, wPx, y]}
-        stroke={isMajor ? "#8E7B52" : "#C9B896"}
-        strokeWidth={isMajor ? 0.75 : 0.4}
-        opacity={isMajor ? 0.6 : 0.35}
+        stroke={isMajor ? "#4E5F6E" : "#637585"}
+        strokeWidth={isMajor ? 0.8 : 0.4}
+        opacity={isMajor ? 0.65 : 0.35}
       />,
     );
     if (isMajor && m > 0 && m < hall.heightM) {
       labels.push(
         <Text
           key={`ly-${m}`}
-          x={-22}
+          x={-24}
           y={y - 6}
           text={`${m}`}
           fontSize={10}
-          fill="#6B5E3A"
+          fill="#8AABB8"
         />,
       );
     }
@@ -72,7 +73,7 @@ export function HallFloor({ hall, pxPerM }: Props) {
 
   return (
     <Group>
-      {/* Golv – gradient via fillLinearGradient */}
+      {/* Golv – kall blå-grå, matchar 3D-golvet */}
       <Rect
         x={0}
         y={0}
@@ -80,11 +81,11 @@ export function HallFloor({ hall, pxPerM }: Props) {
         height={hPx}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
         fillLinearGradientEndPoint={{ x: wPx, y: hPx }}
-        fillLinearGradientColorStops={[0, "#F0D7AD", 1, "#D9B382"]}
+        fillLinearGradientColorStops={[0, "#8C9EAE", 1, "#6A7D8E"]}
         cornerRadius={4}
         shadowColor="#0F172A"
-        shadowOpacity={0.08}
-        shadowBlur={16}
+        shadowOpacity={0.15}
+        shadowBlur={18}
         shadowOffsetY={6}
       />
       {/* Rutnät */}
@@ -96,7 +97,7 @@ export function HallFloor({ hall, pxPerM }: Props) {
         y={0}
         width={wPx}
         height={hPx}
-        stroke="#6B5E3A"
+        stroke="#3A4B58"
         strokeWidth={1.5}
         listening={false}
         cornerRadius={4}

@@ -70,6 +70,7 @@ export function EquipmentNode({
       type.heightM * equipment.scaleY,
       hallWidthM,
       hallHeightM,
+      equipment.rotation,
     );
     node.position({ x: x * pxPerM, y: y * pxPerM });
     transformEquipment(equipment.id, { x, y });
@@ -104,6 +105,7 @@ export function EquipmentNode({
       type.heightM * equipment.scaleY,
       hallWidthM,
       hallHeightM,
+      equipment.rotation,
     );
     return { x: clamped.x * pxPerM, y: clamped.y * pxPerM };
   };

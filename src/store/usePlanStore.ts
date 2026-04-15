@@ -87,6 +87,7 @@ type PlanState = {
   viewMode: ViewMode;
   equipmentEditorOpen: boolean;
   showLabels: boolean;
+  showNotes: boolean;
 };
 
 type PlanActions = {
@@ -122,6 +123,7 @@ type PlanActions = {
   openEquipmentEditor: () => void;
   closeEquipmentEditor: () => void;
   toggleLabels: () => void;
+  toggleNotes: () => void;
 
   // stations
   addStation: (name?: string) => string;
@@ -192,6 +194,7 @@ export const usePlanStore = create<PlanStore>()(
       viewMode: "3D" as ViewMode,
       equipmentEditorOpen: false,
       showLabels: true,
+      showNotes: true,
 
       newPlan: (name) =>
         set(() => {
@@ -291,7 +294,7 @@ export const usePlanStore = create<PlanStore>()(
             const hall = s.plan.hall;
             // Clamp to hall bounds so the equipment can't leave the floor area
             const { x, y } = type
-              ? clampToHall(xM, yM, type.widthM * eq.scaleX, type.heightM * eq.scaleY, hall.widthM, hall.heightM)
+              ? clampToHall(xM, yM, type.widthM * eq.scaleX, type.heightM * eq.scaleY, hall.widthM, hall.heightM, eq.rotation)
               : { x: xM, y: yM };
             const isMatKind = MAT_KINDS.has(type?.detail?.kind ?? "");
             const newZ =
@@ -391,6 +394,7 @@ export const usePlanStore = create<PlanStore>()(
       openEquipmentEditor: () => set({ equipmentEditorOpen: true }),
       closeEquipmentEditor: () => set({ equipmentEditorOpen: false }),
       toggleLabels: () => set((s) => ({ showLabels: !s.showLabels })),
+      toggleNotes: () => set((s) => ({ showNotes: !s.showNotes })),
 
       addStation: (name) => {
         const state = get();
@@ -507,9 +511,10 @@ export const usePlanStore = create<PlanStore>()(
           viewMode: _vm,
           equipmentEditorOpen: _eo,
           showLabels: _sl,
+          showNotes: _sn,
           ...rest
         } = state;
-        void _sel; void _s; void _ss; void _vm; void _eo; void _sl;
+        void _sel; void _s; void _ss; void _vm; void _eo; void _sl; void _sn;
         return rest;
       },
       limit: 100,
