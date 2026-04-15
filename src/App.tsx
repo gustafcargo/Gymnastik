@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type Konva from "konva";
+import { Settings2, X } from "lucide-react";
 import { Toolbar } from "./components/Toolbar";
 import { EquipmentPalette } from "./components/Sidebar/EquipmentPalette";
 import { PropertyPanel } from "./components/Sidebar/PropertyPanel";
@@ -13,6 +14,7 @@ import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { usePlanStore } from "./store/usePlanStore";
+import { getEquipmentById } from "./catalog/equipment";
 
 // Lazy-loada 3D-vyn så three.js inte hamnar i initial-bundle
 const Hall3D = lazy(() =>
@@ -53,6 +55,14 @@ export default function App() {
   const viewMode = usePlanStore((s) => s.viewMode);
   const is3D = viewMode === "3D";
 
+  // Derive selected equipment label for mobile bar
+  const plan = usePlanStore((s) => s.plan);
+  const selectedEq = selectedId
+    ? plan.stations.find((s) => s.id === plan.activeStationId)?.equipment.find((e) => e.id === selectedId)
+    : null;
+  const selectedType = selectedEq ? getEquipmentById(selectedEq.typeId) : null;
+  const selectedLabel = selectedEq?.label ?? selectedType?.name ?? "";
+
   // Ref to ThreeDErrorBoundary's reset function.
   // Called every time the user switches to 3D so the boundary doesn't stay
   // permanently crashed after a previous error.
@@ -74,10 +84,12 @@ export default function App() {
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [propertyOpen, setPropertyOpen] = useState(false);
+  const selectEquipment = usePlanStore((s) => s.selectEquipment);
 
+  // Close property sheet when selection is cleared
   useEffect(() => {
-    if (!isDesktop && selectedId) setPropertyOpen(true);
-  }, [isDesktop, selectedId]);
+    if (!selectedId) setPropertyOpen(false);
+  }, [selectedId]);
 
   return (
     <div className="flex h-full flex-col">
@@ -146,6 +158,34 @@ export default function App() {
       {!isDesktop && (
         <>
           <FabButton onClick={() => setPaletteOpen(true)} />
+
+          {/* Compact selection bar – appears when equipment is selected; does NOT open full panel automatically */}
+          {selectedId && !propertyOpen && (
+            <div
+              className="fixed bottom-24 left-4 right-20 z-30 flex items-center gap-2 rounded-2xl border border-surface-3 bg-white px-4 py-2.5 shadow-lg"
+              style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+            >
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
+                {selectedLabel}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPropertyOpen(true)}
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white"
+              >
+                <Settings2 size={13} /> Egenskaper
+              </button>
+              <button
+                type="button"
+                onClick={() => selectEquipment(null)}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-surface-2"
+                aria-label="Avmarkera"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
           <BottomSheet
             open={paletteOpen}
             onClose={() => setPaletteOpen(false)}
