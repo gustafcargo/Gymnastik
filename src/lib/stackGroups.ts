@@ -38,6 +38,8 @@ export function computeStackInfo(
       const a = mats[i], b = mats[j];
       const ta = getEquipmentById(a.typeId)!;
       const tb = getEquipmentById(b.typeId)!;
+      // Only group mats of the same type – different mat types each keep their own label
+      if (a.typeId !== b.typeId) continue;
       const threshW = Math.min(ta.widthM, tb.widthM) * 0.5;
       const threshD = Math.min(ta.heightM, tb.heightM) * 0.5;
       if (Math.abs(a.x - b.x) < threshW && Math.abs(a.y - b.y) < threshD) {
