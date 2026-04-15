@@ -85,3 +85,16 @@ export type Plan = {
   createdAt: number;
   updatedAt: number;
 };
+
+/** Sparad redskaps-mall – baseras på en befintlig typ men med anpassade färger/params. */
+export type SavedEquipmentTemplate = {
+  id: string;
+  name: string;
+  baseTypeId: string;
+  customColor?: string;
+  partColors?: Record<string, string>;
+  params?: Record<string, number>;
+  z?: number;
+  notes?: string;
+  createdAt: number;
+};

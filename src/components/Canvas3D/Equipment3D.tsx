@@ -34,22 +34,22 @@ export function Equipment3D({ type, color, partColors, params }: Props) {
     case "pommel-horse":
       return <PommelHorse w={type.widthM} color={color} partColors={partColors} params={params} />;
     case "rings":
-      return <Rings w={type.widthM} d={type.heightM} h={type.physicalHeightM} partColors={partColors} />;
+      return <Rings w={type.widthM} d={type.heightM} h={type.physicalHeightM} partColors={partColors} params={params} />;
     case "vault":
       return <Vault w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
     case "trampette":
     case "mini-tramp":
       return <Trampette w={type.widthM} d={type.heightM} color={color} partColors={partColors} />;
     case "tumbling-track":
-      return <Track w={type.widthM} d={type.heightM} h={type.physicalHeightM} color={color} />;
+      return <Track w={type.widthM} d={type.heightM} h={params?.trackH ?? type.physicalHeightM} color={color} />;
     case "air-track":
-      return <AirTrack w={type.widthM} d={type.heightM} color={color} />;
+      return <AirTrack w={type.widthM} d={type.heightM} h={params?.trackH ?? type.physicalHeightM} color={color} />;
     case "floor":
       return <Floor w={type.widthM} d={type.heightM} color={color} />;
     case "thick-mat":
-      return <Mat w={type.widthM} d={type.heightM} h={type.physicalHeightM} color={color ?? "#2A60A0"} />;
+      return <Mat w={type.widthM} d={type.heightM} h={params?.matH ?? type.physicalHeightM} color={color ?? "#2A60A0"} />;
     case "landing-mat":
-      return <Mat w={type.widthM} d={type.heightM} h={type.physicalHeightM} color={color ?? "#CC7020"} />;
+      return <Mat w={type.widthM} d={type.heightM} h={params?.matH ?? type.physicalHeightM} color={color ?? "#CC7020"} />;
     case "plinth":
       return <Plinth w={type.widthM} d={type.heightM} h={type.physicalHeightM} color={color} params={params} />;
     case "buck":
@@ -75,6 +75,8 @@ function ParallelBars({
 }: { w: number; d: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
   const railH1 = params?.railH1 ?? 1.7;
   const railH2 = params?.railH2 ?? 1.95;
+  // railSpacing: explicit param or legacy d*0.8 to avoid breaking existing placements
+  const railSpacing = params?.railSpacing ?? d * 0.8;
   const railR = 0.025;
   const postR = 0.04;
   const baseH = 0.04;
@@ -88,8 +90,8 @@ function ParallelBars({
         <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
       </mesh>
       {([
-        { zOff: -d * 0.4, h: railH1 },
-        { zOff:  d * 0.4, h: railH2 },
+        { zOff: -(railSpacing / 2), h: railH1 },
+        { zOff:  (railSpacing / 2), h: railH2 },
       ] as { zOff: number; h: number }[]).flatMap(({ zOff, h }) =>
         ([-w * 0.42, w * 0.42] as number[]).map((xOff, i) => (
           <mesh key={`${zOff}-${i}`} position={[xOff, h / 2 + baseH, zOff]} castShadow>
@@ -98,7 +100,7 @@ function ParallelBars({
           </mesh>
         )),
       )}
-      {[{ z: -d * 0.4, h: railH1 + baseH }, { z: d * 0.4, h: railH2 + baseH }].map(({ z, h }, i) => (
+      {[{ z: -(railSpacing / 2), h: railH1 + baseH }, { z: (railSpacing / 2), h: railH2 + baseH }].map(({ z, h }, i) => (
         <mesh key={i} position={[0, h, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <capsuleGeometry args={[railR, w - railR * 2, 6, 18]} />
           <meshPhysicalMaterial color={railColor} roughness={0.38} metalness={0.0} clearcoat={0.45} clearcoatRoughness={0.28} />
@@ -179,6 +181,7 @@ function Beam({
   w, color, partColors, params,
 }: { w: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
   const beamH = params?.beamH ?? 1.25;
+  const beamWidth = params?.beamWidth ?? 0.1;
   const baseH = 0.03;
   const supportColor = pc(partColors, "stöd", color ?? "#CC2020");
   const beamColor = pc(partColors, "bom", "#8C6240");
@@ -199,11 +202,11 @@ function Beam({
       ))}
       <group position={[0, beamH + 0.055, 0]}>
         <mesh castShadow>
-          <boxGeometry args={[w, 0.1, 0.1]} />
+          <boxGeometry args={[w, 0.1, beamWidth]} />
           <meshPhysicalMaterial color={beamColor} roughness={0.7} metalness={0.0} />
         </mesh>
         <mesh position={[0, 0.053, 0]} castShadow>
-          <boxGeometry args={[w - 0.02, 0.005, 0.08]} />
+          <boxGeometry args={[w - 0.02, 0.005, beamWidth * 0.8]} />
           <meshPhysicalMaterial color="#D4B07A" roughness={1.0} metalness={0.0} />
         </mesh>
       </group>
@@ -219,6 +222,8 @@ function PommelHorse({
   w, color, partColors, params,
 }: { w: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
   const standH = params?.standH ?? 0.78;
+  // handleSpacing: center-to-center distance between the two handles
+  const handleSpacing = params?.handleSpacing ?? w * 0.4;
   const bodyH = 0.38;
   const bodyD = 0.42;
   const bodyColor = pc(partColors, "kropp", color ?? "#8C6240");
@@ -240,7 +245,7 @@ function PommelHorse({
         <meshPhysicalMaterial color={bodyColor} roughness={0.7} metalness={0.0} />
       </mesh>
       {/* Byglar – stående (rotation=0 ger lodrät halvcirkel i XY-planet) */}
-      {([-w * 0.2, w * 0.2] as number[]).map((x, i) => (
+      {([-handleSpacing / 2, handleSpacing / 2] as number[]).map((x, i) => (
         <mesh key={i} position={[x, standH + bodyH + 0.06, 0]} rotation={[0, 0, 0]} castShadow>
           <torusGeometry args={[0.09, 0.018, 14, 24, Math.PI]} />
           <meshPhysicalMaterial color={handleColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
@@ -255,12 +260,13 @@ function PommelHorse({
 // ---------------------------------------------------------------------------
 
 function Rings({
-  w, d, h, partColors,
-}: { w: number; d: number; h: number; partColors?: Record<string, string> }) {
+  w, d, h, partColors, params,
+}: { w: number; d: number; h: number; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const ringH = params?.ringH ?? h;
   const ringR = 0.085;
   const ringT = 0.018;
-  const strapH = h - 0.55;
-  const ringY = h - 0.65;
+  const strapH = Math.max(0.1, ringH - 0.55);
+  const ringY = Math.max(0.1, ringH - 0.65);
   const ringColor = pc(partColors, "ringar", "#CDD2DA");
   const strapColor = pc(partColors, "remmar", "#8C6240");
 
@@ -379,15 +385,15 @@ function Track({ w, d, h, color }: { w: number; d: number; h: number; color?: st
 // Airtrack
 // ---------------------------------------------------------------------------
 
-function AirTrack({ w, d, color }: { w: number; d: number; color?: string }) {
-  const h = 0.28;
+function AirTrack({ w, d, h, color }: { w: number; d: number; h: number; color?: string }) {
+  const th = Math.max(0.1, h);
   return (
     <group>
-      <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[w, h, d]} />
+      <mesh position={[0, th / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[w, th, d]} />
         <meshPhysicalMaterial color={color ?? "#2878C0"} roughness={0.5} metalness={0} clearcoat={0.35} clearcoatRoughness={0.3} />
       </mesh>
-      <mesh position={[0, h + 0.003, 0]} castShadow>
+      <mesh position={[0, th + 0.003, 0]} castShadow>
         <boxGeometry args={[w * 0.6, 0.005, d * 0.3]} />
         <meshPhysicalMaterial color="#1A5A9A" roughness={0.5} metalness={0} />
       </mesh>
