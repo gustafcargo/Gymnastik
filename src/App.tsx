@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type Konva from "konva";
 import { Plus, Settings2, X } from "lucide-react";
@@ -22,13 +22,20 @@ const Hall3D = lazy(() =>
 
 /** Fångar krascher i 3D-vyn och återställer till 2D-läge. */
 class ThreeDErrorBoundary extends Component<
-  { children: ReactNode; onRegisterReset: (fn: () => void) => void },
+  { children: ReactNode; is3D: boolean },
   { crashed: boolean }
 > {
   state = { crashed: false };
 
-  componentDidMount() {
-    this.props.onRegisterReset(() => this.setState({ crashed: false }));
+  // Reset automatically when the user switches back to 3D after a crash.
+  // Using getDerivedStateFromProps avoids calling setState from a useEffect,
+  // which can push React's nested-update counter toward the error-185 limit.
+  static getDerivedStateFromProps(
+    props: { is3D: boolean },
+    state: { crashed: boolean },
+  ) {
+    if (props.is3D && state.crashed) return { crashed: false };
+    return null;
   }
 
   static getDerivedStateFromError() {
@@ -72,10 +79,10 @@ export default function App() {
   const selectedType = selectedEq ? getEquipmentById(selectedEq.typeId) : null;
   const selectedLabel = selectedEq?.label ?? selectedType?.name ?? "";
 
-  const reset3DRef = useRef<() => void>(() => {});
-  useEffect(() => {
-    if (is3D) reset3DRef.current();
-  }, [is3D]);
+  const handleStageReady = useCallback(
+    (s: Konva.Stage) => { stageRef.current = s; },
+    [],
+  );
 
   const [has3DLoaded, setHas3DLoaded] = useState(
     () => usePlanStore.getState().viewMode === "3D",
@@ -117,11 +124,7 @@ export default function App() {
             pointerEvents: is3D ? "auto" : "none",
           }}
         >
-          <ThreeDErrorBoundary
-            onRegisterReset={(fn) => {
-              reset3DRef.current = fn;
-            }}
-          >
+          <ThreeDErrorBoundary is3D={is3D}>
             <Suspense
               fallback={
                 <div className="flex h-full items-center justify-center text-sm text-slate-400">
@@ -137,7 +140,7 @@ export default function App() {
       {!is3D && (
         <HallStage
           className="absolute inset-0"
-          onStageReady={(s) => (stageRef.current = s)}
+          onStageReady={handleStageReady}
         />
       )}
     </div>
