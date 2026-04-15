@@ -1,15 +1,16 @@
-import { Suspense, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Environment } from "@react-three/drei";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import * as THREE from "three";
 import { nanoid } from "nanoid";
-import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Plus, Trash2, X } from "lucide-react";
 import { useCustomEquipmentStore } from "../store/useCustomEquipmentStore";
 import type {
   CustomEquipmentPart,
   EquipmentCategory,
   EquipmentShape,
 } from "../types";
-import { Equipment3D } from "./Canvas3D/Equipment3D";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,6 +33,8 @@ const PART_SHAPES = [
   { id: "box" as const, label: "Kub/Balk" },
   { id: "cylinder" as const, label: "Cylinder" },
   { id: "sphere" as const, label: "Sfär" },
+  { id: "cone" as const, label: "Kon" },
+  { id: "torus" as const, label: "Torus" },
 ];
 
 const COLOR_PRESETS = [
@@ -60,16 +63,131 @@ function calcDimensions(parts: CustomEquipmentPart[]) {
   let maxX = 0, maxZ = 0, maxH = 0;
   for (const p of parts) {
     const hw = p.w / 2;
-    const hd = p.shape === "box" ? p.d / 2 : p.w / 2;
+    const hd =
+      p.shape === "box" ? p.d / 2
+      : p.shape === "torus" ? p.w / 2
+      : p.w / 2;
     maxX = Math.max(maxX, Math.abs(p.offsetX) + hw);
     maxZ = Math.max(maxZ, Math.abs(p.offsetZ) + hd);
-    maxH = Math.max(maxH, p.offsetY + p.h);
+    maxH = Math.max(maxH, p.shape === "torus" ? p.offsetY + p.d / 2 : p.offsetY + p.h);
   }
   return {
     widthM: Math.max(0.2, maxX * 2),
     heightM: Math.max(0.2, maxZ * 2),
     physicalHeightM: Math.max(0.1, maxH),
   };
+}
+
+// ---------------------------------------------------------------------------
+// 3D Preview scene (must be inside Canvas to use useThree)
+// ---------------------------------------------------------------------------
+
+type DragState = {
+  partId: string;
+  plane: THREE.Plane;
+  hitOffX: number;
+  hitOffZ: number;
+};
+
+function PreviewScene({
+  parts,
+  baseColor,
+  selectedPartId,
+  onSelectPart,
+  onUpdatePartXZ,
+  orbitRef,
+}: {
+  parts: CustomEquipmentPart[];
+  baseColor: string;
+  selectedPartId: string | null;
+  onSelectPart: (id: string) => void;
+  onUpdatePartXZ: (id: string, offsetX: number, offsetZ: number) => void;
+  orbitRef: React.RefObject<OrbitControlsImpl>;
+}) {
+  const { camera, gl } = useThree();
+  const raycaster = useRef(new THREE.Raycaster());
+  const dragRef = useRef<DragState | null>(null);
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!dragRef.current) return;
+      const rect = gl.domElement.getBoundingClientRect();
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.current.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      const hit = new THREE.Vector3();
+      if (raycaster.current.ray.intersectPlane(dragRef.current.plane, hit)) {
+        onUpdatePartXZ(
+          dragRef.current.partId,
+          hit.x - dragRef.current.hitOffX,
+          hit.z - dragRef.current.hitOffZ,
+        );
+      }
+    };
+    const onUp = () => {
+      if (dragRef.current) {
+        dragRef.current = null;
+        if (orbitRef.current) orbitRef.current.enabled = true;
+      }
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    return () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    };
+  }, [camera, gl, onUpdatePartXZ, orbitRef]);
+
+  return (
+    <>
+      {parts.map((p) => {
+        const isSelected = selectedPartId === p.id;
+        const mat = (
+          <meshPhysicalMaterial
+            color={p.color ?? baseColor}
+            roughness={0.45}
+            metalness={0.05}
+            emissive={isSelected ? "#3B82F6" : "#000000"}
+            emissiveIntensity={isSelected ? 0.35 : 0}
+          />
+        );
+        return (
+          <group
+            key={p.id}
+            position={[p.offsetX, p.offsetY + (p.shape === "torus" ? 0 : p.h / 2), p.offsetZ]}
+            rotation={[0, ((p.rotationY ?? 0) * Math.PI) / 180, 0]}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onSelectPart(p.id);
+              if (orbitRef.current) orbitRef.current.enabled = false;
+              const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(p.offsetY));
+              dragRef.current = {
+                partId: p.id,
+                plane,
+                hitOffX: e.point.x - p.offsetX,
+                hitOffZ: e.point.z - p.offsetZ,
+              };
+            }}
+          >
+            <mesh castShadow receiveShadow>
+              {p.shape === "cylinder" ? (
+                <cylinderGeometry args={[p.w / 2, p.w / 2, p.h, 24]} />
+              ) : p.shape === "sphere" ? (
+                <sphereGeometry args={[p.w / 2, 24, 16]} />
+              ) : p.shape === "cone" ? (
+                <coneGeometry args={[p.w / 2, p.h, 24]} />
+              ) : p.shape === "torus" ? (
+                <torusGeometry args={[p.w / 2, Math.max(0.01, p.d / 4), 16, 48]} />
+              ) : (
+                <boxGeometry args={[p.w, p.h, p.d]} />
+              )}
+              {mat}
+            </mesh>
+          </group>
+        );
+      })}
+    </>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -88,20 +206,12 @@ export function CustomEquipmentModal({ onClose }: Props) {
   const [desc, setDesc] = useState("");
   const [parts, setParts] = useState<CustomEquipmentPart[]>([newPart()]);
   const [expandedId, setExpandedId] = useState<string | null>(parts[0]?.id ?? null);
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(parts[0]?.id ?? null);
+
+  const orbitRef = useRef<OrbitControlsImpl>(null);
 
   const dims = calcDimensions(parts);
 
-  const previewType = {
-    id: "__preview__",
-    name,
-    category,
-    widthM: dims.widthM,
-    heightM: dims.heightM,
-    physicalHeightM: dims.physicalHeightM,
-    color: baseColor,
-    shape: footprintShape,
-    customParts: parts,
-  };
   const camDist = Math.max(dims.widthM, dims.heightM, dims.physicalHeightM, 0.5) * 2.2;
   const targetY = dims.physicalHeightM / 2;
 
@@ -128,11 +238,36 @@ export function CustomEquipmentModal({ onClose }: Props) {
     const p = newPart();
     setParts((ps) => [...ps, p]);
     setExpandedId(p.id);
+    setSelectedPartId(p.id);
+  };
+
+  const duplicatePart = (id: string) => {
+    const src = parts.find((p) => p.id === id);
+    if (!src) return;
+    const clone: CustomEquipmentPart = { ...src, id: nanoid(6), offsetX: src.offsetX + 0.2, offsetZ: src.offsetZ + 0.2 };
+    setParts((ps) => {
+      const idx = ps.findIndex((p) => p.id === id);
+      const next = [...ps];
+      next.splice(idx + 1, 0, clone);
+      return next;
+    });
+    setExpandedId(clone.id);
+    setSelectedPartId(clone.id);
   };
 
   const removePart = (id: string) => {
     setParts((ps) => ps.filter((p) => p.id !== id));
     if (expandedId === id) setExpandedId(null);
+    if (selectedPartId === id) setSelectedPartId(null);
+  };
+
+  const handleSelectPart = (id: string) => {
+    setSelectedPartId(id);
+    setExpandedId(id);
+  };
+
+  const handleUpdatePartXZ = (id: string, offsetX: number, offsetZ: number) => {
+    updatePart(id, { offsetX, offsetZ });
   };
 
   return (
@@ -261,10 +396,13 @@ export function CustomEquipmentModal({ onClose }: Props) {
                     index={i}
                     baseColor={baseColor}
                     expanded={expandedId === p.id}
-                    onToggle={() =>
-                      setExpandedId(expandedId === p.id ? null : p.id)
-                    }
+                    selected={selectedPartId === p.id}
+                    onToggle={() => {
+                      setExpandedId(expandedId === p.id ? null : p.id);
+                      setSelectedPartId(p.id);
+                    }}
                     onChange={(patch) => updatePart(p.id, patch)}
+                    onDuplicate={() => duplicatePart(p.id)}
                     onDelete={parts.length > 1 ? () => removePart(p.id) : undefined}
                   />
                 ))}
@@ -273,6 +411,9 @@ export function CustomEquipmentModal({ onClose }: Props) {
           </div>
 
           <div className="border-t border-surface-3 px-4 py-3">
+            <p className="mb-1 text-[10px] text-slate-400">
+              {dims.widthM.toFixed(2)} × {dims.heightM.toFixed(2)} m · {dims.physicalHeightM.toFixed(2)} m hög
+            </p>
             <button
               type="button"
               onClick={handleCreate}
@@ -290,7 +431,7 @@ export function CustomEquipmentModal({ onClose }: Props) {
               Förhandsgranskning
             </p>
             <p className="text-xs text-slate-400">
-              {dims.widthM.toFixed(2)} × {dims.heightM.toFixed(2)} m · {dims.physicalHeightM.toFixed(2)} m hög
+              Klicka en del för att markera · dra för att flytta i XZ-planet
             </p>
           </div>
           <div className="relative min-h-0 flex-1">
@@ -321,10 +462,18 @@ export function CustomEquipmentModal({ onClose }: Props) {
                 <planeGeometry args={[dims.widthM * 4 + 2, dims.heightM * 4 + 2]} />
                 <meshPhysicalMaterial color="#1e2a38" roughness={0.5} />
               </mesh>
-              <Equipment3D type={previewType} color={baseColor} />
+              <PreviewScene
+                parts={parts}
+                baseColor={baseColor}
+                selectedPartId={selectedPartId}
+                onSelectPart={handleSelectPart}
+                onUpdatePartXZ={handleUpdatePartXZ}
+                orbitRef={orbitRef}
+              />
               <OrbitControls
+                ref={orbitRef}
                 target={[0, targetY, 0]}
-                autoRotate
+                autoRotate={selectedPartId === null}
                 autoRotateSpeed={1.2}
                 enablePan={false}
                 maxPolarAngle={Math.PI / 2 - 0.02}
@@ -346,20 +495,31 @@ function PartEditor({
   index,
   baseColor,
   expanded,
+  selected,
   onToggle,
   onChange,
+  onDuplicate,
   onDelete,
 }: {
   part: CustomEquipmentPart;
   index: number;
   baseColor: string;
   expanded: boolean;
+  selected: boolean;
   onToggle: () => void;
   onChange: (p: Partial<CustomEquipmentPart>) => void;
+  onDuplicate: () => void;
   onDelete?: () => void;
 }) {
+  const showDepth = part.shape === "box" || part.shape === "torus";
+
   return (
-    <div className="overflow-hidden rounded-lg border border-surface-3 bg-surface-2">
+    <div
+      className={
+        "overflow-hidden rounded-lg border bg-surface-2 " +
+        (selected ? "border-accent" : "border-surface-3")
+      }
+    >
       {/* Header */}
       <div className="flex items-center gap-1.5 px-3 py-1.5">
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
@@ -371,6 +531,14 @@ function PartEditor({
             className="ml-1 inline-block h-3 w-3 rounded-full border border-slate-300"
             style={{ background: part.color ?? baseColor }}
           />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+          title="Kopiera del"
+          className="grid h-6 w-6 place-items-center rounded text-slate-400 hover:bg-blue-100 hover:text-blue-600"
+        >
+          <Copy size={11} />
         </button>
         {onDelete && (
           <button
@@ -391,13 +559,13 @@ function PartEditor({
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
               Form
             </label>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               {PART_SHAPES.map((s) => (
                 <button
                   key={s.id}
                   type="button"
                   onClick={() => onChange({ shape: s.id })}
-                  className={chip(part.shape === s.id) + " flex-1 text-[11px]"}
+                  className={chip(part.shape === s.id) + " text-[11px]"}
                 >
                   {s.label}
                 </button>
@@ -436,24 +604,31 @@ function PartEditor({
             </label>
             <div className="grid grid-cols-3 gap-1.5">
               <NumField
-                label={part.shape === "cylinder" || part.shape === "sphere" ? "Diam." : "Bredd"}
+                label={
+                  part.shape === "cylinder" || part.shape === "sphere" || part.shape === "cone"
+                    ? "Diam."
+                    : part.shape === "torus" ? "Ring Ø"
+                    : "Bredd"
+                }
                 value={part.w}
                 min={0.05}
                 max={10}
                 step={0.05}
                 onChange={(v) => onChange({ w: v })}
               />
-              <NumField
-                label="Höjd"
-                value={part.h}
-                min={0.05}
-                max={10}
-                step={0.05}
-                onChange={(v) => onChange({ h: v })}
-              />
-              {part.shape === "box" && (
+              {part.shape !== "torus" && (
                 <NumField
-                  label="Djup"
+                  label="Höjd"
+                  value={part.h}
+                  min={0.05}
+                  max={10}
+                  step={0.05}
+                  onChange={(v) => onChange({ h: v })}
+                />
+              )}
+              {showDepth && (
+                <NumField
+                  label={part.shape === "torus" ? "Rör Ø" : "Djup"}
                   value={part.d}
                   min={0.05}
                   max={10}
@@ -467,7 +642,7 @@ function PartEditor({
           {/* Position */}
           <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Position (m)
+              Position (m) — dra i förhandsgranskning
             </label>
             <div className="grid grid-cols-3 gap-1.5">
               <NumField
@@ -498,19 +673,21 @@ function PartEditor({
           </div>
 
           {/* Rotation */}
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Rotation Y (°)
-            </label>
-            <NumField
-              label="°"
-              value={part.rotationY ?? 0}
-              min={-180}
-              max={180}
-              step={5}
-              onChange={(v) => onChange({ rotationY: v })}
-            />
-          </div>
+          {part.shape !== "sphere" && (
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Rotation Y (°)
+              </label>
+              <NumField
+                label="°"
+                value={part.rotationY ?? 0}
+                min={-180}
+                max={180}
+                step={5}
+                onChange={(v) => onChange({ rotationY: v })}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

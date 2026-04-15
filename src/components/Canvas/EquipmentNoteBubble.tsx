@@ -8,6 +8,7 @@ type Props = {
   type: EquipmentType;
   pxPerM: number;
   onOffsetChange: (offset: { x: number; y: number }) => void;
+  onStartEdit?: () => void;
 };
 
 const BUBBLE_W = 130;
@@ -22,7 +23,7 @@ function defaultOffset(type: EquipmentType) {
   return { x: type.widthM / 2 + 0.6, y: -(type.heightM / 2 + 1.0) };
 }
 
-export function EquipmentNoteBubble({ eq, type, pxPerM, onOffsetChange }: Props) {
+export function EquipmentNoteBubble({ eq, type, pxPerM, onOffsetChange, onStartEdit }: Props) {
   const offset = eq.noteOffset ?? defaultOffset(type);
 
   // Track bubble center during drag so the connector line updates in real-time
@@ -50,8 +51,8 @@ export function EquipmentNoteBubble({ eq, type, pxPerM, onOffsetChange }: Props)
       {/* Dashed connector line from equipment center to bubble center */}
       <Line
         points={[eqCx, eqCy, bubbleCx, bubbleCy]}
-        stroke="#94A3B8"
-        strokeWidth={1.5}
+        stroke="#475569"
+        strokeWidth={1}
         dash={[5, 4]}
         listening={false}
         perfectDrawEnabled={false}
@@ -68,6 +69,7 @@ export function EquipmentNoteBubble({ eq, type, pxPerM, onOffsetChange }: Props)
         onDragEnd={handleDragEnd}
         onClick={(e) => e.cancelBubble = true}
         onTap={(e) => e.cancelBubble = true}
+        onDblClick={(e) => { e.cancelBubble = true; onStartEdit?.(); }}
       >
         {/* Card background */}
         <Rect
@@ -103,7 +105,7 @@ export function EquipmentNoteBubble({ eq, type, pxPerM, onOffsetChange }: Props)
         width={6}
         height={6}
         cornerRadius={3}
-        fill="#94A3B8"
+        fill="#475569"
         listening={false}
       />
     </>
