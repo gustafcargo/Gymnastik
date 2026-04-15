@@ -71,35 +71,16 @@ export function EquipmentNode({
     transformEquipment(equipment.id, { x, y });
   };
 
-  /**
-   * Uppdatera textens invers-skala live under transform så att texten
-   * håller konstant pixelstorlek oavsett hur stort redskapet skalas.
-   */
-  const handleTransform = () => {
-    const g = groupRef.current;
-    const t = textRef.current;
-    if (!g || !t) return;
-    const sx = g.scaleX() || 1;
-    const sy = g.scaleY() || 1;
-    t.scaleX(1 / sx);
-    t.scaleY(1 / sy);
-  };
-
   const handleTransformEnd = () => {
     const node = groupRef.current;
     if (!node) return;
-    const scaleX = node.scaleX();
-    const scaleY = node.scaleY();
+    // Skalning är inaktiverad på canvas – återställ till lagrad skala
+    node.scaleX(equipment.scaleX);
+    node.scaleY(equipment.scaleY);
     const rotation = snapRotation(node.rotation(), 5);
     const xM = node.x() / pxPerM;
     const yM = node.y() / pxPerM;
-    transformEquipment(equipment.id, {
-      x: xM,
-      y: yM,
-      scaleX: Math.max(0.3, scaleX),
-      scaleY: Math.max(0.3, scaleY),
-      rotation,
-    });
+    transformEquipment(equipment.id, { x: xM, y: yM, rotation });
     node.rotation(rotation);
   };
 
@@ -114,7 +95,6 @@ export function EquipmentNode({
         scaleY={equipment.scaleY}
         draggable
         onDragEnd={handleDragEnd}
-        onTransform={handleTransform}
         onTransformEnd={handleTransformEnd}
         onMouseDown={onSelect}
         onTap={onSelect}
@@ -157,27 +137,12 @@ export function EquipmentNode({
         <Transformer
           ref={transformerRef}
           rotateEnabled
-          enabledAnchors={[
-            "top-left",
-            "top-right",
-            "bottom-left",
-            "bottom-right",
-            "middle-left",
-            "middle-right",
-            "top-center",
-            "bottom-center",
-          ]}
-          anchorSize={12}
+          resizeEnabled={false}
+          enabledAnchors={[]}
           anchorStroke="#2563EB"
-          anchorFill="#FFFFFF"
-          anchorCornerRadius={4}
           borderStroke="#2563EB"
           borderDash={[4, 4]}
           rotateAnchorOffset={28}
-          boundBoxFunc={(oldBox, newBox) => {
-            if (newBox.width < 20 || newBox.height < 20) return oldBox;
-            return newBox;
-          }}
         />
       )}
     </>

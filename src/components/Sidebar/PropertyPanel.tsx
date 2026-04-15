@@ -92,7 +92,7 @@ export function PropertyPanel({ onClose }: Props) {
           </div>
         </Field>
 
-        <Field label="Storlek">
+        <Field label="Storlek (m)">
           <div className="grid grid-cols-2 gap-2">
             <NumberInput
               label="Bredd"
@@ -117,10 +117,23 @@ export function PropertyPanel({ onClose }: Props) {
               }
             />
           </div>
-          <p className="mt-1 text-xs text-slate-400">
-            Originalstorlek: {formatMeters(type.widthM)} ×{" "}
-            {formatMeters(type.heightM)}
-          </p>
+          {(selected.scaleX !== 1 || selected.scaleY !== 1) && (
+            <button
+              type="button"
+              onClick={() =>
+                transformEquipment(selected.id, { scaleX: 1, scaleY: 1 })
+              }
+              className="mt-1.5 text-xs text-accent hover:underline"
+            >
+              Återställ till standardmått ({formatMeters(type.widthM)} ×{" "}
+              {formatMeters(type.heightM)})
+            </button>
+          )}
+          {selected.scaleX === 1 && selected.scaleY === 1 && (
+            <p className="mt-1 text-xs text-slate-400">
+              Standardmått för {type.name}
+            </p>
+          )}
         </Field>
 
         <Field label="Rotation">
