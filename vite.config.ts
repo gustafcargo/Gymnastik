@@ -39,6 +39,7 @@ export default defineConfig({
           konva: ["konva", "react-konva", "use-image"],
           pdf: ["jspdf"],
           motion: ["framer-motion"],
+          three: ["three", "@react-three/fiber", "@react-three/drei"],
         },
       },
     },
