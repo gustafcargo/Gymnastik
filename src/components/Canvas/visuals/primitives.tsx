@@ -151,65 +151,77 @@ export function WoodVisual({
   );
 }
 
-/** Två cirkulära ringar med metallic-stroke + cables till topp. */
+/**
+ * Ringar (väggmonterade) – top-down vy.
+ * Visar: golvkors (bas-balk), stolp-fötter, kabelsträvor till hörnen och
+ * de två ringarna sedda från ovan (smala lodräta skivor = tunna rektanglar).
+ */
 export function RingsVisual({ w, h, selected }: Props) {
-  const r = Math.min(w, h) * 0.22;
-  const leftX = w * 0.32;
-  const rightX = w * 0.68;
-  const cy = h * 0.6;
+  const baseH = Math.max(4, h * 0.22);
+  const baseY = h * 0.72;
+  const postR = Math.max(2.5, Math.min(w, h) * 0.055);
+  const postLX = w * 0.18;
+  const postRX = w * 0.82;
+  // Rings hang vertically – seen from above they appear edge-on (narrow strips)
+  const ringW = Math.max(2, Math.min(w, h) * 0.045);
+  const ringH = Math.max(4, h * 0.12);
+  const ring1X = w * 0.36;
+  const ring2X = w * 0.64;
+  const ringY = h * 0.32;
+
   return (
     <Group>
-      {/* Subtil bottenplatta */}
+      {/* Bounding box */}
       <Rect
         width={w}
         height={h}
-        cornerRadius={Math.min(8, h * 0.15)}
-        fill="#F4E8CE"
-        stroke={selected ? "#0B3FA8" : "#A8916A"}
+        cornerRadius={Math.min(6, h * 0.08)}
+        fill="#EDE5D4"
+        stroke={selected ? "#0B3FA8" : "#8A7A60"}
         strokeWidth={selected ? 2 : 0.8}
-        dash={selected ? undefined : [4, 4]}
-        opacity={0.55}
         {...SHADOW(selected)}
       />
-      {/* Kablar upp till topp-kant */}
-      <Line
-        points={[leftX, cy, w * 0.42, 0]}
-        stroke="#5C4A2E"
-        strokeWidth={1.5}
+      {/* Cable stays – dashed from post tops to floor corners */}
+      <Line points={[postLX, baseY, w * 0.04, h * 0.06]} stroke="#6B7280" strokeWidth={0.7} dash={[4, 3]} opacity={0.5} listening={false} />
+      <Line points={[postLX, baseY, w * 0.04, h * 0.94]} stroke="#6B7280" strokeWidth={0.7} dash={[4, 3]} opacity={0.5} listening={false} />
+      <Line points={[postRX, baseY, w * 0.96, h * 0.06]} stroke="#6B7280" strokeWidth={0.7} dash={[4, 3]} opacity={0.5} listening={false} />
+      <Line points={[postRX, baseY, w * 0.96, h * 0.94]} stroke="#6B7280" strokeWidth={0.7} dash={[4, 3]} opacity={0.5} listening={false} />
+      {/* Floor cross-piece (golvbalk) */}
+      <Rect
+        x={w * 0.06}
+        y={baseY - baseH / 2}
+        width={w * 0.88}
+        height={baseH}
+        cornerRadius={2}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: 0, y: baseH }}
+        fillLinearGradientColorStops={[0, "#C8B89A", 0.5, "#9A8670", 1, "#6A5C4A"]}
+        stroke="#5A4E38"
+        strokeWidth={0.6}
         listening={false}
       />
-      <Line
-        points={[rightX, cy, w * 0.58, 0]}
-        stroke="#5C4A2E"
-        strokeWidth={1.5}
-        listening={false}
-      />
-      {/* Skuggor under ringar */}
-      <Circle x={leftX} y={cy + r * 0.4} radius={r} fill="#000" opacity={0.18} listening={false} />
-      <Circle x={rightX} y={cy + r * 0.4} radius={r} fill="#000" opacity={0.18} listening={false} />
-      {/* Ringar */}
-      {[leftX, rightX].map((cx) => (
-        <Group key={cx}>
-          <Circle
-            x={cx}
-            y={cy}
-            radius={r}
-            fillRadialGradientStartPoint={{ x: -r * 0.3, y: -r * 0.3 }}
-            fillRadialGradientEndPoint={{ x: 0, y: 0 }}
-            fillRadialGradientStartRadius={0}
-            fillRadialGradientEndRadius={r}
-            fillRadialGradientColorStops={[0, "#F2D88A", 1, "#A87825"]}
-            stroke="#6B4D14"
-            strokeWidth={1.2}
-            listening={false}
-          />
-          <Circle
-            x={cx}
-            y={cy}
-            radius={r * 0.55}
-            fill="#F4E8CE"
-            stroke="#6B4D14"
-            strokeWidth={0.8}
+      {/* Post footprints */}
+      {[postLX, postRX].map((px) => (
+        <Group key={px}>
+          <Circle x={px} y={baseY} radius={postR + 1} fill="#000" opacity={0.2} listening={false} />
+          <Circle x={px} y={baseY} radius={postR} fill="#7A6B52" stroke="#4A3E2C" strokeWidth={0.6} listening={false} />
+        </Group>
+      ))}
+      {/* Rings – edge-on from above (thin metallic strips) */}
+      {[ring1X, ring2X].map((rx) => (
+        <Group key={rx}>
+          <Rect x={rx - ringW / 2} y={ringY - ringH / 2 + 1.5} width={ringW} height={ringH} cornerRadius={1} fill="#000" opacity={0.2} listening={false} />
+          <Rect
+            x={rx - ringW / 2}
+            y={ringY - ringH / 2}
+            width={ringW}
+            height={ringH}
+            cornerRadius={1}
+            fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+            fillLinearGradientEndPoint={{ x: ringW, y: 0 }}
+            fillLinearGradientColorStops={[0, "#D4A840", 0.5, "#F0C860", 1, "#A87820"]}
+            stroke="#7A5820"
+            strokeWidth={0.5}
             listening={false}
           />
         </Group>

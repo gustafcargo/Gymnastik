@@ -21,7 +21,7 @@ import { clampToHall } from "../lib/geometry";
 const MAT_KINDS = new Set([
   "thick-mat", "landing-mat",
   "tumbling-track", "air-track",
-  "gym-bench",
+  "gym-bench", "plinth",
 ]);
 
 /**
@@ -31,7 +31,7 @@ const MAT_KINDS = new Set([
 const STACKABLE_SURFACE_KINDS = new Set([
   "thick-mat", "landing-mat",
   "tumbling-track", "air-track", "floor",
-  "gym-bench",
+  "gym-bench", "plinth",
 ]);
 
 /** Return the physical top surface height for any stackable piece. */
@@ -43,13 +43,14 @@ function surfaceHeight(eq: PlacedEquipment, eqType: EquipmentType): number {
   if (kind === "thick-mat" || kind === "landing-mat") {
     return (eq.z ?? 0) + (eq.params?.matH ?? eqType.physicalHeightM);
   }
-  // floor and any other surface: use physicalHeightM
+  // floor, bench, plinth and any other surface: use physicalHeightM
   return (eq.z ?? 0) + eqType.physicalHeightM;
 }
 
 /**
- * Compute the z-offset for a mat so it stacks on top of any overlapping surface.
+ * Compute the z-offset for an item so it stacks on top of any overlapping surface.
  * Returns 0 when there's nothing underneath.
+ * Uses full AABB overlap: any part of the bounding boxes touching counts.
  */
 function getMatStackZ(
   station: Station,
@@ -63,9 +64,9 @@ function getMatStackZ(
     if (eq.id === excludeId) continue;
     const eqType = getEquipmentById(eq.typeId);
     if (!eqType || !STACKABLE_SURFACE_KINDS.has(eqType.detail?.kind ?? "")) continue;
-    // Require >50 % center-to-center overlap on each axis
-    const threshW = Math.min(type.widthM, eqType.widthM) * 0.5;
-    const threshD = Math.min(type.heightM, eqType.heightM) * 0.5;
+    // Any bounding-box overlap triggers stacking (AABB half-extents sum check)
+    const threshW = (type.widthM + eqType.widthM) * 0.5;
+    const threshD = (type.heightM + eqType.heightM) * 0.5;
     if (Math.abs(eq.x - x) < threshW && Math.abs(eq.y - y) < threshD) {
       maxTop = Math.max(maxTop, surfaceHeight(eq, eqType));
     }
@@ -303,11 +304,11 @@ export const usePlanStore = create<PlanStore>()(
               isMatKind && type
                 ? getMatStackZ(st, id, x, y, type)
                 : eq.z;
+            // Always bring the moved item to end of array so it renders on top
+            const updated = { ...eq, x, y, z: newZ };
             return {
               ...st,
-              equipment: st.equipment.map((e) =>
-                e.id === id ? { ...e, x, y, z: newZ } : e,
-              ),
+              equipment: [...st.equipment.filter((e) => e.id !== id), updated],
             };
           }),
         })),

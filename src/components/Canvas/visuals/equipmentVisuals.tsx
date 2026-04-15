@@ -29,7 +29,7 @@ export function renderEquipment({ type, w, h, selected, colorOverride }: Props) 
     case "high-bar":
       return <HighBar w={w} h={h} selected={selected} color={c} />;
     case "beam":
-      return <WoodVisual w={w} h={h} selected={selected} base={c ?? "#B5894F"} feltStripe />;
+      return <BeamVisual w={w} h={h} selected={selected} color={c} />;
     case "pommel-horse":
       return <PommelHorse w={w} h={h} selected={selected} color={c} />;
     case "rings":
@@ -364,8 +364,11 @@ function PommelHorse({ w, h, selected, color }: { w: number; h: number; selected
   );
 }
 
+// ---------------------------------------------------------------------------
+// Hoppbord/vault – top-down vy: stor stoppningsyta sedd uppifrån.
+// ---------------------------------------------------------------------------
 function Vault({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
-  const r = Math.min(w, h) * 0.4;
+  const r = Math.min(w, h) * 0.38;
   const base = color ?? "#8F5C3D";
   return (
     <Group>
@@ -378,38 +381,45 @@ function Vault({ w, h, selected, color }: { w: number; h: number; selected: bool
         fill="#000"
         opacity={0.22}
       />
+      {/* Stoppningsyta – stor avrundad rektangel */}
       <Rect
         width={w}
         height={h}
         cornerRadius={r}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
-        fillLinearGradientEndPoint={{ x: 0, y: h }}
-        fillLinearGradientColorStops={[0, lighten(base, 0.22), 0.5, base, 1, darken(base, 0.28)]}
+        fillLinearGradientEndPoint={{ x: w * 0.4, y: h }}
+        fillLinearGradientColorStops={[0, lighten(base, 0.3), 0.45, base, 1, darken(base, 0.25)]}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.9}
         {...SHADOW(selected)}
       />
-      {/* Stitch grid */}
-      {[0.3, 0.5, 0.7].map((fy) => (
-        <Line
-          key={fy}
-          points={[w * 0.1, h * fy, w * 0.9, h * fy]}
-          stroke="#3A2010"
-          strokeWidth={0.4}
-          dash={[2, 3]}
-          opacity={0.55}
+      {/* Inre stoppningskant (synlig söm runt ytan) */}
+      {w > 10 && h > 10 && (
+        <Rect
+          x={w * 0.1}
+          y={h * 0.1}
+          width={w * 0.8}
+          height={h * 0.8}
+          cornerRadius={r * 0.7}
+          stroke={darken(base, 0.15)}
+          strokeWidth={0.7}
+          dash={[3, 3]}
+          fill="transparent"
+          opacity={0.5}
+          listening={false}
         />
-      ))}
+      )}
       {/* Topp-highlight */}
       {w > 8 && (
         <Rect
-          x={4}
-          y={4}
-          width={w - 8}
-          height={h * 0.2}
-          cornerRadius={r * 0.6}
+          x={r * 0.5}
+          y={3}
+          width={w - r}
+          height={h * 0.22}
+          cornerRadius={r * 0.5}
           fill="#FFF"
-          opacity={0.25}
+          opacity={0.22}
+          listening={false}
         />
       )}
     </Group>
@@ -570,9 +580,85 @@ function Floor({ w, h, selected, color }: { w: number; h: number; selected: bool
   );
 }
 
+// ---------------------------------------------------------------------------
+// Bom – top-down vy: smal bom med T-formade benpar i varje ände.
+// ---------------------------------------------------------------------------
+function BeamVisual({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
+  const base = color ?? "#B5894F";
+  // T-bar feet: wide perpendicular to beam axis, near each end
+  const footDepth = Math.max(3, h * 0.82);  // full-ish height of bounding box
+  const footW = Math.max(3, w * 0.055);
+  const foot1X = w * 0.13;
+  const foot2X = w * 0.87;
+  const footY = (h - footDepth) / 2;
+  // Beam body: narrow, centred vertically
+  const beamH = Math.max(3, h * 0.32);
+  const beamY = (h - beamH) / 2;
+
+  return (
+    <Group>
+      {/* Shadow */}
+      <Rect x={2} y={3} width={w - 4} height={h - 2} cornerRadius={3} fill="#000" opacity={0.18} />
+      {/* Light background to show full footprint */}
+      <Rect
+        width={w}
+        height={h}
+        cornerRadius={3}
+        fill={lighten(base, 0.55)}
+        stroke={selected ? "#0B3FA8" : "#3A2614"}
+        strokeWidth={selected ? 2 : 0.7}
+        opacity={0.35}
+        {...SHADOW(selected)}
+      />
+      {/* T-bar feet at each end */}
+      {[foot1X, foot2X].map((cx) => (
+        <Rect
+          key={cx}
+          x={cx - footW / 2}
+          y={footY}
+          width={footW}
+          height={footDepth}
+          cornerRadius={1}
+          fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+          fillLinearGradientEndPoint={{ x: footW, y: 0 }}
+          fillLinearGradientColorStops={[0, lighten(base, 0.2), 0.5, base, 1, darken(base, 0.3)]}
+          stroke="#3A2614"
+          strokeWidth={0.5}
+        />
+      ))}
+      {/* Beam body */}
+      <Rect
+        x={w * 0.04}
+        y={beamY}
+        width={w * 0.92}
+        height={beamH}
+        cornerRadius={Math.min(beamH * 0.45, 4)}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: 0, y: beamH }}
+        fillLinearGradientColorStops={[0, lighten(base, 0.28), 0.4, base, 1, darken(base, 0.22)]}
+        stroke="#3A2614"
+        strokeWidth={0.7}
+      />
+      {/* Felt / suede stripe on top of beam */}
+      <Rect
+        x={w * 0.04 + 2}
+        y={beamY + 2}
+        width={w * 0.92 - 4}
+        height={beamH * 0.42}
+        cornerRadius={2}
+        fill="#F1D9A5"
+        opacity={0.5}
+        listening={false}
+      />
+    </Group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Plint – top-down vy: platt överdel (läderyta), inga sidovys-linjer.
+// ---------------------------------------------------------------------------
 function Plinth({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
   const r = Math.min(w, h) * 0.1;
-  const layers = 4;
   const base = color ?? "#B7895B";
   return (
     <Group>
@@ -585,35 +671,34 @@ function Plinth({ w, h, selected, color }: { w: number; h: number; selected: boo
         fill="#000"
         opacity={0.22}
       />
-      {/* Visa lager från sidan – horisontella delningslinjer */}
+      {/* Platt toppyta med diagonal gradient */}
       <Rect
         width={w}
         height={h}
         cornerRadius={r}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
-        fillLinearGradientEndPoint={{ x: 0, y: h }}
-        fillLinearGradientColorStops={[
-          0,
-          lighten(base, 0.2),
-          0.5,
-          base,
-          1,
-          darken(base, 0.25),
-        ]}
+        fillLinearGradientEndPoint={{ x: w, y: h }}
+        fillLinearGradientColorStops={[0, lighten(base, 0.28), 0.5, base, 1, darken(base, 0.22)]}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.9}
         {...SHADOW(selected)}
       />
-      {Array.from({ length: layers - 1 }).map((_, i) => (
-        <Line
-          key={i}
-          points={[w * 0.05, (h * (i + 1)) / layers, w * 0.95, (h * (i + 1)) / layers]}
-          stroke="#3A2614"
-          strokeWidth={0.7}
+      {/* Inre kantlinje – visar plint-toppens upphöjda yta */}
+      {w > 10 && h > 10 && (
+        <Rect
+          x={w * 0.1}
+          y={h * 0.1}
+          width={w * 0.8}
+          height={h * 0.8}
+          cornerRadius={r * 0.5}
+          stroke={darken(base, 0.18)}
+          strokeWidth={0.8}
+          fill="transparent"
           opacity={0.55}
+          listening={false}
         />
-      ))}
-      {/* Top läder-yta */}
+      )}
+      {/* Läder-highlight i övre del */}
       {w > 6 && (
         <Rect
           x={3}
@@ -622,7 +707,8 @@ function Plinth({ w, h, selected, color }: { w: number; h: number; selected: boo
           height={h * 0.22}
           cornerRadius={r * 0.6}
           fill="#FFF"
-          opacity={0.2}
+          opacity={0.18}
+          listening={false}
         />
       )}
     </Group>
