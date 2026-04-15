@@ -1,12 +1,8 @@
+import { RoundedBox } from "@react-three/drei";
 import type { EquipmentType } from "../../types";
 
 type Props = { type: EquipmentType };
 
-/**
- * Mappar varje redskaps detail.kind till en 3D-modell sammansatt av
- * primitiver med PBR-material. Origo = redskapets centrum på golvet (y=0),
- * x i meter (bredd), z i meter (djup), y uppåt.
- */
 export function Equipment3D({ type }: Props) {
   switch (type.detail?.kind) {
     case "parallel-bars":
@@ -25,15 +21,15 @@ export function Equipment3D({ type }: Props) {
     case "mini-tramp":
       return <Trampette w={type.widthM} d={type.heightM} />;
     case "tumbling-track":
-      return <Track w={type.widthM} d={type.heightM} h={type.physicalHeightM} color="#5A8C4A" />;
+      return <Track w={type.widthM} d={type.heightM} h={type.physicalHeightM} />;
     case "air-track":
       return <AirTrack w={type.widthM} d={type.heightM} />;
     case "floor":
       return <Floor w={type.widthM} d={type.heightM} />;
     case "thick-mat":
-      return <Mat w={type.widthM} d={type.heightM} h={type.physicalHeightM} color="#4F86C7" />;
+      return <ThickMat w={type.widthM} d={type.heightM} h={type.physicalHeightM} />;
     case "landing-mat":
-      return <Mat w={type.widthM} d={type.heightM} h={type.physicalHeightM} color="#D48850" />;
+      return <LandingMat w={type.widthM} d={type.heightM} h={type.physicalHeightM} />;
     case "plinth":
       return <Plinth w={type.widthM} d={type.heightM} h={type.physicalHeightM} />;
     case "buck":
@@ -44,225 +40,264 @@ export function Equipment3D({ type }: Props) {
       return (
         <mesh position={[0, type.physicalHeightM / 2, 0]} castShadow receiveShadow>
           <boxGeometry args={[type.widthM, Math.max(0.1, type.physicalHeightM), type.heightM]} />
-          <meshStandardMaterial color={type.color} roughness={0.7} />
+          <meshPhysicalMaterial color={type.color} roughness={0.7} metalness={0} />
         </mesh>
       );
   }
 }
 
-const WOOD_LIGHT = { color: "#C4915A", roughness: 0.55, metalness: 0.05 };
-const METAL = { color: "#C8CDD3", roughness: 0.18, metalness: 0.95 };
-const METAL_DARK = { color: "#3A4150", roughness: 0.35, metalness: 0.85 };
-const LEATHER = { color: "#7C4F33", roughness: 0.65, metalness: 0.05 };
-const RUBBER_RED = { color: "#C0271F", roughness: 0.45, metalness: 0.0 };
+// ---------------------------------------------------------------------------
+// Material shorthand components
+// ---------------------------------------------------------------------------
+
+function Chrome() {
+  return <meshPhysicalMaterial color="#CDD2DA" roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />;
+}
+function Steel() {
+  return <meshPhysicalMaterial color="#A8B0BA" roughness={0.4} metalness={0.88} />;
+}
+function DarkMetal() {
+  return <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />;
+}
+function WoodMat() {
+  return <meshPhysicalMaterial color="#B8824A" roughness={0.38} metalness={0.0} clearcoat={0.45} clearcoatRoughness={0.28} />;
+}
+function WoodDarkMat() {
+  return <meshPhysicalMaterial color="#7A5330" roughness={0.55} metalness={0.0} clearcoat={0.2} clearcoatRoughness={0.4} />;
+}
+function LeatherMat() {
+  return <meshPhysicalMaterial color="#8C6240" roughness={0.7} metalness={0.0} sheen={0.6} sheenRoughness={0.85} />;
+}
+function SuedeMat() {
+  return <meshPhysicalMaterial color="#D4B07A" roughness={1.0} metalness={0.0} sheen={1.2} sheenRoughness={0.5} />;
+}
+function RedPad() {
+  return <meshPhysicalMaterial color="#CC2020" roughness={0.8} metalness={0.0} />;
+}
+
+// ---------------------------------------------------------------------------
+// Barr (Parallel bars)
+// ---------------------------------------------------------------------------
 
 function ParallelBars({ w, d }: { w: number; d: number }) {
-  const railLen = w;
-  const railR = 0.025;
   const railH1 = 1.7;
   const railH2 = 1.95;
-  const baseH = 0.04;
+  const railR = 0.025;
   const postR = 0.04;
+  const baseH = 0.04;
+
   return (
     <group>
       {/* Bottenplatta */}
       <mesh position={[0, baseH / 2, 0]} receiveShadow castShadow>
         <boxGeometry args={[w, baseH, d]} />
-        <meshStandardMaterial color="#1F2937" roughness={0.7} />
+        <DarkMetal />
       </mesh>
-      {/* 4 vertikala stolpar */}
-      {[-d * 0.4, d * 0.4].flatMap((zOff) =>
-        [-w * 0.42, w * 0.42].map((xOff, i) => (
-          <mesh
-            key={`${zOff}-${i}`}
-            position={[xOff, railH2 / 2 + baseH, zOff]}
-            castShadow
-          >
-            <cylinderGeometry args={[postR, postR, railH2, 14]} />
-            <meshStandardMaterial {...METAL} />
+
+      {/* 4 vertikala chrome-stolpar */}
+      {([-d * 0.4, d * 0.4] as number[]).flatMap((zOff) =>
+        ([-w * 0.42, w * 0.42] as number[]).map((xOff, i) => (
+          <mesh key={`${zOff}-${i}`} position={[xOff, railH2 / 2 + baseH, zOff]} castShadow>
+            <cylinderGeometry args={[postR, postR * 1.1, railH2, 20]} />
+            <Chrome />
           </mesh>
         )),
       )}
-      {/* Två räcken */}
+
+      {/* Räls – capsule (rundade ändar) i trä */}
       {[
         { z: -d * 0.4, h: railH1 + baseH },
         { z: d * 0.4, h: railH2 + baseH },
       ].map(({ z, h }, i) => (
-        <mesh
-          key={i}
-          position={[0, h, z]}
-          rotation={[0, 0, Math.PI / 2]}
-          castShadow
-        >
-          <cylinderGeometry args={[railR, railR, railLen, 18]} />
-          <meshStandardMaterial {...WOOD_LIGHT} />
+        <mesh key={i} position={[0, h, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <capsuleGeometry args={[railR, w - railR * 2, 6, 18]} />
+          <WoodMat />
+        </mesh>
+      ))}
+
+      {/* Horisontella tvärbalkar */}
+      {([-d * 0.4, d * 0.4] as number[]).map((zOff, i) => (
+        <mesh key={i} position={[0, baseH + 0.06, zOff]} castShadow>
+          <boxGeometry args={[w * 0.88, 0.03, 0.04]} />
+          <DarkMetal />
         </mesh>
       ))}
     </group>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Räck (High bar)
+// ---------------------------------------------------------------------------
 
 function HighBar({ w, d }: { w: number; d: number }) {
   const barH = 2.75;
   const barR = 0.014;
-  const postR = 0.05;
+  const postR = 0.048;
   const baseH = 0.05;
   const xPost = w * 0.45;
+
   return (
     <group>
+      {/* Basen */}
       <mesh position={[0, baseH / 2, 0]} receiveShadow castShadow>
         <boxGeometry args={[w, baseH, d]} />
-        <meshStandardMaterial color="#1F2937" roughness={0.7} />
+        <DarkMetal />
       </mesh>
-      {[-xPost, xPost].map((x, i) => (
+
+      {/* Stolpar */}
+      {([-xPost, xPost] as number[]).map((x, i) => (
         <mesh key={i} position={[x, barH / 2 + baseH, 0]} castShadow>
-          <cylinderGeometry args={[postR, postR * 1.2, barH, 16]} />
-          <meshStandardMaterial {...METAL} />
+          <cylinderGeometry args={[postR, postR * 1.15, barH, 18]} />
+          <Chrome />
         </mesh>
       ))}
-      {/* Vajrar – tunna cylindrar diagonalt */}
-      {[-1, 1].flatMap((sx) =>
-        [-1, 1].map((sz) => {
+
+      {/* Vajrar diagonalt */}
+      {([-1, 1] as number[]).flatMap((sx) =>
+        ([-1, 1] as number[]).map((sz) => {
           const from: [number, number, number] = [xPost * sx, barH * 0.85, 0];
-          const to: [number, number, number] = [xPost * sx + sx * 0.6, baseH, sz * d * 0.4];
-          const dx = to[0] - from[0];
-          const dy = to[1] - from[1];
-          const dz = to[2] - from[2];
+          const to: [number, number, number] = [xPost * sx + sx * 0.55, baseH, sz * d * 0.42];
+          const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
           const len = Math.hypot(dx, dy, dz);
-          const mid: [number, number, number] = [
-            (from[0] + to[0]) / 2,
-            (from[1] + to[1]) / 2,
-            (from[2] + to[2]) / 2,
-          ];
-          const ay = Math.atan2(dx, dz);
-          const ax = Math.atan2(Math.hypot(dx, dz), dy);
+          const mid: [number, number, number] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2];
           return (
-            <mesh
-              key={`${sx}-${sz}`}
-              position={mid}
-              rotation={[ax, ay, 0]}
-              castShadow
-            >
-              <cylinderGeometry args={[0.005, 0.005, len, 6]} />
-              <meshStandardMaterial color="#888" roughness={0.4} metalness={0.7} />
+            <mesh key={`${sx}-${sz}`} position={mid} rotation={[Math.atan2(Math.hypot(dx, dz), dy), Math.atan2(dx, dz), 0]} castShadow>
+              <cylinderGeometry args={[0.006, 0.006, len, 6]} />
+              <Steel />
             </mesh>
           );
         }),
       )}
-      {/* Stång */}
-      <mesh
-        position={[0, barH + baseH, 0]}
-        rotation={[0, 0, Math.PI / 2]}
-        castShadow
-      >
-        <cylinderGeometry args={[barR, barR, w, 14]} />
-        <meshStandardMaterial color="#E8EAF0" roughness={0.18} metalness={0.95} />
+
+      {/* Stången – tunn chrome */}
+      <mesh position={[0, barH + baseH, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <capsuleGeometry args={[barR, w - barR * 2, 6, 16]} />
+        <Chrome />
       </mesh>
     </group>
   );
 }
 
-function Beam({ w, d }: { w: number; d: number }) {
+// ---------------------------------------------------------------------------
+// Bom (Balance beam)
+// ---------------------------------------------------------------------------
+
+function Beam({ w }: { w: number; d: number }) {
   const beamH = 1.25;
-  const beamW = 0.1;
-  const beamD = w; // bommen är lång
+  const beamLen = w;
   const baseH = 0.03;
+
   return (
     <group>
-      {/* Två fötter */}
-      {[-w * 0.4, w * 0.4].map((x, i) => (
+      {/* Två röda stöd (kilar) */}
+      {([-w * 0.38, w * 0.38] as number[]).map((x, i) => (
         <group key={i} position={[x, 0, 0]}>
-          <mesh position={[0, beamH / 2, 0]} castShadow>
-            <boxGeometry args={[0.1, beamH, 0.5]} />
-            <meshStandardMaterial color="#1F2937" roughness={0.6} />
+          {/* Röd stödplint */}
+          <mesh position={[0, beamH * 0.5, 0]} castShadow>
+            <boxGeometry args={[0.12, beamH, 0.45]} />
+            <RedPad />
           </mesh>
+          {/* Bottenplatta */}
           <mesh position={[0, baseH / 2, 0]} receiveShadow castShadow>
-            <boxGeometry args={[0.5, baseH, 0.6]} />
-            <meshStandardMaterial color="#0F172A" roughness={0.6} />
+            <boxGeometry args={[0.5, baseH, 0.55]} />
+            <DarkMetal />
           </mesh>
         </group>
       ))}
-      {/* Bommen själv */}
-      <mesh position={[0, beamH + 0.05, 0]} castShadow rotation={[0, Math.PI / 2, 0]}>
-        <boxGeometry args={[Math.max(0.4, d), 0.1, beamD]} />
-        <meshStandardMaterial color="#C99761" roughness={0.45} metalness={0.05} />
-      </mesh>
-      {/* Top suede stripe (filt) */}
-      <mesh position={[0, beamH + 0.105, 0]} castShadow rotation={[0, Math.PI / 2, 0]}>
-        <boxGeometry args={[Math.max(0.3, d * 0.8), 0.005, beamD]} />
-        <meshStandardMaterial color="#E8C99A" roughness={0.95} metalness={0} />
-      </mesh>
-      {/* Suppress unused */}
-      <group visible={false}><mesh><boxGeometry args={[beamW, beamW, beamW]} /></mesh></group>
+
+      {/* Bomkropp – läder */}
+      <group position={[0, beamH + 0.05, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <RoundedBox args={[beamLen, 0.1, 0.24]} radius={0.015} smoothness={4} castShadow>
+          <LeatherMat />
+        </RoundedBox>
+        {/* Mocka-yta på toppen */}
+        <mesh position={[0, 0.055, 0]} castShadow>
+          <boxGeometry args={[beamLen - 0.02, 0.006, 0.19]} />
+          <SuedeMat />
+        </mesh>
+      </group>
     </group>
   );
 }
 
-function PommelHorse({ w, d }: { w: number; d: number }) {
-  const bodyH = 0.4;
-  const standH = 0.75;
+// ---------------------------------------------------------------------------
+// Bygelhäst (Pommel horse)
+// ---------------------------------------------------------------------------
+
+function PommelHorse({ w, d: _d }: { w: number; d: number }) {
+  const standH = 0.78;
+  const bodyH = 0.38;
+  const bodyD = 0.42;
+
   return (
     <group>
-      {/* Standar */}
-      {[-w * 0.3, w * 0.3].map((x, i) => (
-        <mesh key={i} position={[x, standH / 2, 0]} castShadow>
-          <cylinderGeometry args={[0.04, 0.05, standH, 12]} />
-          <meshStandardMaterial {...METAL} />
+      {/* 4 chrome-ben */}
+      {([-w * 0.32, w * 0.32] as number[]).flatMap((x) =>
+        ([-bodyD * 0.32, bodyD * 0.32] as number[]).map((z, i) => (
+          <mesh key={`${x}-${i}`} position={[x, standH / 2, z]} castShadow>
+            <cylinderGeometry args={[0.025, 0.032, standH, 14]} />
+            <Chrome />
+          </mesh>
+        )),
+      )}
+
+      {/* Korsbalkar under */}
+      {([-bodyD * 0.32, bodyD * 0.32] as number[]).map((z, i) => (
+        <mesh key={i} position={[0, 0.08, z]} castShadow>
+          <boxGeometry args={[w * 0.7, 0.025, 0.03]} />
+          <DarkMetal />
         </mesh>
       ))}
-      {/* Huvudkropp (läder) */}
-      <mesh position={[0, standH + bodyH / 2, 0]} castShadow>
-        <boxGeometry args={[w * 0.95, bodyH, d * 1.3]} />
-        <meshStandardMaterial {...LEATHER} />
-      </mesh>
-      {/* Två byglar */}
-      {[-w * 0.18, w * 0.18].map((x, i) => (
-        <mesh
-          key={i}
-          position={[x, standH + bodyH + 0.08, 0]}
-          rotation={[Math.PI / 2, 0, 0]}
-          castShadow
-        >
-          <torusGeometry args={[0.08, 0.018, 12, 22]} />
-          <meshStandardMaterial color="#E2C893" roughness={0.45} metalness={0.1} />
+
+      {/* Kropp – läder */}
+      <group position={[0, standH + bodyH / 2, 0]}>
+        <RoundedBox args={[w * 0.95, bodyH, bodyD]} radius={0.06} smoothness={5} castShadow>
+          <LeatherMat />
+        </RoundedBox>
+      </group>
+
+      {/* Byglar (pommels) – chrome halvcirklar */}
+      {([-w * 0.2, w * 0.2] as number[]).map((x, i) => (
+        <mesh key={i} position={[x, standH + bodyH + 0.1, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <torusGeometry args={[0.09, 0.018, 14, 24, Math.PI]} />
+          <Chrome />
         </mesh>
       ))}
     </group>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Ringar (Rings)
+// ---------------------------------------------------------------------------
 
 function Rings({ w, d, h }: { w: number; d: number; h: number }) {
   const ringR = 0.085;
   const ringT = 0.018;
-  const cableH = h - 0.4;
-  const ringY = h - 0.7;
+  const strapH = h - 0.55;
+  const ringY = h - 0.65;
+
   return (
     <group>
-      {/* Bottenmarkering (subtil ring på golvet) */}
-      <mesh
-        position={[0, 0.005, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-      >
-        <ringGeometry args={[Math.max(w, d) * 0.45, Math.max(w, d) * 0.5, 32]} />
-        <meshStandardMaterial color="#A8916A" roughness={0.9} transparent opacity={0.4} />
+      {/* Golvmarkering */}
+      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <ringGeometry args={[Math.max(w, d) * 0.42, Math.max(w, d) * 0.48, 32]} />
+        <meshPhysicalMaterial color="#8A9BAE" roughness={0.9} transparent opacity={0.35} metalness={0} />
       </mesh>
-      {/* Två ringar med kablar */}
-      {[-0.25, 0.25].map((dx, i) => (
+
+      {/* Ringar med remmar */}
+      {([-0.28, 0.28] as number[]).map((dx, i) => (
         <group key={i} position={[dx, 0, 0]}>
-          {/* Kabel uppåt – tunn cylinder */}
-          <mesh position={[0, ringY + cableH / 2, 0]} castShadow>
-            <cylinderGeometry args={[0.005, 0.005, cableH, 6]} />
-            <meshStandardMaterial color="#5C4A2E" roughness={0.85} />
+          {/* Rem (läderrem) */}
+          <mesh position={[0, ringY + strapH / 2 + ringR, 0]} castShadow>
+            <boxGeometry args={[0.032, strapH, 0.012]} />
+            <LeatherMat />
           </mesh>
-          {/* Ringen (torus) */}
-          <mesh
-            position={[0, ringY, 0]}
-            rotation={[Math.PI / 2, 0, 0]}
-            castShadow
-          >
-            <torusGeometry args={[ringR, ringT, 14, 28]} />
-            <meshStandardMaterial color="#C99445" roughness={0.4} metalness={0.2} />
+          {/* Ring – chrome torus */}
+          <mesh position={[0, ringY, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <torusGeometry args={[ringR, ringT, 14, 32]} />
+            <Chrome />
           </mesh>
         </group>
       ))}
@@ -270,112 +305,176 @@ function Rings({ w, d, h }: { w: number; d: number; h: number }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Hoppbord (Vault)
+// ---------------------------------------------------------------------------
+
 function Vault({ w, d }: { w: number; d: number }) {
-  const standH = 0.95;
-  const padH = 0.4;
+  const standH = 0.98;
+  const padH = 0.38;
+
   return (
     <group>
+      {/* Central chrome-pelare */}
       <mesh position={[0, standH / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.08, standH, 12]} />
-        <meshStandardMaterial {...METAL} />
+        <cylinderGeometry args={[0.055, 0.075, standH, 14]} />
+        <Chrome />
       </mesh>
-      {/* Pad */}
-      <mesh position={[0, standH + padH / 2, 0]} castShadow>
-        <boxGeometry args={[w * 0.95, padH, d * 1.05]} />
-        <meshStandardMaterial color="#9B6A47" roughness={0.6} metalness={0.05} />
+      {/* Bottenplatta */}
+      <mesh position={[0, 0.02, 0]} receiveShadow castShadow>
+        <boxGeometry args={[w * 0.7, 0.04, d * 0.7]} />
+        <DarkMetal />
       </mesh>
+      {/* Hoppytan */}
+      <group position={[0, standH + padH / 2, 0]}>
+        <RoundedBox args={[w, padH, d]} radius={0.04} smoothness={4} castShadow>
+          <LeatherMat />
+        </RoundedBox>
+        {/* Topplager */}
+        <mesh position={[0, padH / 2 + 0.004, 0]} castShadow>
+          <boxGeometry args={[w - 0.04, 0.008, d - 0.04]} />
+          <SuedeMat />
+        </mesh>
+      </group>
     </group>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Trampett / Mini-tramp
+// ---------------------------------------------------------------------------
+
 function Trampette({ w, d }: { w: number; d: number }) {
-  const tilt = 0.18;
-  const frameH = 0.3;
+  const frameH = 0.28;
+  const tilt = 0.15;
+  const bedW = w * 0.84;
+  const bedD = d * 0.84;
+
   return (
-    <group rotation={[-tilt, 0, 0]} position={[0, frameH * 0.55, 0]}>
+    <group rotation={[-tilt, 0, 0]} position={[0, frameH * 0.6, 0]}>
       {/* Ram */}
       <mesh castShadow>
-        <boxGeometry args={[w, frameH * 0.4, d]} />
-        <meshStandardMaterial {...METAL_DARK} />
+        <boxGeometry args={[w, frameH * 0.35, d]} />
+        <DarkMetal />
       </mesh>
-      {/* Studsbädd */}
-      <mesh position={[0, frameH * 0.21, 0]} castShadow>
-        <boxGeometry args={[w * 0.85, 0.02, d * 0.85]} />
-        <meshStandardMaterial {...RUBBER_RED} />
+      {/* Studsyta */}
+      <mesh position={[0, frameH * 0.19, 0]} castShadow>
+        <boxGeometry args={[bedW, 0.018, bedD]} />
+        <meshPhysicalMaterial color="#B82020" roughness={0.72} metalness={0} />
       </mesh>
+      {/* Fjädrar runt kanten */}
+      {Array.from({ length: 8 }).map((_, i) => {
+        const angle = (i / 8) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[Math.cos(angle) * w * 0.42, frameH * 0.1, Math.sin(angle) * d * 0.42]} castShadow>
+            <cylinderGeometry args={[0.006, 0.006, 0.12, 5]} />
+            <Steel />
+          </mesh>
+        );
+      })}
       {/* Fötter */}
-      {[
-        [-w / 2 + 0.07, -frameH / 2, -d / 2 + 0.07],
-        [w / 2 - 0.07, -frameH / 2, -d / 2 + 0.07],
-        [-w / 2 + 0.07, -frameH / 2, d / 2 - 0.07],
-        [w / 2 - 0.07, -frameH / 2, d / 2 - 0.07],
-      ].map((p, i) => (
-        <mesh key={i} position={p as [number, number, number]} castShadow>
-          <cylinderGeometry args={[0.04, 0.04, frameH * 0.3, 8]} />
-          <meshStandardMaterial color="#0B0F18" roughness={0.6} />
+      {([[-w / 2 + 0.08, -d / 2 + 0.08], [w / 2 - 0.08, -d / 2 + 0.08], [-w / 2 + 0.08, d / 2 - 0.08], [w / 2 - 0.08, d / 2 - 0.08]] as [number, number][]).map(([px, pz], i) => (
+        <mesh key={i} position={[px, -frameH * 0.5, pz]} castShadow>
+          <cylinderGeometry args={[0.025, 0.025, frameH * 0.4, 8]} />
+          <DarkMetal />
         </mesh>
       ))}
     </group>
   );
 }
 
-function Mat({ w, d, h, color }: { w: number; d: number; h: number; color: string }) {
+// ---------------------------------------------------------------------------
+// Tumblingbana
+// ---------------------------------------------------------------------------
+
+function Track({ w, d, h }: { w: number; d: number; h: number }) {
+  const th = Math.max(0.08, h);
   return (
-    <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-      <boxGeometry args={[w, Math.max(0.05, h), d]} />
-      <meshStandardMaterial color={color} roughness={0.85} />
-    </mesh>
+    <group>
+      <RoundedBox args={[w, th, d]} radius={0.03} smoothness={3} position={[0, th / 2, 0]} castShadow receiveShadow>
+        <meshPhysicalMaterial color="#4A7A3A" roughness={0.85} metalness={0} />
+      </RoundedBox>
+      {/* Vita sidolinjer */}
+      {([-d / 2 + 0.04, d / 2 - 0.04] as number[]).map((z, i) => (
+        <mesh key={i} position={[0, th + 0.003, z]} castShadow>
+          <boxGeometry args={[w - 0.1, 0.005, 0.025]} />
+          <meshPhysicalMaterial color="#FFFFFF" roughness={0.5} metalness={0} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
-function Track({ w, d, h, color }: { w: number; d: number; h: number; color: string }) {
-  return (
-    <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-      <boxGeometry args={[w, Math.max(0.06, h), d]} />
-      <meshStandardMaterial color={color} roughness={0.75} />
-    </mesh>
-  );
-}
+// ---------------------------------------------------------------------------
+// Airtrack
+// ---------------------------------------------------------------------------
 
 function AirTrack({ w, d }: { w: number; d: number }) {
-  const h = 0.3;
+  const h = 0.28;
   return (
     <group>
-      {/* Huvudkropp som rund cylinder */}
-      <mesh
-        position={[0, h / 2, 0]}
-        rotation={[0, 0, Math.PI / 2]}
-        castShadow
-        receiveShadow
-      >
-        <cylinderGeometry args={[h / 2, h / 2, w, 24]} />
-        <meshStandardMaterial color="#3185BC" roughness={0.6} metalness={0.05} />
+      <mesh position={[0, h / 2, 0]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+        <capsuleGeometry args={[h / 2, w - h, 8, 20]} />
+        <meshPhysicalMaterial color="#2878C0" roughness={0.5} metalness={0} clearcoat={0.35} clearcoatRoughness={0.3} />
       </mesh>
-      {/* Topplatta för att markera ovansidan */}
-      <mesh position={[0, h, 0]} castShadow>
-        <boxGeometry args={[w, 0.005, d]} />
-        <meshStandardMaterial color="#5DB2E0" roughness={0.55} />
+      {/* Logotyp-rand */}
+      <mesh position={[0, h + 0.003, 0]} castShadow>
+        <boxGeometry args={[w * 0.6, 0.005, d * 0.3]} />
+        <meshPhysicalMaterial color="#1A5A9A" roughness={0.5} metalness={0} />
       </mesh>
     </group>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Fristående-matta (Floor)
+// ---------------------------------------------------------------------------
+
 function Floor({ w, d }: { w: number; d: number }) {
-  const h = 0.1;
+  const h = 0.08;
   return (
     <group>
-      <mesh position={[0, h / 2, 0]} receiveShadow castShadow>
-        <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color="#8FB894" roughness={0.95} />
-      </mesh>
-      {/* Tävlingslinje (lite ovanför topp) */}
-      <mesh position={[0, h + 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <ringGeometry args={[Math.min(w, d) * 0.42, Math.min(w, d) * 0.44, 4, 1]} />
-        <meshStandardMaterial color="#FFFFFF" roughness={0.4} />
+      <RoundedBox args={[w, h, d]} radius={0.02} smoothness={3} position={[0, h / 2, 0]} receiveShadow castShadow>
+        <meshPhysicalMaterial color="#7AAE7E" roughness={0.9} metalness={0} />
+      </RoundedBox>
+      {/* Vit kantlinje */}
+      <mesh position={[0, h + 0.004, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <ringGeometry args={[Math.min(w, d) * 0.44, Math.min(w, d) * 0.47, 4, 1]} />
+        <meshPhysicalMaterial color="#FFFFFF" roughness={0.4} metalness={0} />
       </mesh>
     </group>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Tjockmatta
+// ---------------------------------------------------------------------------
+
+function ThickMat({ w, d, h }: { w: number; d: number; h: number }) {
+  const th = Math.max(0.12, h);
+  return (
+    <RoundedBox args={[w, th, d]} radius={0.04} smoothness={4} position={[0, th / 2, 0]} castShadow receiveShadow>
+      <meshPhysicalMaterial color="#2A60A0" roughness={0.75} metalness={0} />
+    </RoundedBox>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Landningsmatta
+// ---------------------------------------------------------------------------
+
+function LandingMat({ w, d, h }: { w: number; d: number; h: number }) {
+  const th = Math.max(0.06, h);
+  return (
+    <RoundedBox args={[w, th, d]} radius={0.03} smoothness={3} position={[0, th / 2, 0]} castShadow receiveShadow>
+      <meshPhysicalMaterial color="#CC7020" roughness={0.78} metalness={0} />
+    </RoundedBox>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Plint
+// ---------------------------------------------------------------------------
 
 function Plinth({ w, d, h }: { w: number; d: number; h: number }) {
   const layers = 4;
@@ -383,70 +482,71 @@ function Plinth({ w, d, h }: { w: number; d: number; h: number }) {
   return (
     <group>
       {Array.from({ length: layers }).map((_, i) => {
-        const shrink = 1 - i * 0.04;
+        const shrink = 1 - i * 0.035;
+        const isTop = i === layers - 1;
         return (
-          <mesh
-            key={i}
-            position={[0, layerH * (i + 0.5), 0]}
-            castShadow
-            receiveShadow
-          >
-            <boxGeometry args={[w * shrink, layerH * 0.92, d * shrink]} />
-            <meshStandardMaterial
-              color={i === layers - 1 ? "#7C4F33" : "#B7895B"}
-              roughness={i === layers - 1 ? 0.7 : 0.55}
-              metalness={0.05}
-            />
-          </mesh>
+          <group key={i} position={[0, layerH * (i + 0.5), 0]}>
+            <RoundedBox args={[w * shrink, layerH * 0.94, d * shrink]} radius={0.01} smoothness={3} castShadow receiveShadow>
+              {isTop ? <LeatherMat /> : <WoodDarkMat />}
+            </RoundedBox>
+          </group>
         );
       })}
     </group>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Bock
+// ---------------------------------------------------------------------------
+
 function Buck({ w, d, h }: { w: number; d: number; h: number }) {
+  const bodyH = h - 0.18;
   return (
     <group>
-      {/* Stand */}
-      <mesh position={[0, (h - 0.15) / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.05, 0.07, h - 0.15, 10]} />
-        <meshStandardMaterial {...METAL} />
+      <mesh position={[0, bodyH / 2, 0]} castShadow>
+        <cylinderGeometry args={[0.048, 0.065, bodyH, 12]} />
+        <Chrome />
       </mesh>
-      {/* Top läder-rull */}
-      <mesh position={[0, h - 0.075, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-        <cylinderGeometry args={[0.15, 0.15, Math.max(0.4, w * 0.7), 18]} />
-        <meshStandardMaterial color="#A47551" roughness={0.55} metalness={0.05} />
+      <mesh position={[0, bodyH, 0]} receiveShadow castShadow>
+        <boxGeometry args={[w * 0.55, 0.02, d * 0.7]} />
+        <DarkMetal />
       </mesh>
-      <mesh visible={false}><boxGeometry args={[d, d, d]} /></mesh>
+      <mesh position={[0, h - 0.08, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <capsuleGeometry args={[0.14, Math.max(0.3, w * 0.65), 8, 18]} />
+        <LeatherMat />
+      </mesh>
     </group>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Skumgrop
+// ---------------------------------------------------------------------------
+
 function FoamPit({ w, d }: { w: number; d: number }) {
+  const wallH = 0.75;
+  const foamColors = ["#5090C8", "#4880B8", "#3A70A8", "#60A0D8"];
   return (
     <group position={[0, -0.05, 0]}>
-      {/* Pit edge */}
-      <mesh position={[0, -0.4, 0]} castShadow receiveShadow>
-        <boxGeometry args={[w, 0.8, d]} />
-        <meshStandardMaterial color="#3A4A2F" roughness={0.85} />
+      {/* Gropväggar */}
+      <mesh position={[0, -wallH / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[w, wallH, d]} />
+        <meshPhysicalMaterial color="#2A3A28" roughness={0.85} metalness={0} />
       </mesh>
-      {/* Skum-fyllnad – flera små kuber */}
-      {Array.from({ length: 5 }).flatMap((_, ix) =>
-        Array.from({ length: 4 }).map((_, iz) => {
-          const cellW = w / 5;
-          const cellD = d / 4;
+      {/* Skumklossar */}
+      {Array.from({ length: 6 }).flatMap((_, ix) =>
+        Array.from({ length: 5 }).map((_, iz) => {
+          const cellW = w / 6;
+          const cellD = d / 5;
           const px = -w / 2 + cellW * (ix + 0.5);
           const pz = -d / 2 + cellD * (iz + 0.5);
-          const colors = ["#9CCB89", "#86C26F", "#6E8C5E", "#B5DBA4"];
+          const rotY = (ix * 17 + iz * 11) * 0.08;
+          const colorIdx = (ix + iz) % foamColors.length;
           return (
-            <mesh
-              key={`${ix}-${iz}`}
-              position={[px, -0.05, pz]}
-              rotation={[0, (ix * 13 + iz * 7) * 0.1, 0]}
-              receiveShadow
-            >
-              <boxGeometry args={[cellW * 0.85, 0.18, cellD * 0.85]} />
-              <meshStandardMaterial color={colors[(ix + iz) % colors.length]} roughness={0.9} />
+            <mesh key={`${ix}-${iz}`} position={[px, -0.06, pz]} rotation={[0, rotY, 0]} castShadow>
+              <boxGeometry args={[cellW * 0.82, 0.22, cellD * 0.82]} />
+              <meshPhysicalMaterial color={foamColors[colorIdx]} roughness={0.9} metalness={0} />
             </mesh>
           );
         }),

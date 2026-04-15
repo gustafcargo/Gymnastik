@@ -41,21 +41,21 @@ export function Hall3D({ className }: Props) {
         }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
-        <color attach="background" args={["#EEF2F6"]} />
-        <fog attach="fog" args={["#EEF2F6", camDist * 1.4, camDist * 3]} />
+        <color attach="background" args={["#DDE3E8"]} />
+        <fog attach="fog" args={["#DDE3E8", camDist * 1.4, camDist * 3]} />
 
         <Suspense fallback={null}>
-          <Environment preset="warehouse" background={false} environmentIntensity={0.55} />
+          <Environment preset="city" background={false} environmentIntensity={0.6} />
         </Suspense>
 
-        {/* Sol-ljus + skuggor */}
-        <ambientLight intensity={0.35} />
+        {/* Hallbelysning – takspot-känsla */}
+        <ambientLight intensity={0.4} />
         <directionalLight
           position={[W * 0.4, Math.max(W, H) * 1.2, H * 0.3]}
-          intensity={1.6}
+          intensity={1.8}
           castShadow
-          shadow-mapSize={[2048, 2048]}
-          shadow-bias={-0.0005}
+          shadow-mapSize={[4096, 4096]}
+          shadow-bias={-0.0003}
           shadow-camera-left={-W}
           shadow-camera-right={W * 2}
           shadow-camera-top={H * 2}
@@ -63,32 +63,30 @@ export function Hall3D({ className }: Props) {
           shadow-camera-near={0.5}
           shadow-camera-far={Math.max(W, H) * 4}
         />
-        <hemisphereLight intensity={0.25} groundColor="#8a7a5c" color="#dfe7ef" />
+        <hemisphereLight intensity={0.3} groundColor="#5a6570" color="#c8d8e8" />
 
-        {/* Hallgolv – trä-look via standard material */}
-        <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[cx, 0, cz]}
-          receiveShadow
-        >
+        {/* Hallgolv – blågrått polyuretan-sportgolv */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0, cz]} receiveShadow>
           <planeGeometry args={[W, H]} />
-          <meshStandardMaterial
-            color="#D9B382"
-            roughness={0.85}
-            metalness={0.05}
+          <meshPhysicalMaterial
+            color="#788C9E"
+            roughness={0.32}
+            metalness={0.0}
+            clearcoat={0.45}
+            clearcoatRoughness={0.18}
           />
         </mesh>
 
-        {/* Subtila linjer på golvet */}
+        {/* Subtila halllinjer på golvet */}
         <Grid
           position={[cx, 0.005, cz]}
           args={[W, H]}
           cellSize={1}
-          cellThickness={0.4}
-          cellColor="#a98855"
+          cellThickness={0.3}
+          cellColor="#637585"
           sectionSize={5}
-          sectionThickness={0.9}
-          sectionColor="#7a5a2e"
+          sectionThickness={0.7}
+          sectionColor="#4E5F6E"
           fadeDistance={Math.max(W, H) * 1.6}
           fadeStrength={1}
           followCamera={false}
