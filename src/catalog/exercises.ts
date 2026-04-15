@@ -21,6 +21,10 @@ export const ALL_EXERCISES: Exercise[] = [
   { id: "beam:walk",              label: "Gång",         apparatus: ["beam"], speed: 2.0 },
   { id: "beam:jump",              label: "Hopp",         apparatus: ["beam"], speed: 1.4 },
   { id: "beam:stand",             label: "Stå",          apparatus: ["beam"], speed: 4.0 },
+  { id: "beam:arabesque",         label: "Arabesque",    apparatus: ["beam"], speed: 3.5 },
+  { id: "beam:tuck-jump",         label: "Knähopp",      apparatus: ["beam"], speed: 1.4 },
+  { id: "beam:pirouette",         label: "Pirouette",    apparatus: ["beam"], speed: 2.5 },
+  { id: "beam:stegserie-1",       label: "Stegserie 1",  apparatus: ["beam"], speed: 9.0 },
   // ── Ringar ──────────────────────────────────────────────────────────────
   { id: "rings:swing",            label: "Sving",        apparatus: ["rings", "rings-free"], speed: 1.8 },
   { id: "rings:cross",            label: "Kors",         apparatus: ["rings", "rings-free"], speed: 4.0 },
