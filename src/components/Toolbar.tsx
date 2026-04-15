@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Box,
   Download,
   FileText,
   FolderOpen,
@@ -10,6 +11,7 @@ import {
   Plus,
   Redo2,
   Save,
+  Square,
   Undo2,
 } from "lucide-react";
 import { useStore } from "zustand";
@@ -32,6 +34,8 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   const newPlan = usePlanStore((s) => s.newPlan);
   const snapToGrid = usePlanStore((s) => s.snapToGrid);
   const setSnapToGrid = usePlanStore((s) => s.setSnapToGrid);
+  const viewMode = usePlanStore((s) => s.viewMode);
+  const toggleViewMode = usePlanStore((s) => s.toggleViewMode);
 
   // Viktigt: välj primitiva fält var för sig så att Zustand 5 inte
   // kräver egen equality-funktion (annars → "getSnapshot should be cached").
@@ -134,6 +138,21 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           >
             <Grid3x3 size={16} />
           </IconButton>
+          <span className="mx-1 h-6 w-px bg-surface-3" />
+          <button
+            type="button"
+            onClick={toggleViewMode}
+            className={
+              "flex h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold transition " +
+              (viewMode === "3D"
+                ? "bg-accent text-white shadow-sm"
+                : "bg-surface-2 text-slate-700 hover:bg-surface-3")
+            }
+            title={viewMode === "3D" ? "Visa 2D-vy" : "Visa 3D-vy"}
+          >
+            {viewMode === "3D" ? <Box size={14} /> : <Square size={14} />}
+            <span>{viewMode}</span>
+          </button>
           <IconButton
             title="Passa vyn"
             onClick={() =>

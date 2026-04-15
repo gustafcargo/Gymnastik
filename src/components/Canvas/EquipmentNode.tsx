@@ -14,6 +14,7 @@ type Props = {
   hallWidthM: number;
   hallHeightM: number;
   isSelected: boolean;
+  is3D?: boolean;
   onSelect: () => void;
 };
 
@@ -27,6 +28,7 @@ export function EquipmentNode({
   hallWidthM,
   hallHeightM,
   isSelected,
+  is3D = false,
   onSelect,
 }: Props) {
   const type = EQUIPMENT_BY_ID[equipment.typeId];
@@ -124,7 +126,9 @@ export function EquipmentNode({
           type={type}
           widthPx={wPx}
           heightPx={hPx}
+          pxPerM={pxPerM}
           isSelected={isSelected}
+          is3D={is3D}
         />
 
         {/* Label med invers skala så texten aldrig växer/krymper */}
@@ -149,7 +153,7 @@ export function EquipmentNode({
         />
       </Group>
 
-      {isSelected && (
+      {isSelected && !is3D && (
         <Transformer
           ref={transformerRef}
           rotateEnabled
