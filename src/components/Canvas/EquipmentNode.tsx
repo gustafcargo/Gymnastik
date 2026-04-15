@@ -39,6 +39,7 @@ export function EquipmentNode({
   const transformEquipment = usePlanStore((s) => s.transformEquipment);
   const snapToGrid = usePlanStore((s) => s.snapToGrid);
   const snapStepM = usePlanStore((s) => s.snapStepM);
+  const showLabels = usePlanStore((s) => s.showLabels);
 
   useEffect(() => {
     if (!type) return;
@@ -112,26 +113,28 @@ export function EquipmentNode({
           colorOverride={equipment.customColor}
         />
 
-        {/* Label med invers skala så texten aldrig växer/krymper */}
-        <Text
-          ref={textRef}
-          x={wPx / 2}
-          y={hPx / 2}
-          offsetX={LABEL_BOX_WIDTH / 2}
-          offsetY={LABEL_FONT_SIZE / 2}
-          width={LABEL_BOX_WIDTH}
-          align="center"
-          text={equipment.label ?? type.name}
-          fontSize={LABEL_FONT_SIZE}
-          fontStyle="600"
-          fill="#0F172A"
-          shadowColor="#FFFFFF"
-          shadowBlur={4}
-          shadowOpacity={0.7}
-          scaleX={1 / (equipment.scaleX || 1)}
-          scaleY={1 / (equipment.scaleY || 1)}
-          listening={false}
-        />
+        {/* Label – visas om showLabels är på */}
+        {showLabels && (
+          <Text
+            ref={textRef}
+            x={wPx / 2}
+            y={hPx / 2}
+            offsetX={LABEL_BOX_WIDTH / 2}
+            offsetY={LABEL_FONT_SIZE / 2}
+            width={LABEL_BOX_WIDTH}
+            align="center"
+            text={equipment.label ?? type.name}
+            fontSize={LABEL_FONT_SIZE}
+            fontStyle="600"
+            fill="#0F172A"
+            shadowColor="#FFFFFF"
+            shadowBlur={4}
+            shadowOpacity={0.7}
+            scaleX={1 / (equipment.scaleX || 1)}
+            scaleY={1 / (equipment.scaleY || 1)}
+            listening={false}
+          />
+        )}
       </Group>
 
       {isSelected && !is3D && (

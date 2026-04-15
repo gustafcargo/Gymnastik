@@ -61,6 +61,7 @@ type PlanState = {
   snapStepM: number;
   viewMode: ViewMode;
   equipmentEditorOpen: boolean;
+  showLabels: boolean;
 };
 
 type PlanActions = {
@@ -94,12 +95,14 @@ type PlanActions = {
   toggleViewMode: () => void;
   openEquipmentEditor: () => void;
   closeEquipmentEditor: () => void;
+  toggleLabels: () => void;
 
   // stations
   addStation: (name?: string) => string;
   selectStation: (id: string) => void;
   renameStation: (id: string, name: string) => void;
   setStationDuration: (id: string, minutes: number) => void;
+  setStationNotes: (id: string, notes: string) => void;
   deleteStation: (id: string) => void;
   duplicateStation: (id: string) => string | undefined;
   reorderStations: (fromIndex: number, toIndex: number) => void;
@@ -162,6 +165,7 @@ export const usePlanStore = create<PlanStore>()(
       snapStepM: 0.25,
       viewMode: "3D" as ViewMode,
       equipmentEditorOpen: false,
+      showLabels: true,
 
       newPlan: (name) =>
         set(() => {
@@ -345,6 +349,7 @@ export const usePlanStore = create<PlanStore>()(
         set((s) => ({ viewMode: s.viewMode === "2D" ? "3D" : "2D" })),
       openEquipmentEditor: () => set({ equipmentEditorOpen: true }),
       closeEquipmentEditor: () => set({ equipmentEditorOpen: false }),
+      toggleLabels: () => set((s) => ({ showLabels: !s.showLabels })),
 
       addStation: (name) => {
         const state = get();
@@ -388,6 +393,17 @@ export const usePlanStore = create<PlanStore>()(
             ...s.plan,
             stations: s.plan.stations.map((st) =>
               st.id === id ? { ...st, durationMin: Math.max(1, minutes) } : st,
+            ),
+            updatedAt: Date.now(),
+          },
+        })),
+
+      setStationNotes: (id, notes) =>
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            stations: s.plan.stations.map((st) =>
+              st.id === id ? { ...st, notes: notes || undefined } : st,
             ),
             updatedAt: Date.now(),
           },
@@ -449,9 +465,10 @@ export const usePlanStore = create<PlanStore>()(
           snapStepM: _ss,
           viewMode: _vm,
           equipmentEditorOpen: _eo,
+          showLabels: _sl,
           ...rest
         } = state;
-        void _sel; void _s; void _ss; void _vm; void _eo;
+        void _sel; void _s; void _ss; void _vm; void _eo; void _sl;
         return rest;
       },
       limit: 100,
