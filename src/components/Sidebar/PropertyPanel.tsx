@@ -162,6 +162,15 @@ export function PropertyPanel({ onClose }: Props) {
           </div>
         </Field>
 
+        <Field label="Färg">
+          <ColorPicker
+            value={selected.customColor ?? type.color}
+            isCustom={!!selected.customColor}
+            onChange={(c) => updateEquipment(selected.id, { customColor: c })}
+            onReset={() => updateEquipment(selected.id, { customColor: undefined })}
+          />
+        </Field>
+
         <Field label="Anteckningar">
           <textarea
             value={selected.notes ?? ""}
@@ -234,6 +243,64 @@ function Field({
         {label}
       </label>
       {children}
+    </div>
+  );
+}
+
+const COLOR_PRESETS = [
+  "#CC2020", "#E86020", "#D4A020", "#4A9A38",
+  "#2878C0", "#7B4FA6", "#C04878", "#8C6240",
+  "#4F7A9A", "#252D3A", "#788C9E", "#E8EDF3",
+];
+
+function ColorPicker({
+  value,
+  isCustom,
+  onChange,
+  onReset,
+}: {
+  value: string;
+  isCustom: boolean;
+  onChange: (c: string) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-6 gap-1.5">
+        {COLOR_PRESETS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            title={c}
+            onClick={() => onChange(c)}
+            className="h-7 w-full rounded-md border transition hover:scale-110"
+            style={{
+              background: c,
+              borderColor: value === c ? "#0B3FA8" : "rgba(0,0,0,0.15)",
+              boxShadow: value === c ? "0 0 0 2px #3B82F6" : undefined,
+            }}
+          />
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 w-10 cursor-pointer rounded border border-surface-3 p-0.5"
+          title="Välj anpassad färg"
+        />
+        <span className="font-mono text-xs text-slate-500">{value.toUpperCase()}</span>
+        {isCustom && (
+          <button
+            type="button"
+            onClick={onReset}
+            className="ml-auto text-xs text-accent hover:underline"
+          >
+            Återställ
+          </button>
+        )}
+      </div>
     </div>
   );
 }

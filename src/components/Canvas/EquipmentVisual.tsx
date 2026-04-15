@@ -10,6 +10,7 @@ type Props = {
   pxPerM: number;
   isSelected: boolean;
   is3D?: boolean;
+  colorOverride?: string;
 };
 
 /**
@@ -23,6 +24,7 @@ export function EquipmentVisual({
   pxPerM,
   isSelected,
   is3D = false,
+  colorOverride,
 }: Props) {
   if (is3D) {
     return (
@@ -40,7 +42,7 @@ export function EquipmentVisual({
   }
   return (
     <Group>
-      {renderEquipment({ type, w: widthPx, h: heightPx, selected: isSelected })}
+      {renderEquipment({ type, w: widthPx, h: heightPx, selected: isSelected, colorOverride })}
     </Group>
   );
 }

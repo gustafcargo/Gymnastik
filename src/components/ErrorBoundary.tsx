@@ -1,6 +1,18 @@
 import { Component, type ReactNode } from "react";
+import { usePlanStore } from "../store/usePlanStore";
 
 type State = { error: Error | null };
+
+/** Returns true for WebGL errors that Three.js can throw during context
+ *  teardown – these are safe to swallow and recover from. */
+function isWebGLCleanupError(msg: string): boolean {
+  return (
+    msg.includes("index is not in the allowed range") ||
+    msg.includes("WebGL") ||
+    msg.includes("INVALID_OPERATION") ||
+    msg.includes("INVALID_VALUE")
+  );
+}
 
 /**
  * Visar ett tydligt felmeddelande vid oväntade fel, istället för en
@@ -13,10 +25,18 @@ export class ErrorBoundary extends Component<
   state: State = { error: null };
 
   static getDerivedStateFromError(error: Error): State {
+    // Silently recover from WebGL teardown errors – don't show crash screen
+    if (isWebGLCleanupError(error.message ?? "")) return { error: null };
     return { error };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
+    if (isWebGLCleanupError(error.message ?? "")) {
+      // Switch to 2D so the Canvas stops trying to render
+      console.warn("[ErrorBoundary] WebGL teardown error, switching to 2D:", error.message);
+      try { usePlanStore.getState().setViewMode("2D"); } catch { /* ignore */ }
+      return;
+    }
     // eslint-disable-next-line no-console
     console.error("[ErrorBoundary]", error, info.componentStack);
   }

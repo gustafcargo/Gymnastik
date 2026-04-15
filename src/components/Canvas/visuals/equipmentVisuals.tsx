@@ -7,6 +7,7 @@ type Props = {
   w: number;
   h: number;
   selected: boolean;
+  colorOverride?: string;
 };
 
 const sel = (s: boolean) => (s ? "#0B3FA8" : "#1F2937");
@@ -17,49 +18,50 @@ const SHADOW = (s: boolean) => ({
   shadowOffsetY: 4,
 });
 
-export function renderEquipment({ type, w, h, selected }: Props) {
+export function renderEquipment({ type, w, h, selected, colorOverride }: Props) {
   const kind = type.detail?.kind;
+  const c = colorOverride;
   switch (kind) {
     case "parallel-bars":
-      return <Bars w={w} h={h} selected={selected} />;
+      return <Bars w={w} h={h} selected={selected} color={c} />;
     case "high-bar":
-      return <HighBar w={w} h={h} selected={selected} />;
+      return <HighBar w={w} h={h} selected={selected} color={c} />;
     case "beam":
-      return <WoodVisual w={w} h={h} selected={selected} base="#B5894F" feltStripe />;
+      return <WoodVisual w={w} h={h} selected={selected} base={c ?? "#B5894F"} feltStripe />;
     case "pommel-horse":
-      return <PommelHorse w={w} h={h} selected={selected} />;
+      return <PommelHorse w={w} h={h} selected={selected} color={c} />;
     case "rings":
       return <RingsVisual w={w} h={h} selected={selected} />;
     case "vault":
-      return <Vault w={w} h={h} selected={selected} />;
+      return <Vault w={w} h={h} selected={selected} color={c} />;
     case "trampette":
     case "mini-tramp":
-      return <Trampette w={w} h={h} selected={selected} small={kind === "mini-tramp"} />;
+      return <Trampette w={w} h={h} selected={selected} small={kind === "mini-tramp"} color={c} />;
     case "tumbling-track":
       return (
         <MatVisual
           w={w}
           h={h}
           selected={selected}
-          base="#5A8C4A"
-          light="#8DBE7C"
-          dark="#3F6A33"
-          stitch="#C2E1B4"
+          base={c ?? "#5A8C4A"}
+          light={c ? lighten(c, 0.22) : "#8DBE7C"}
+          dark={c ? darken(c, 0.22) : "#3F6A33"}
+          stitch={c ? lighten(c, 0.45) : "#C2E1B4"}
         />
       );
     case "air-track":
-      return <AirTrack w={w} h={h} selected={selected} />;
+      return <AirTrack w={w} h={h} selected={selected} color={c} />;
     case "floor":
-      return <Floor w={w} h={h} selected={selected} />;
+      return <Floor w={w} h={h} selected={selected} color={c} />;
     case "thick-mat":
       return (
         <MatVisual
           w={w}
           h={h}
           selected={selected}
-          base="#4F86C7"
-          light="#7BA9DC"
-          dark="#2F5A8E"
+          base={c ?? "#4F86C7"}
+          light={c ? lighten(c, 0.22) : "#7BA9DC"}
+          dark={c ? darken(c, 0.22) : "#2F5A8E"}
         />
       );
     case "landing-mat":
@@ -68,25 +70,25 @@ export function renderEquipment({ type, w, h, selected }: Props) {
           w={w}
           h={h}
           selected={selected}
-          base="#D48850"
-          light="#E8AB7C"
-          dark="#9A5A2E"
-          stitch="#F2C9A6"
+          base={c ?? "#D48850"}
+          light={c ? lighten(c, 0.22) : "#E8AB7C"}
+          dark={c ? darken(c, 0.22) : "#9A5A2E"}
+          stitch={c ? lighten(c, 0.45) : "#F2C9A6"}
         />
       );
     case "plinth":
-      return <Plinth w={w} h={h} selected={selected} />;
+      return <Plinth w={w} h={h} selected={selected} color={c} />;
     case "buck":
-      return <WoodVisual w={w} h={h} selected={selected} base="#A47551" />;
+      return <WoodVisual w={w} h={h} selected={selected} base={c ?? "#A47551"} />;
     case "foam-pit":
-      return <FoamPit w={w} h={h} selected={selected} />;
+      return <FoamPit w={w} h={h} selected={selected} color={c} />;
     default:
       return (
         <Rect
           width={w}
           height={h}
           cornerRadius={6}
-          fill={type.color}
+          fill={c ?? type.color}
           stroke={sel(selected)}
           strokeWidth={selected ? 2 : 1}
           {...SHADOW(selected)}
@@ -95,7 +97,7 @@ export function renderEquipment({ type, w, h, selected }: Props) {
   }
 }
 
-function Bars({ w, h, selected }: { w: number; h: number; selected: boolean }) {
+function Bars({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
   const r = Math.min(8, Math.min(w, h) * 0.1);
   const barH = Math.max(3, h * 0.12);
   const barY1 = h * 0.28 - barH / 2;
@@ -107,7 +109,7 @@ function Bars({ w, h, selected }: { w: number; h: number; selected: boolean }) {
         width={w}
         height={h}
         cornerRadius={r}
-        fill="#EAD9B8"
+        fill={color ?? "#EAD9B8"}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.8}
         {...SHADOW(selected)}
@@ -155,7 +157,7 @@ function Bars({ w, h, selected }: { w: number; h: number; selected: boolean }) {
   );
 }
 
-function HighBar({ w, h, selected }: { w: number; h: number; selected: boolean }) {
+function HighBar({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
   const r = Math.min(8, Math.min(w, h) * 0.1);
   const postW = Math.max(4, w * 0.06);
   return (
@@ -164,7 +166,7 @@ function HighBar({ w, h, selected }: { w: number; h: number; selected: boolean }
         width={w}
         height={h}
         cornerRadius={r}
-        fill="#E1E5EB"
+        fill={color ?? "#E1E5EB"}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.8}
         {...SHADOW(selected)}
@@ -211,8 +213,9 @@ function HighBar({ w, h, selected }: { w: number; h: number; selected: boolean }
   );
 }
 
-function PommelHorse({ w, h, selected }: { w: number; h: number; selected: boolean }) {
+function PommelHorse({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
   const r = Math.min(h * 0.45, w * 0.2);
+  const base = color ?? "#8B6B4F";
   return (
     <Group>
       <Rect
@@ -230,7 +233,7 @@ function PommelHorse({ w, h, selected }: { w: number; h: number; selected: boole
         cornerRadius={r}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
         fillLinearGradientEndPoint={{ x: 0, y: h }}
-        fillLinearGradientColorStops={[0, "#A98567", 0.5, "#8B6B4F", 1, "#5C4632"]}
+        fillLinearGradientColorStops={[0, lighten(base, 0.22), 0.5, base, 1, darken(base, 0.28)]}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.9}
         {...SHADOW(selected)}
@@ -259,8 +262,9 @@ function PommelHorse({ w, h, selected }: { w: number; h: number; selected: boole
   );
 }
 
-function Vault({ w, h, selected }: { w: number; h: number; selected: boolean }) {
+function Vault({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
   const r = Math.min(w, h) * 0.4;
+  const base = color ?? "#8F5C3D";
   return (
     <Group>
       <Rect
@@ -278,7 +282,7 @@ function Vault({ w, h, selected }: { w: number; h: number; selected: boolean }) 
         cornerRadius={r}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
         fillLinearGradientEndPoint={{ x: 0, y: h }}
-        fillLinearGradientColorStops={[0, "#B07650", 0.5, "#8F5C3D", 1, "#5C3A24"]}
+        fillLinearGradientColorStops={[0, lighten(base, 0.22), 0.5, base, 1, darken(base, 0.28)]}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.9}
         {...SHADOW(selected)}
@@ -308,9 +312,10 @@ function Vault({ w, h, selected }: { w: number; h: number; selected: boolean }) 
   );
 }
 
-function Trampette({ w, h, selected, small }: { w: number; h: number; selected: boolean; small: boolean }) {
+function Trampette({ w, h, selected, small, color }: { w: number; h: number; selected: boolean; small: boolean; color?: string }) {
   const r = Math.min(8, Math.min(w, h) * 0.1);
   const inset = Math.min(w, h) * (small ? 0.14 : 0.18);
+  const bedColor = color ?? "#DC2626";
   return (
     <Group>
       {/* Mörk ram */}
@@ -336,7 +341,7 @@ function Trampette({ w, h, selected, small }: { w: number; h: number; selected: 
         fillRadialGradientEndPoint={{ x: (w - inset * 2) / 2, y: (h - inset * 2) / 2 }}
         fillRadialGradientStartRadius={0}
         fillRadialGradientEndRadius={Math.max(w, h) * 0.6}
-        fillRadialGradientColorStops={[0, "#F87171", 0.7, "#DC2626", 1, "#7F1D1D"]}
+        fillRadialGradientColorStops={[0, lighten(bedColor, 0.3), 0.7, bedColor, 1, darken(bedColor, 0.35)]}
       />
       {/* Fjäder/bungee-mönster */}
       {Array.from({ length: 12 }).map((_, i) => {
@@ -368,9 +373,10 @@ function Trampette({ w, h, selected, small }: { w: number; h: number; selected: 
   );
 }
 
-function AirTrack({ w, h, selected }: { w: number; h: number; selected: boolean }) {
-  const r = h * 0.45;
+function AirTrack({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
+  const r = Math.max(0, Math.min(h * 0.45, w * 0.45));
   const ribCount = Math.max(4, Math.round(w / 24));
+  const base = color ?? "#2B8AC6";
   return (
     <Group>
       <Rect
@@ -388,7 +394,7 @@ function AirTrack({ w, h, selected }: { w: number; h: number; selected: boolean 
         cornerRadius={r}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
         fillLinearGradientEndPoint={{ x: 0, y: h }}
-        fillLinearGradientColorStops={[0, "#5DB2E0", 0.5, "#2B8AC6", 1, "#155F8E"]}
+        fillLinearGradientColorStops={[0, lighten(base, 0.3), 0.5, base, 1, darken(base, 0.35)]}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.9}
         {...SHADOW(selected)}
@@ -419,8 +425,9 @@ function AirTrack({ w, h, selected }: { w: number; h: number; selected: boolean 
   );
 }
 
-function Floor({ w, h, selected }: { w: number; h: number; selected: boolean }) {
+function Floor({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
   const r = Math.min(w, h) * 0.04;
+  const base = color ?? "#A4C7A6";
   return (
     <Group>
       <Rect
@@ -429,7 +436,7 @@ function Floor({ w, h, selected }: { w: number; h: number; selected: boolean }) 
         cornerRadius={r}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
         fillLinearGradientEndPoint={{ x: w, y: h }}
-        fillLinearGradientColorStops={[0, "#C5DEC8", 0.5, "#A4C7A6", 1, "#7AA37D"]}
+        fillLinearGradientColorStops={[0, lighten(base, 0.22), 0.5, base, 1, darken(base, 0.22)]}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.9}
         {...SHADOW(selected)}
@@ -459,9 +466,10 @@ function Floor({ w, h, selected }: { w: number; h: number; selected: boolean }) 
   );
 }
 
-function Plinth({ w, h, selected }: { w: number; h: number; selected: boolean }) {
+function Plinth({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
   const r = Math.min(w, h) * 0.1;
   const layers = 4;
+  const base = color ?? "#B7895B";
   return (
     <Group>
       <Rect
@@ -482,11 +490,11 @@ function Plinth({ w, h, selected }: { w: number; h: number; selected: boolean })
         fillLinearGradientEndPoint={{ x: 0, y: h }}
         fillLinearGradientColorStops={[
           0,
-          lighten("#B7895B", 0.2),
+          lighten(base, 0.2),
           0.5,
-          "#B7895B",
+          base,
           1,
-          darken("#B7895B", 0.25),
+          darken(base, 0.25),
         ]}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.9}
@@ -515,13 +523,16 @@ function Plinth({ w, h, selected }: { w: number; h: number; selected: boolean })
   );
 }
 
-function FoamPit({ w, h, selected }: { w: number; h: number; selected: boolean }) {
+function FoamPit({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
   const r = Math.min(w, h) * 0.05;
   const cols = Math.max(4, Math.round(w / 30));
   const rows = Math.max(3, Math.round(h / 30));
   const cellW = w / cols;
   const cellH = h / rows;
-  const colors = ["#B5DBA4", "#86C26F", "#6E8C5E", "#9CCB89"];
+  const base = color ?? "#86C26F";
+  const colors = color
+    ? [lighten(base, 0.2), base, darken(base, 0.12), lighten(base, 0.1)]
+    : (["#B5DBA4", "#86C26F", "#6E8C5E", "#9CCB89"] as string[]);
   const blocks = [];
   for (let r0 = 0; r0 < rows; r0++) {
     for (let c = 0; c < cols; c++) {

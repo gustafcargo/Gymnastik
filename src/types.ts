@@ -50,6 +50,8 @@ export type PlacedEquipment = {
   scaleY: number;
   notes?: string;
   label?: string;
+  /** Valfri färgöverlagring (hex) för 2D- och 3D-vyn. */
+  customColor?: string;
 };
 
 export type HallTemplate = {

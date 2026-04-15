@@ -71,12 +71,10 @@ export function HallStage({ className, onStageReady }: Props) {
     if (stageRef.current && onStageReady) onStageReady(stageRef.current);
   }, [onStageReady]);
 
-  // Zoom med mushjul (Ctrl/Cmd) + trackpad-pinch
+  // Zoom med mushjul + trackpad-pinch
   const handleWheel = useCallback((e: KonvaEventObject<WheelEvent>) => {
     const stage = stageRef.current;
     if (!stage) return;
-    // Trackpad pinch sends ctrlKey=true with wheel; normal wheel = pan
-    if (!e.evt.ctrlKey && !e.evt.metaKey) return;
     e.evt.preventDefault();
     const scaleBy = 1.08;
     const pointer = stage.getPointerPosition();
@@ -139,9 +137,13 @@ export function HallStage({ className, onStageReady }: Props) {
   const isEmpty = !activeStation?.equipment.length;
 
   return (
+    // Outer div takes the className from App (e.g. "absolute inset-0") for
+    // positioning. Inner div is "h-full w-full relative" so the ResizeObserver
+    // measures the true available area and the isEmpty overlay is contained.
+    <div className={className}>
     <div
       ref={containerRef}
-      className={className + " relative"}
+      className="h-full w-full relative"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       style={{ touchAction: "none" }}
@@ -196,6 +198,7 @@ export function HallStage({ className, onStageReady }: Props) {
           </Group>
         </Layer>
       </Stage>
+    </div>
     </div>
   );
 }
