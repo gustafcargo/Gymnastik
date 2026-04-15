@@ -172,17 +172,6 @@ export default function App() {
       {/* ── Tablet layout: overlay slide-in panels ── */}
       {isTablet && (
         <div className="relative flex min-h-0 flex-1">
-          {/* Backdrop – closes whichever panel is open */}
-          {(paletteOpen || propertyOpen) && (
-            <div
-              className="absolute inset-0 z-20 bg-black/30"
-              onClick={() => {
-                setPaletteOpen(false);
-                setPropertyOpen(false);
-              }}
-            />
-          )}
-
           {/* Left: equipment palette */}
           <aside
             className="absolute inset-y-0 left-0 z-30 flex w-72 flex-col overflow-hidden border-r border-surface-3 bg-surface-1 shadow-2xl transition-transform duration-300"
