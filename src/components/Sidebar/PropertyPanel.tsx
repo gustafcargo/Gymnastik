@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { BookmarkPlus, Copy, RotateCw, Trash2, X } from "lucide-react";
+import { BookmarkPlus, Copy, Plus, RotateCw, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
 import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
 import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
+import { exercisesForKind } from "../../catalog/exercises";
+import type { Exercise } from "../../catalog/exercises";
 import { formatMeters } from "../../lib/geometry";
+import type { GymnastConfig } from "../../types";
 
 type Props = {
   onClose?: () => void;
@@ -19,6 +22,10 @@ export function PropertyPanel({ onClose }: Props) {
   const deleteEquipment = usePlanStore((s) => s.deleteEquipment);
   const duplicateEquipment = usePlanStore((s) => s.duplicateEquipment);
   const rotateEquipment = usePlanStore((s) => s.rotateEquipment);
+
+  const addGymnast    = usePlanStore((s) => s.addGymnast);
+  const removeGymnast = usePlanStore((s) => s.removeGymnast);
+  const updateGymnast = usePlanStore((s) => s.updateGymnast);
 
   const addTemplate = useSavedEquipmentStore((s) => s.addTemplate);
   const updateTemplateFn = useSavedEquipmentStore((s) => s.updateTemplate);
@@ -300,6 +307,26 @@ export function PropertyPanel({ onClose }: Props) {
             }}
           />
         )}
+
+        {(() => {
+          const kind = type.detail?.kind ?? "";
+          const exercises = kind ? exercisesForKind(kind) : [];
+          if (exercises.length === 0) return null;
+          return (
+            <GymnastsSection
+              gymnasts={selected.gymnasts ?? []}
+              exercises={exercises}
+              onAdd={() =>
+                addGymnast(selected.id, {
+                  exerciseId: exercises[0].id,
+                  color: "#C2185B",
+                })
+              }
+              onRemove={(gid) => removeGymnast(selected.id, gid)}
+              onUpdate={(gid, patch) => updateGymnast(selected.id, gid, patch)}
+            />
+          );
+        })()}
 
         <Field label="Anteckningar">
           <textarea
@@ -590,6 +617,70 @@ function ColorPicker({
         )}
       </div>
     </div>
+  );
+}
+
+function GymnastsSection({
+  gymnasts,
+  exercises,
+  onAdd,
+  onRemove,
+  onUpdate,
+}: {
+  gymnasts: GymnastConfig[];
+  exercises: Exercise[];
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, patch: Partial<GymnastConfig>) => void;
+}) {
+  const MAX = 3;
+  return (
+    <Field label="Gymnaster">
+      <div className="space-y-2">
+        {gymnasts.map((g) => (
+          <div
+            key={g.id}
+            className="flex items-center gap-2 rounded-lg border border-surface-3 bg-surface-2 p-2"
+          >
+            <input
+              type="color"
+              value={g.color ?? "#C2185B"}
+              onChange={(e) => onUpdate(g.id, { color: e.target.value })}
+              className="h-7 w-8 shrink-0 cursor-pointer rounded border border-surface-3 p-0.5"
+              title="Dräktfärg"
+            />
+            <select
+              value={g.exerciseId}
+              onChange={(e) => onUpdate(g.id, { exerciseId: e.target.value })}
+              className="min-w-0 flex-1 rounded-md border border-surface-3 bg-white py-1 pl-2 pr-1 text-sm outline-none focus:border-accent"
+            >
+              {exercises.map((ex) => (
+                <option key={ex.id} value={ex.id}>
+                  {ex.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => onRemove(g.id)}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+              title="Ta bort"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        ))}
+        {gymnasts.length < MAX && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-surface-3 py-2 text-sm text-slate-500 transition hover:border-accent hover:text-accent"
+          >
+            <Plus size={14} /> Lägg till gymnast
+          </button>
+        )}
+      </div>
+    </Field>
   );
 }
 

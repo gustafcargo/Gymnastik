@@ -3,6 +3,7 @@ import { temporal } from "zundo";
 import { nanoid } from "nanoid";
 import type {
   EquipmentType,
+  GymnastConfig,
   HallTemplate,
   PlacedEquipment,
   Plan,
@@ -37,6 +38,11 @@ const STACKABLE_SURFACE_KINDS = new Set([
 /** Return the physical top surface height for any stackable piece. */
 function surfaceHeight(eq: PlacedEquipment, eqType: EquipmentType): number {
   const kind = eqType.detail?.kind ?? "";
+  // For bench/plinth tilted on their side the rotated dimension becomes the height.
+  if (kind === "gym-bench" || kind === "plinth") {
+    if (eq.orientation === "on-long-side")  return (eq.z ?? 0) + eqType.widthM  * eq.scaleX;
+    if (eq.orientation === "on-short-side") return (eq.z ?? 0) + eqType.heightM * eq.scaleY;
+  }
   if (kind === "tumbling-track" || kind === "air-track") {
     return (eq.z ?? 0) + (eq.params?.trackH ?? eqType.physicalHeightM);
   }
@@ -45,6 +51,33 @@ function surfaceHeight(eq: PlacedEquipment, eqType: EquipmentType): number {
   }
   // floor, bench, plinth and any other surface: use physicalHeightM
   return (eq.z ?? 0) + eqType.physicalHeightM;
+}
+
+/**
+ * Find the highest stackable surface under (x,y) and return it together with
+ * its EquipmentType.  Returns null when nothing is underneath.
+ */
+function findTopSurface(
+  station: Station,
+  excludeId: string,
+  x: number,
+  y: number,
+  type: EquipmentType,
+): { eq: PlacedEquipment; eqType: EquipmentType } | null {
+  let maxTop = 0;
+  let result: { eq: PlacedEquipment; eqType: EquipmentType } | null = null;
+  for (const eq of station.equipment) {
+    if (eq.id === excludeId) continue;
+    const eqType = getEquipmentById(eq.typeId);
+    if (!eqType || !STACKABLE_SURFACE_KINDS.has(eqType.detail?.kind ?? "")) continue;
+    const threshW = (type.widthM + eqType.widthM) * 0.5;
+    const threshD = (type.heightM + eqType.heightM) * 0.5;
+    if (Math.abs(eq.x - x) < threshW && Math.abs(eq.y - y) < threshD) {
+      const top = surfaceHeight(eq, eqType);
+      if (top > maxTop) { maxTop = top; result = { eq, eqType }; }
+    }
+  }
+  return result;
 }
 
 /**
@@ -117,6 +150,11 @@ type PlanActions = {
   duplicateEquipment: (id: string) => string | undefined;
   rotateEquipment: (id: string, deltaDeg: number) => void;
   setEquipmentNoteOffset: (id: string, offset: { x: number; y: number }) => void;
+
+  // gymnasts
+  addGymnast: (equipmentId: string, config: Omit<GymnastConfig, "id">) => void;
+  removeGymnast: (equipmentId: string, gymnastId: string) => void;
+  updateGymnast: (equipmentId: string, gymnastId: string, patch: Partial<GymnastConfig>) => void;
 
   // selection & settings
   selectEquipment: (id: string | null) => void;
@@ -304,8 +342,25 @@ export const usePlanStore = create<PlanStore>()(
               isMatKind && type
                 ? getMatStackZ(st, id, x, y, type)
                 : eq.z;
+            // Inherit tilt from an underlying tilted bench/plinth; revert to flat
+            // when placed on a non-tilted surface or directly on the floor.
+            let newOrientation = eq.orientation;
+            if (isMatKind && type) {
+              const surface = findTopSurface(st, id, x, y, type);
+              const surfKind = surface?.eqType.detail?.kind ?? "";
+              if (
+                surface &&
+                (surfKind === "gym-bench" || surfKind === "plinth") &&
+                surface.eq.orientation &&
+                surface.eq.orientation !== "normal"
+              ) {
+                newOrientation = surface.eq.orientation;
+              } else {
+                newOrientation = undefined; // flat surface or floor → go flat
+              }
+            }
             // Always bring the moved item to end of array so it renders on top
-            const updated = { ...eq, x, y, z: newZ };
+            const updated = { ...eq, x, y, z: newZ, orientation: newOrientation };
             return {
               ...st,
               equipment: [...st.equipment.filter((e) => e.id !== id), updated],
@@ -388,6 +443,46 @@ export const usePlanStore = create<PlanStore>()(
             ),
           })),
         })),
+
+      addGymnast: (equipmentId, config) => {
+        const state = get();
+        const station = state.plan.stations.find(
+          (s) => s.id === state.plan.activeStationId,
+        );
+        const eq = station?.equipment.find((e) => e.id === equipmentId);
+        if (!eq) return;
+        const gymnasts: GymnastConfig[] = [
+          ...(eq.gymnasts ?? []),
+          { id: nanoid(), ...config },
+        ];
+        state.updateEquipment(equipmentId, { gymnasts });
+      },
+
+      removeGymnast: (equipmentId, gymnastId) => {
+        const state = get();
+        const station = state.plan.stations.find(
+          (s) => s.id === state.plan.activeStationId,
+        );
+        const eq = station?.equipment.find((e) => e.id === equipmentId);
+        if (!eq) return;
+        const gymnasts = (eq.gymnasts ?? []).filter((g) => g.id !== gymnastId);
+        state.updateEquipment(equipmentId, {
+          gymnasts: gymnasts.length ? gymnasts : undefined,
+        });
+      },
+
+      updateGymnast: (equipmentId, gymnastId, patch) => {
+        const state = get();
+        const station = state.plan.stations.find(
+          (s) => s.id === state.plan.activeStationId,
+        );
+        const eq = station?.equipment.find((e) => e.id === equipmentId);
+        if (!eq) return;
+        const gymnasts = (eq.gymnasts ?? []).map((g) =>
+          g.id === gymnastId ? { ...g, ...patch } : g,
+        );
+        state.updateEquipment(equipmentId, { gymnasts });
+      },
 
       selectEquipment: (id) => set({ selectedEquipmentId: id }),
       setSnapToGrid: (enabled) => set({ snapToGrid: enabled }),
