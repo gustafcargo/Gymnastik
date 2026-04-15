@@ -110,7 +110,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
             type="text"
             value={plan.name}
             onChange={(e) => renamePlan(e.target.value)}
-            className="w-40 border-b border-transparent bg-transparent text-sm font-semibold outline-none focus:border-accent sm:w-64"
+            className="w-24 border-b border-transparent bg-transparent text-sm font-semibold outline-none focus:border-accent sm:w-64"
             aria-label="Passets namn"
           />
         </div>
@@ -165,7 +165,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           <span>{viewMode}</span>
         </button>
 
-        <div className="hidden md:block">
+        <div className="min-w-0">
           <label className="sr-only" htmlFor="hall-select">
             Hallmall
           </label>
@@ -176,11 +176,12 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
               const h = HALL_TEMPLATES.find((h) => h.id === e.target.value);
               if (h) setHall(h);
             }}
-            className="rounded-md border border-surface-3 bg-surface-2 px-2 py-1.5 text-sm outline-none focus:border-accent"
+            className="max-w-[160px] truncate rounded-md border border-surface-3 bg-surface-2 px-2 py-1.5 text-xs font-medium outline-none focus:border-accent sm:text-sm"
+            title={plan.hall.name}
           >
             {HALL_TEMPLATES.map((h) => (
               <option key={h.id} value={h.id}>
-                {h.name}
+                {`${h.widthM} × ${h.heightM} m`}
               </option>
             ))}
           </select>
