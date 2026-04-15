@@ -29,6 +29,7 @@ function HallScene({ W, H }: { W: number; H: number }) {
   const moveEquipment = usePlanStore((s) => s.moveEquipment);
   const updateEquipment = usePlanStore((s) => s.updateEquipment);
   const showLabels = usePlanStore((s) => s.showLabels);
+  const showNotes = usePlanStore((s) => s.showNotes);
   const snapToGrid = usePlanStore((s) => s.snapToGrid);
   const setEquipmentNoteOffset = usePlanStore((s) => s.setEquipmentNoteOffset);
 
@@ -420,7 +421,7 @@ function HallScene({ W, H }: { W: number; H: number }) {
               </Html>
             )}
             {/* Note bubble */}
-            {showLabels && eq.notes && (showThisLabel || !sInfo) && (
+            {showNotes && eq.notes && (showThisLabel || !sInfo) && (
               <>
                 {/* Dashed connector line from equipment top-center to bubble */}
                 <Line

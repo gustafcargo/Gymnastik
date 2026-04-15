@@ -12,6 +12,7 @@ import {
   Redo2,
   Save,
   Square,
+  MessageSquare,
   Tag,
   Undo2,
 } from "lucide-react";
@@ -39,6 +40,8 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   const toggleViewMode = usePlanStore((s) => s.toggleViewMode);
   const showLabels = usePlanStore((s) => s.showLabels);
   const toggleLabels = usePlanStore((s) => s.toggleLabels);
+  const showNotes = usePlanStore((s) => s.showNotes);
+  const toggleNotes = usePlanStore((s) => s.toggleNotes);
 
   // Viktigt: välj primitiva fält var för sig så att Zustand 5 inte
   // kräver egen equality-funktion (annars → "getSnapshot should be cached").
@@ -152,6 +155,13 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
             active={showLabels}
           >
             <Tag size={16} />
+          </IconButton>
+          <IconButton
+            title={showNotes ? "Anteckningar: på" : "Anteckningar: av"}
+            onClick={toggleNotes}
+            active={showNotes}
+          >
+            <MessageSquare size={16} />
           </IconButton>
           <IconButton
             title="Passa vyn"

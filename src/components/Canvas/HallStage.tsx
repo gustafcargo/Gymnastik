@@ -29,7 +29,7 @@ export function HallStage({ className, onStageReady }: Props) {
   const addEquipment = usePlanStore((s) => s.addEquipment);
   const updateEquipment = usePlanStore((s) => s.updateEquipment);
   const setEquipmentNoteOffset = usePlanStore((s) => s.setEquipmentNoteOffset);
-  const showLabels = usePlanStore((s) => s.showLabels);
+  const showNotes = usePlanStore((s) => s.showNotes);
 
   const stackInfo = useMemo(
     () => computeStackInfo(activeStation?.equipment ?? []),
@@ -253,7 +253,7 @@ export function HallStage({ className, onStageReady }: Props) {
         </Layer>
 
         {/* Note bubbles – separate layer so they render above equipment */}
-        {showLabels && (
+        {showNotes && (
           <Layer>
             <Group x={fitOffset.x} y={fitOffset.y}>
               {activeStation?.equipment.map((eq) => {
