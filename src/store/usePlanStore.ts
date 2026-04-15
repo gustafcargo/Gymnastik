@@ -17,8 +17,11 @@ import { clampToHall } from "../lib/geometry";
 // Mat auto-stacking
 // ---------------------------------------------------------------------------
 
-/** Kinds that can be placed ON another surface (auto-stack on placement/move). */
-const MAT_KINDS = new Set(["thick-mat", "landing-mat"]);
+/** Kinds that auto-adjust their Z when placed on top of another surface. */
+const MAT_KINDS = new Set([
+  "thick-mat", "landing-mat",
+  "tumbling-track", "air-track",
+]);
 
 /**
  * Kinds that act as stackable surfaces — other mats can land on top of them.

@@ -244,10 +244,12 @@ function HallScene({ W, H }: { W: number; H: number }) {
 
   return (
     <>
-      <ambientLight intensity={0.4} />
+      {/* Reduced ambient so dark faces stay dark — cube-like shading */}
+      <ambientLight intensity={0.18} />
+      {/* Primary sun – strong, single direction for clear face differentiation */}
       <directionalLight
-        position={[W * 0.4, Math.max(W, H) * 1.2, H * 0.3]}
-        intensity={1.8}
+        position={[W * 0.5, Math.max(W, H) * 1.3, H * 0.4]}
+        intensity={2.8}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0003}
@@ -258,7 +260,9 @@ function HallScene({ W, H }: { W: number; H: number }) {
         shadow-camera-near={0.5}
         shadow-camera-far={Math.max(W, H) * 4}
       />
-      <hemisphereLight intensity={0.3} groundColor="#5a6570" color="#c8d8e8" />
+      {/* Soft fill from the opposite side — just enough to see shadow faces */}
+      <directionalLight position={[-W * 0.3, Math.max(W, H) * 0.5, -H * 0.2]} intensity={0.5} />
+      <hemisphereLight intensity={0.15} groundColor="#3a4550" color="#b0c0cc" />
 
       {/* Hallgolv */}
       <mesh
@@ -520,7 +524,7 @@ export function Hall3D({ className }: Props) {
         <fog attach="fog" args={["#DDE3E8", camDist * 1.4, camDist * 3]} />
 
         <Suspense fallback={null}>
-          <Environment preset="city" background={false} environmentIntensity={0.6} />
+          <Environment preset="city" background={false} environmentIntensity={0.15} />
         </Suspense>
 
         <HallScene W={W} H={H} />

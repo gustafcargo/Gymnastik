@@ -68,7 +68,7 @@ export const EQUIPMENT_CATALOG: EquipmentType[] = [
   },
   {
     id: "ringar",
-    name: "Ringar",
+    name: "Ringar (med ställning)",
     category: "redskap",
     widthM: 2.4,
     heightM: 2.4,
@@ -76,11 +76,11 @@ export const EQUIPMENT_CATALOG: EquipmentType[] = [
     color: "#8E4040",
     shape: "roundedRect",
     detail: { kind: "rings" },
-    description: "Ringar. Ringarnas höjd: 2.5 m, ramhöjd: ~5.5 m.",
+    description: "Ringar med ställning. Ringarnas höjd: 2.5 m, ramhöjd: ~5.5 m.",
   },
   {
     id: "ringar-fri",
-    name: "Ringar (utan ställning)",
+    name: "Ringar",
     category: "redskap",
     widthM: 0.8,
     heightM: 0.8,
