@@ -96,6 +96,18 @@ export function EquipmentNode({
       ? `${baseLabel} ×${stackInfo.count}`
       : baseLabel;
 
+  const dragBoundFunc = (pos: { x: number; y: number }) => {
+    const clamped = clampToHall(
+      pos.x / pxPerM,
+      pos.y / pxPerM,
+      type.widthM * equipment.scaleX,
+      type.heightM * equipment.scaleY,
+      hallWidthM,
+      hallHeightM,
+    );
+    return { x: clamped.x * pxPerM, y: clamped.y * pxPerM };
+  };
+
   return (
     <>
       <Group
@@ -106,6 +118,7 @@ export function EquipmentNode({
         scaleX={equipment.scaleX}
         scaleY={equipment.scaleY}
         draggable
+        dragBoundFunc={dragBoundFunc}
         onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
         onMouseDown={onSelect}

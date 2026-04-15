@@ -6,7 +6,6 @@ import { usePlanStore } from "../../store/usePlanStore";
 import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
-import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
 import { Equipment3D } from "../Canvas3D/Equipment3D";
 
 const COLOR_PRESETS = [
@@ -53,7 +52,6 @@ export function EquipmentEditor() {
 
   const kind = type.detail?.kind;
   const parts = kind ? EQUIPMENT_PARTS[kind] : undefined;
-  const paramDefs = kind ? EQUIPMENT_PARAMS[kind] : undefined;
 
   const maxDim = Math.max(type.widthM, type.heightM, type.physicalHeightM, 0.5);
   const camDist = maxDim * 2.5;
@@ -204,41 +202,6 @@ export function EquipmentEditor() {
               />
             </Section>
 
-            {/* Orientation */}
-            <Section label="Orientering">
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                {(
-                  [
-                    { value: "normal",       label: "Upprätt" },
-                    { value: "upside-down",  label: "Upp-och-ned" },
-                    { value: "on-long-side", label: "På lång sida" },
-                    { value: "on-short-side",label: "På kortsida" },
-                  ] as const
-                ).map(({ value, label }) => {
-                  const current = selected.orientation ?? "normal";
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() =>
-                        updateEquipment(selected.id, {
-                          orientation: value === "normal" ? undefined : value,
-                        })
-                      }
-                      className={
-                        "rounded-lg border px-2 py-1.5 text-xs font-medium transition " +
-                        (current === value
-                          ? "border-blue-500 bg-blue-900/50 text-blue-300"
-                          : "border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-500 hover:text-slate-200")
-                      }
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </Section>
-
             {/* Z-height for stacking */}
             <Section label="Höjd från golvet (m)">
               <div className="flex items-center gap-3">
@@ -371,67 +334,6 @@ export function EquipmentEditor() {
                               />
                             ))}
                           </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Section>
-            )}
-
-            {/* Geometry params */}
-            {paramDefs && paramDefs.length > 0 && (
-              <Section label="Geometriparametrar">
-                <div className="space-y-4">
-                  {paramDefs.map((def) => {
-                    const value = selected.params?.[def.key] ?? def.defaultValue;
-                    return (
-                      <div key={def.key}>
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className="text-xs font-medium text-slate-400">
-                            {def.label}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs text-slate-400">
-                              {value.toFixed(2)} {def.unit}
-                            </span>
-                            {selected.params?.[def.key] !== undefined && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const { [def.key]: _, ...rest } = selected.params ?? {};
-                                  void _;
-                                  updateEquipment(selected.id, {
-                                    params: Object.keys(rest).length ? rest : undefined,
-                                  });
-                                }}
-                                className="text-xs text-blue-400 hover:underline"
-                              >
-                                Återställ
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <input
-                          type="range"
-                          min={def.min}
-                          max={def.max}
-                          step={def.step}
-                          value={value}
-                          onChange={(e) =>
-                            updateEquipment(selected.id, {
-                              params: { ...selected.params, [def.key]: Number(e.target.value) },
-                            })
-                          }
-                          className="w-full accent-blue-500"
-                        />
-                        <div className="flex justify-between text-[10px] text-slate-600">
-                          <span>
-                            {def.min} {def.unit}
-                          </span>
-                          <span>
-                            {def.max} {def.unit}
-                          </span>
                         </div>
                       </div>
                     );

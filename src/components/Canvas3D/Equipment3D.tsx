@@ -168,7 +168,7 @@ function ParallelBars({
         postXs.map((x, i) => (
           <mesh key={`post-${z}-${i}`} position={[x, h / 2 + baseH, z]} castShadow>
             <cylinderGeometry args={[postR, postR * 1.12, h, 14]} />
-            <meshPhysicalMaterial color={frameColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
+            <meshPhysicalMaterial color={frameColor} roughness={0.12} metalness={0.45} clearcoat={0.4} clearcoatRoughness={0.12} />
           </mesh>
         ))
       )}
@@ -231,7 +231,7 @@ function HighBar({
         <group key={`up-${i}`}>
           <mesh position={[x, barH / 2 + baseH, 0]} castShadow>
             <cylinderGeometry args={[postR, postR * 1.14, barH, 16]} />
-            <meshPhysicalMaterial color={postColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
+            <meshPhysicalMaterial color={postColor} roughness={0.12} metalness={0.45} clearcoat={0.4} clearcoatRoughness={0.12} />
           </mesh>
           {/* Top mount bracket */}
           <mesh position={[x, barH + baseH, 0]} castShadow>
@@ -317,12 +317,12 @@ function Beam({
           {/* Outer fixed post – slim red round tube, lower section */}
           <mesh position={[0, pedestalH * 0.42, 0]} castShadow>
             <cylinderGeometry args={[0.034, 0.038, pedestalH * 0.80, 16]} />
-            <meshPhysicalMaterial color={postColor} roughness={0.10} metalness={0.92} clearcoat={0.5} clearcoatRoughness={0.10} />
+            <meshPhysicalMaterial color={postColor} roughness={0.14} metalness={0.45} clearcoat={0.35} clearcoatRoughness={0.14} />
           </mesh>
           {/* Inner telescoping section — narrower, slides into outer */}
           <mesh position={[0, pedestalH * 0.80, 0]} castShadow>
             <cylinderGeometry args={[0.026, 0.030, pedestalH * 0.44, 16]} />
-            <meshPhysicalMaterial color={postColor} roughness={0.08} metalness={0.95} clearcoat={0.55} clearcoatRoughness={0.08} />
+            <meshPhysicalMaterial color={postColor} roughness={0.12} metalness={0.45} clearcoat={0.35} clearcoatRoughness={0.12} />
           </mesh>
           {/* Gray top bracket / cradle connecting to beam */}
           <mesh position={[0, pedestalH + 0.028, 0]} castShadow>
@@ -663,8 +663,9 @@ function Trampette({
 
   return (
     <group>
-      {/* Inclined assembly — front low, rear slightly higher */}
-      <group rotation={[-tiltAngle, 0, 0]} position={[0, baseH / 2 + 0.01, 0]}>
+      {/* Inclined assembly — front low (z=-d/2), rear high (z=+d/2). */}
+      {/* groupY = (d/2)·sin(a) + (baseH/2)·cos(a) keeps the front-bottom corner on the floor. */}
+      <group rotation={[-tiltAngle, 0, 0]} position={[0, (d / 2) * Math.sin(tiltAngle) + (baseH / 2) * Math.cos(tiltAngle), 0]}>
         {/* Wooden base board */}
         <mesh position={[0, 0, 0]} castShadow receiveShadow>
           <boxGeometry args={[w * 0.96, baseH, d * 0.96]} />
@@ -711,89 +712,93 @@ function Trampette({
 }
 
 // ---------------------------------------------------------------------------
-// Mini-trampolin – NEMO-style: flat elastic surface, A-frame side supports,
-//                  adjustable tilt, blue competition pad with grid marking
+// Mini-trampolin – rectangular frame at deviceH, four corner legs splaying to
+//                  floor contacts, cross-bars at mid-height, competition surface
 // ---------------------------------------------------------------------------
 
 function MiniTramp({
   w, d, color, partColors,
 }: { w: number; d: number; color?: string; partColors?: Record<string, string> }) {
-  const frameColor  = pc(partColors, "ram",   "#3A4050");
-  const padColor    = pc(partColors, "matta", color ?? "#1A72B8");  // competition blue
-  const footColor   = "#B01818";
-  const metalColor  = "#5A6070";
-  const frameT      = 0.025;
-  const padH        = 0.045;
-  const frameH      = 0.06;   // frame surround height
-  const legReach    = 0.32;   // how far legs splay outward
-  const deviceH     = 0.30;   // surface height from floor
+  const deviceH  = 0.28;   // frame height from floor
+  const frameT   = 0.028;  // frame tube diameter
+  const frameH   = 0.056;  // frame surround height
+  const padH     = 0.038;  // jump surface thickness
+  const legR     = 0.018;  // leg tube radius
+  const splayX   = 0.04;   // X outward splay of legs at floor contact
+  const splayZ   = 0.08;   // Z outward splay of legs at floor contact
+
+  const frameColor = pc(partColors, "ram",   "#3A4050");
+  const padColor   = pc(partColors, "matta", color ?? "#B02020");
+  const legColor   = "#5A6272";
+  const footColor  = "#C01818";
+
+  // Four corner attachment points on the frame (world Y = deviceH)
+  const corners: [number, number][] = [
+    [-w / 2, -d / 2], [+w / 2, -d / 2], [-w / 2, +d / 2], [+w / 2, +d / 2],
+  ];
 
   return (
-    <group position={[0, deviceH, 0]}>
-      {/* Metal frame surround */}
-      {([-d / 2 + frameT / 2, d / 2 - frameT / 2] as number[]).map((z, i) => (
-        <mesh key={`fl-${i}`} position={[0, 0, z]} castShadow>
+    <group>
+      {/* Four corner legs: frame attachment → splayed floor contact, oriented with alignY */}
+      {corners.map(([cx, cz], i) => {
+        const sx = Math.sign(cx), sz = Math.sign(cz);
+        const fx = cx + sx * splayX, fz = cz + sz * splayZ;
+        const dx = fx - cx, dy = -deviceH, dz = fz - cz;
+        const len = Math.hypot(dx, dy, dz);
+        return (
+          <mesh key={`leg-${i}`}
+            position={[(cx + fx) / 2, deviceH / 2, (cz + fz) / 2]}
+            quaternion={alignY(dx, dy, dz)} castShadow>
+            <cylinderGeometry args={[legR, legR, len, 8]} />
+            <meshPhysicalMaterial color={legColor} roughness={0.35} metalness={0.45} />
+          </mesh>
+        );
+      })}
+
+      {/* Rubber feet at floor contact points */}
+      {corners.map(([cx, cz], i) => {
+        const sx = Math.sign(cx), sz = Math.sign(cz);
+        return (
+          <mesh key={`foot-${i}`} position={[cx + sx * splayX, 0.009, cz + sz * splayZ]}>
+            <cylinderGeometry args={[0.026, 0.030, 0.018, 8]} />
+            <meshPhysicalMaterial color={footColor} roughness={0.7} metalness={0} />
+          </mesh>
+        );
+      })}
+
+      {/* Cross-bars connecting legs at mid-height on each short side */}
+      {([-d / 2, +d / 2] as number[]).map((cz, i) => {
+        const sz = Math.sign(cz || 1);
+        const fz = cz + sz * splayZ;
+        return (
+          <mesh key={`cb-${i}`}
+            position={[0, deviceH * 0.45, (cz + fz) / 2]}
+            rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[legR * 0.85, legR * 0.85, w + splayX * 1.6, 8]} />
+            <meshPhysicalMaterial color={legColor} roughness={0.35} metalness={0.45} />
+          </mesh>
+        );
+      })}
+
+      {/* Metal frame surround at deviceH */}
+      {([-d / 2 + frameT / 2, +d / 2 - frameT / 2] as number[]).map((cz, i) => (
+        <mesh key={`fl-${i}`} position={[0, deviceH, cz]} castShadow>
           <boxGeometry args={[w, frameH, frameT]} />
-          <meshPhysicalMaterial color={frameColor} roughness={0.25} metalness={0.88} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.25} metalness={0.65} />
         </mesh>
       ))}
-      {([-w / 2 + frameT / 2, w / 2 - frameT / 2] as number[]).map((x, i) => (
-        <mesh key={`fs-${i}`} position={[x, 0, 0]} castShadow>
+      {([-w / 2 + frameT / 2, +w / 2 - frameT / 2] as number[]).map((cx, i) => (
+        <mesh key={`fs-${i}`} position={[cx, deviceH, 0]} castShadow>
           <boxGeometry args={[frameT, frameH, d]} />
-          <meshPhysicalMaterial color={frameColor} roughness={0.25} metalness={0.88} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.25} metalness={0.65} />
         </mesh>
       ))}
 
-      {/* Blue padded elastic surface */}
-      <mesh position={[0, frameH * 0.55, 0]} castShadow receiveShadow>
+      {/* Jump surface */}
+      <mesh position={[0, deviceH + frameH * 0.55, 0]} castShadow receiveShadow>
         <boxGeometry args={[w - frameT * 2, padH, d - frameT * 2]} />
         <meshPhysicalMaterial color={padColor} roughness={0.72} metalness={0} />
       </mesh>
-      {/* Grid lines on pad (thin raised lines) */}
-      {([-w * 0.25, 0, w * 0.25] as number[]).map((px, i) => (
-        <mesh key={`gl-${i}`} position={[px, frameH * 0.55 + padH / 2 + 0.002, 0]} castShadow>
-          <boxGeometry args={[0.008, 0.004, d - frameT * 3]} />
-          <meshPhysicalMaterial color="#3A8AE0" roughness={0.5} metalness={0} />
-        </mesh>
-      ))}
-      {([-d * 0.25, 0, d * 0.25] as number[]).map((pz, i) => (
-        <mesh key={`gr-${i}`} position={[0, frameH * 0.55 + padH / 2 + 0.002, pz]} castShadow>
-          <boxGeometry args={[w - frameT * 3, 0.004, 0.008]} />
-          <meshPhysicalMaterial color="#3A8AE0" roughness={0.5} metalness={0} />
-        </mesh>
-      ))}
-
-      {/* A-frame leg supports on each long side */}
-      {([-1, 1] as number[]).map((sz) => (
-        <group key={`af-${sz}`} position={[0, -deviceH / 2, sz * d * 0.22]}>
-          {/* Two angled legs per side */}
-          {([-w * 0.30, w * 0.30] as number[]).map((px, i) => {
-            const legLen = Math.hypot(legReach, deviceH);
-            const ang    = Math.atan2(legReach, deviceH);
-            return (
-              <mesh key={`al-${sz}-${i}`}
-                position={[px, 0, sz * legReach / 2]}
-                rotation={[sz * ang, 0, 0]}
-                castShadow>
-                <cylinderGeometry args={[0.018, 0.018, legLen, 8]} />
-                <meshPhysicalMaterial color={metalColor} roughness={0.35} metalness={0.85} />
-              </mesh>
-            );
-          })}
-          {/* Cross-bar connecting legs */}
-          <mesh position={[0, -deviceH * 0.2, sz * legReach * 0.4]} castShadow>
-            <boxGeometry args={[w * 0.65, 0.022, 0.022]} />
-            <meshPhysicalMaterial color={metalColor} roughness={0.35} metalness={0.85} />
-          </mesh>
-          {/* Red foot pads */}
-          {([-w * 0.30, w * 0.30] as number[]).map((px, i) => (
-            <mesh key={`fp-${sz}-${i}`} position={[px, -deviceH / 2, sz * legReach]} receiveShadow>
-              <boxGeometry args={[0.12, 0.018, 0.10]} />
-              <meshPhysicalMaterial color={footColor} roughness={0.7} metalness={0.1} />
-            </mesh>
-          ))}
-        </group>
-      ))}
     </group>
   );
 }
@@ -939,7 +944,7 @@ function UnevenBars({
       {postXs.map((x, i) => (
         <mesh key={`hp-${i}`} position={[x, highBarH / 2 + baseH, -barSep / 2]} castShadow>
           <cylinderGeometry args={[postR, postR * 1.12, highBarH, 14]} />
-          <meshPhysicalMaterial color={frameColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.12} metalness={0.45} clearcoat={0.4} clearcoatRoughness={0.12} />
         </mesh>
       ))}
 
@@ -947,7 +952,7 @@ function UnevenBars({
       {postXs.map((x, i) => (
         <mesh key={`lp-${i}`} position={[x, lowBarH / 2 + baseH, barSep / 2]} castShadow>
           <cylinderGeometry args={[postR, postR * 1.12, lowBarH, 14]} />
-          <meshPhysicalMaterial color={frameColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.12} metalness={0.45} clearcoat={0.4} clearcoatRoughness={0.12} />
         </mesh>
       ))}
 
@@ -1081,7 +1086,7 @@ function Buck({
     <group>
       <mesh position={[0, bodyH / 2, 0]} castShadow>
         <cylinderGeometry args={[0.048, 0.065, bodyH, 12]} />
-        <meshPhysicalMaterial color={postColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
+        <meshPhysicalMaterial color={postColor} roughness={0.12} metalness={0.45} clearcoat={0.4} clearcoatRoughness={0.12} />
       </mesh>
       <mesh position={[0, bodyH, 0]} receiveShadow castShadow>
         <boxGeometry args={[w * 0.55, 0.02, 0.3]} />
@@ -1194,7 +1199,7 @@ function GymBench({
   const legColor   = pc(partColors, "ben",   "#B8923A");
 
   return (
-    <group rotation={[tiltRad, 0, 0]} position={[0, 0, tiltRad > 0 ? -(w / 2) * Math.sin(tiltRad) : 0]}>
+    <group rotation={[-Math.abs(tiltRad), 0, 0]} position={[0, (w / 2) * Math.sin(Math.abs(tiltRad)), 0]}>
       {/* Main board */}
       <mesh position={[0, legH + boardT / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[boardW, boardT, w]} />
