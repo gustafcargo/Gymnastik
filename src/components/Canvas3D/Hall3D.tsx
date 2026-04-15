@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { usePlanStore } from "../../store/usePlanStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { Equipment3D } from "./Equipment3D";
+import { Gymnast3D } from "./Gymnast3D";
 import { computeStackInfo } from "../../lib/stackGroups";
 import type { Station } from "../../types";
 
@@ -368,6 +369,16 @@ function HallScene({ W, H }: { W: number; H: number }) {
                 params={eq.params}
               />
             )}
+            {/* Gymnasts — rendered in equipment-local space (without scale distortion) */}
+            {eq.gymnasts?.map((g) => (
+              <group key={g.id} scale={[1 / eq.scaleX, 1, 1 / eq.scaleY]}>
+                <Gymnast3D
+                  exerciseId={g.exerciseId}
+                  color={g.color}
+                  equipmentType={type}
+                />
+              </group>
+            ))}
             {/* Floating label — click to select, drag to move equipment */}
             {showThisLabel && (
               <Html

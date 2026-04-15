@@ -78,6 +78,15 @@ export type PlacedEquipment = {
   noteOffset?: { x: number; y: number };
   /** Om redskapet skapades från en sparad mall, dess mall-id. */
   templateId?: string;
+  /** Gymnaster kopplade till redskapet (visas i 3D-vyn). */
+  gymnasts?: GymnastConfig[];
+};
+
+/** En gymnast kopplad till ett redskap, med vald övning och dräktfärg. */
+export type GymnastConfig = {
+  id: string;
+  exerciseId: string; // t.ex. "high-bar:giant-swing"
+  color?: string;     // leotard hex-färg, standard "#C2185B"
 };
 
 export type HallTemplate = {
