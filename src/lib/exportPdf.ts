@@ -21,6 +21,10 @@ export async function exportStageAsPdf(
   const availW = pageW - margin * 2;
   const availH = pageH - margin * 2 - headerHeight;
 
+  // Force all layers (including conditionally-mounted note bubbles layer) to
+  // flush their canvases before capture so nothing is stale or missing.
+  stage.draw();
+
   const shots: Snapshot[] = snapshots ?? [
     {
       stationName:

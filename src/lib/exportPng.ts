@@ -14,6 +14,9 @@ export function exportStageAsPng(
   filename: string,
   pixelRatio = 2,
 ) {
+  // Force all layers (including conditionally-mounted note bubbles layer) to
+  // flush their canvases before capture so nothing is stale or missing.
+  stage.draw();
   const url = stage.toDataURL({ pixelRatio, mimeType: "image/png" });
   downloadDataUrl(url, filename);
   return url;

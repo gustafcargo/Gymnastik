@@ -15,7 +15,8 @@ import { CustomEquipmentModal } from "../CustomEquipmentModal";
 import { formatMeters } from "../../lib/geometry";
 
 type Props = {
-  onItemActivate?: (typeId: string) => void;
+  /** Called after an item is added – use to close the palette on mobile. */
+  onItemActivate?: () => void;
   compact?: boolean;
 };
 
@@ -65,8 +66,8 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
   }, [filtered]);
 
   const handleActivate = (typeId: string) => {
-    if (onItemActivate) onItemActivate(typeId);
-    else addEquipmentCenter(typeId);
+    addEquipmentCenter(typeId);
+    onItemActivate?.();
   };
 
   const handleTemplateActivate = (tpl: SavedEquipmentTemplate) => {
@@ -81,7 +82,7 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
         notes: tpl.notes,
       });
     }
-    if (onItemActivate) onItemActivate(tpl.baseTypeId);
+    onItemActivate?.();
   };
 
   const handleTemplateEdit = (tpl: SavedEquipmentTemplate) => {
@@ -98,7 +99,7 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
       });
       selectEquipment(id);
     }
-    if (onItemActivate) onItemActivate(tpl.baseTypeId);
+    onItemActivate?.();
   };
 
   const hasAnyResults =

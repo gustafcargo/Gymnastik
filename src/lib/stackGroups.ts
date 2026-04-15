@@ -1,7 +1,11 @@
 import type { PlacedEquipment } from "../types";
 import { getEquipmentById } from "../catalog/equipment";
 
-const MAT_KINDS = new Set(["thick-mat", "landing-mat"]);
+const MAT_KINDS = new Set([
+  "thick-mat", "landing-mat",
+  "tumbling-track", "air-track",
+  "gym-bench", "plinth",
+]);
 
 export type StackInfo = {
   /** Total number of mats in this stack (1 = not stacked). */
@@ -38,10 +42,11 @@ export function computeStackInfo(
       const a = mats[i], b = mats[j];
       const ta = getEquipmentById(a.typeId)!;
       const tb = getEquipmentById(b.typeId)!;
-      // Only group mats of the same type – different mat types each keep their own label
+      // Only group items of the same type – different types each keep their own label
       if (a.typeId !== b.typeId) continue;
-      const threshW = Math.min(ta.widthM, tb.widthM) * 0.5;
-      const threshD = Math.min(ta.heightM, tb.heightM) * 0.5;
+      // Use AABB overlap (any part of bounding boxes touching) to match store logic
+      const threshW = (ta.widthM + tb.widthM) * 0.5;
+      const threshD = (ta.heightM + tb.heightM) * 0.5;
       if (Math.abs(a.x - b.x) < threshW && Math.abs(a.y - b.y) < threshD) {
         union(a.id, b.id);
       }

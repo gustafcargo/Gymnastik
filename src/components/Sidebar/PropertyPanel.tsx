@@ -226,8 +226,8 @@ export function PropertyPanel({ onClose }: Props) {
               [
                 { value: "normal",        label: "Upprätt" },
                 { value: "upside-down",   label: "Upp-och-ned" },
-                { value: "on-long-side",  label: "På lång sida" },
-                { value: "on-short-side", label: "På kortsida" },
+                { value: "on-long-side",  label: "På kortsida" },
+                { value: "on-short-side", label: "På lång sida" },
               ] as const
             ).map(({ value, label }) => {
               const current = selected.orientation ?? "normal";
