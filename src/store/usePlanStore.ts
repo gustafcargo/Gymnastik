@@ -21,6 +21,7 @@ import { clampToHall } from "../lib/geometry";
 const MAT_KINDS = new Set([
   "thick-mat", "landing-mat",
   "tumbling-track", "air-track",
+  "gym-bench",
 ]);
 
 /**
@@ -30,6 +31,7 @@ const MAT_KINDS = new Set([
 const STACKABLE_SURFACE_KINDS = new Set([
   "thick-mat", "landing-mat",
   "tumbling-track", "air-track", "floor",
+  "gym-bench",
 ]);
 
 /** Return the physical top surface height for any stackable piece. */
