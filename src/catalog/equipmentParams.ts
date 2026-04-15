@@ -31,8 +31,8 @@ export const EQUIPMENT_PARAMS: Partial<Record<string, EquipmentParamDef[]>> = {
     { key: "beamWidth",    label: "Bombredd",             min: 0.06, max: 0.15, step: 0.01,  unit: "m",  defaultValue: 0.1  },
   ],
   "pommel-horse": [
-    { key: "standH",       label: "Stativhöjd",           min: 0.3,  max: 1.4,  step: 0.05,  unit: "m",  defaultValue: 0.78 },
-    { key: "handleSpacing",label: "Byglarnas avstånd",    min: 0.25, max: 0.6,  step: 0.025, unit: "m",  defaultValue: 0.4  },
+    { key: "standH",       label: "Höjd (golv→yta)",      min: 0.85, max: 1.25, step: 0.05,  unit: "m",  defaultValue: 0.87 },
+    { key: "handleSpacing",label: "Byglarnas avstånd",    min: 0.25, max: 0.6,  step: 0.025, unit: "m",  defaultValue: 0.42 },
   ],
   rings: [
     { key: "ringH",        label: "Ringarnas höjd",       min: 1.5,  max: 5.5,  step: 0.05,  unit: "m",  defaultValue: 2.75 },
