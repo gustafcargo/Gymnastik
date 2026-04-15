@@ -13,6 +13,7 @@ import { usePlanStore } from "../../store/usePlanStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { Equipment3D } from "./Equipment3D";
 import { Gymnast3D } from "./Gymnast3D";
+import { exercisesForKind } from "../../catalog/exercises";
 import { computeStackInfo } from "../../lib/stackGroups";
 import type { Station } from "../../types";
 
@@ -33,6 +34,9 @@ function HallScene({ W, H }: { W: number; H: number }) {
   const showNotes = usePlanStore((s) => s.showNotes);
   const snapToGrid = usePlanStore((s) => s.snapToGrid);
   const setEquipmentNoteOffset = usePlanStore((s) => s.setEquipmentNoteOffset);
+  const addGymnast    = usePlanStore((s) => s.addGymnast);
+  const removeGymnast = usePlanStore((s) => s.removeGymnast);
+  const updateGymnast = usePlanStore((s) => s.updateGymnast);
 
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
@@ -369,7 +373,7 @@ function HallScene({ W, H }: { W: number; H: number }) {
                 params={eq.params}
               />
             )}
-            {/* Gymnasts — rendered in equipment-local space (without scale distortion) */}
+            {/* Gymnasts — scale-korrigerad grupp */}
             {eq.gymnasts?.map((g) => (
               <group key={g.id} scale={[1 / eq.scaleX, 1, 1 / eq.scaleY]}>
                 <Gymnast3D
@@ -379,6 +383,109 @@ function HallScene({ W, H }: { W: number; H: number }) {
                 />
               </group>
             ))}
+            {/* Gymnast exercise picker – visas när redskapet är markerat */}
+            {isSelected && (() => {
+              const kind = type.detail?.kind ?? "";
+              const exercises = kind ? exercisesForKind(kind) : [];
+              if (!exercises.length) return null;
+              const gymnast = eq.gymnasts?.[0];
+              return (
+                <Html
+                  position={[type.widthM / 2 + 0.25, type.physicalHeightM * 0.55 + 0.2, 0]}
+                  style={{ pointerEvents: "all" }}
+                  zIndexRange={[30, 40]}
+                >
+                  <div
+                    onPointerDown={(e) => e.stopPropagation()}
+                    style={{
+                      background: "rgba(10,18,32,0.88)",
+                      backdropFilter: "blur(6px)",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      padding: "8px 10px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "7px",
+                      minWidth: "148px",
+                      fontFamily: "system-ui, sans-serif",
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.45)",
+                      userSelect: "none",
+                    }}
+                  >
+                    <span style={{ fontSize: "9px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                      Gymnast
+                    </span>
+                    {gymnast ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <input
+                          type="color"
+                          value={gymnast.color ?? "#C2185B"}
+                          onChange={(e) => updateGymnast(eq.id, gymnast.id, { color: e.target.value })}
+                          style={{ width: "26px", height: "26px", cursor: "pointer", border: "none", borderRadius: "5px", padding: "1px", background: "none", flexShrink: 0 }}
+                          title="Dräktfärg"
+                        />
+                        <select
+                          value={gymnast.exerciseId}
+                          onChange={(e) => updateGymnast(eq.id, gymnast.id, { exerciseId: e.target.value })}
+                          style={{
+                            flex: 1, minWidth: 0,
+                            background: "rgba(255,255,255,0.10)",
+                            border: "1px solid rgba(255,255,255,0.18)",
+                            borderRadius: "6px",
+                            color: "#f1f5f9",
+                            fontSize: "11px",
+                            padding: "3px 5px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {exercises.map((ex) => (
+                            <option key={ex.id} value={ex.id} style={{ color: "#0f172a", background: "#fff" }}>
+                              {ex.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeGymnast(eq.id, gymnast.id)}
+                          style={{
+                            background: "rgba(239,68,68,0.18)",
+                            border: "1px solid rgba(239,68,68,0.35)",
+                            borderRadius: "5px",
+                            color: "#fca5a5",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                            lineHeight: 1,
+                            padding: "3px 6px",
+                            flexShrink: 0,
+                          }}
+                          title="Ta bort gymnast"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => addGymnast(eq.id, { exerciseId: exercises[0].id, color: "#C2185B" })}
+                        style={{
+                          background: "rgba(59,130,246,0.22)",
+                          border: "1px solid rgba(59,130,246,0.45)",
+                          borderRadius: "6px",
+                          color: "#93c5fd",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          padding: "5px 8px",
+                          textAlign: "center",
+                        }}
+                      >
+                        + Lägg till gymnast
+                      </button>
+                    )}
+                  </div>
+                </Html>
+              );
+            })()}
             {/* Floating label — click to select, drag to move equipment */}
             {showThisLabel && (
               <Html
