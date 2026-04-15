@@ -27,7 +27,11 @@ export function snapRotation(deg: number, stepDeg: number): number {
   return Math.round(deg / stepDeg) * stepDeg;
 }
 
-/** Begränsa en position i meter så att redskapets bounding box stannar i hallen. */
+/**
+ * Begränsa en position i meter så att redskapets bounding box stannar i hallen.
+ * Tar hänsyn till rotation – beräknar den axel-parallella bounding-boxen (AABB)
+ * för ett rektangulärt redskap med given rotation.
+ */
 export function clampToHall(
   xM: number,
   yM: number,
@@ -35,9 +39,16 @@ export function clampToHall(
   equipmentHeightM: number,
   hallWidthM: number,
   hallHeightM: number,
+  rotationDeg = 0,
 ): { x: number; y: number } {
-  const halfW = equipmentWidthM / 2;
-  const halfH = equipmentHeightM / 2;
+  const rad = (rotationDeg * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  // Axis-aligned bounding box of the rotated rectangle
+  const aabbW = equipmentWidthM * cos + equipmentHeightM * sin;
+  const aabbH = equipmentWidthM * sin + equipmentHeightM * cos;
+  const halfW = aabbW / 2;
+  const halfH = aabbH / 2;
   return {
     x: Math.min(Math.max(xM, halfW), hallWidthM - halfW),
     y: Math.min(Math.max(yM, halfH), hallHeightM - halfH),

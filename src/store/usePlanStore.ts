@@ -291,7 +291,7 @@ export const usePlanStore = create<PlanStore>()(
             const hall = s.plan.hall;
             // Clamp to hall bounds so the equipment can't leave the floor area
             const { x, y } = type
-              ? clampToHall(xM, yM, type.widthM * eq.scaleX, type.heightM * eq.scaleY, hall.widthM, hall.heightM)
+              ? clampToHall(xM, yM, type.widthM * eq.scaleX, type.heightM * eq.scaleY, hall.widthM, hall.heightM, eq.rotation)
               : { x: xM, y: yM };
             const isMatKind = MAT_KINDS.has(type?.detail?.kind ?? "");
             const newZ =
