@@ -2,6 +2,7 @@ import { Suspense, useRef, useEffect, useCallback } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import {
   Environment,
+  Html,
   OrbitControls,
   Grid,
 } from "@react-three/drei";
@@ -25,6 +26,7 @@ function HallScene({ W, H }: { W: number; H: number }) {
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const moveEquipment = usePlanStore((s) => s.moveEquipment);
   const openEquipmentEditor = usePlanStore((s) => s.openEquipmentEditor);
+  const showLabels = usePlanStore((s) => s.showLabels);
 
   const cx = W / 2;
   const cz = H / 2;
@@ -253,6 +255,34 @@ function HallScene({ W, H }: { W: number; H: number }) {
               partColors={eq.partColors}
               params={eq.params}
             />
+            {/* Floating label */}
+            {showLabels && (
+              <Html
+                position={[0, type.physicalHeightM + 0.28, 0]}
+                center
+                style={{ pointerEvents: "none" }}
+                zIndexRange={[10, 20]}
+              >
+                <div
+                  style={{
+                    background: isSelected
+                      ? "rgba(59,130,246,0.92)"
+                      : "rgba(15,23,42,0.82)",
+                    color: "#fff",
+                    borderRadius: "5px",
+                    padding: "2px 8px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    fontFamily: "system-ui, sans-serif",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                    transform: `scale(${1 / Math.max(eq.scaleX, eq.scaleY, 0.5)})`,
+                  }}
+                >
+                  {eq.label ?? type.name}
+                </div>
+              </Html>
+            )}
             {/* Selection highlight */}
             {isSelected && (
               <mesh

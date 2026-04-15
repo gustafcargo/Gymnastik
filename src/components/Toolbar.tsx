@@ -12,6 +12,7 @@ import {
   Redo2,
   Save,
   Square,
+  Tag,
   Undo2,
 } from "lucide-react";
 import { useStore } from "zustand";
@@ -36,6 +37,8 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   const setSnapToGrid = usePlanStore((s) => s.setSnapToGrid);
   const viewMode = usePlanStore((s) => s.viewMode);
   const toggleViewMode = usePlanStore((s) => s.toggleViewMode);
+  const showLabels = usePlanStore((s) => s.showLabels);
+  const toggleLabels = usePlanStore((s) => s.toggleLabels);
 
   // Viktigt: välj primitiva fält var för sig så att Zustand 5 inte
   // kräver egen equality-funktion (annars → "getSnapshot should be cached").
@@ -142,6 +145,13 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
             active={snapToGrid}
           >
             <Grid3x3 size={16} />
+          </IconButton>
+          <IconButton
+            title={showLabels ? "Etiketter: på" : "Etiketter: av"}
+            onClick={toggleLabels}
+            active={showLabels}
+          >
+            <Tag size={16} />
           </IconButton>
           <IconButton
             title="Passa vyn"
