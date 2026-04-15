@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type Konva from "konva";
 import { Toolbar } from "./components/Toolbar";
 import { EquipmentPalette } from "./components/Sidebar/EquipmentPalette";
@@ -16,6 +17,25 @@ import { usePlanStore } from "./store/usePlanStore";
 const Hall3D = lazy(() =>
   import("./components/Canvas3D/Hall3D").then((m) => ({ default: m.Hall3D })),
 );
+
+/** Fångar krascher i 3D-vyn och återställer till 2D-läge. */
+class ThreeDErrorBoundary extends Component<
+  { children: ReactNode },
+  { crashed: boolean }
+> {
+  state = { crashed: false };
+  static getDerivedStateFromError() {
+    return { crashed: true };
+  }
+  componentDidCatch(err: Error) {
+    console.warn("[3D] krasch – återgår till 2D:", err.message);
+    usePlanStore.getState().setViewMode("2D");
+  }
+  render() {
+    if (this.state.crashed) return null;
+    return this.props.children;
+  }
+}
 
 export default function App() {
   useKeyboardShortcuts();
@@ -72,15 +92,17 @@ export default function App() {
                   pointerEvents: is3D ? "auto" : "none",
                 }}
               >
-                <Suspense
-                  fallback={
-                    <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                      Laddar 3D-vy…
-                    </div>
-                  }
-                >
-                  <Hall3D className="h-full w-full" />
-                </Suspense>
+                <ThreeDErrorBoundary>
+                  <Suspense
+                    fallback={
+                      <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                        Laddar 3D-vy…
+                      </div>
+                    }
+                  >
+                    <Hall3D className="h-full w-full" />
+                  </Suspense>
+                </ThreeDErrorBoundary>
               </div>
             )}
 
