@@ -46,6 +46,7 @@ export function HallStage({ className, onStageReady }: Props) {
 
   type EditingNote = { id: string; x: number; y: number; text: string };
   const [editingNote, setEditingNote] = useState<EditingNote | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Observera storleksändringar
   useEffect(() => {
@@ -99,13 +100,14 @@ export function HallStage({ className, onStageReady }: Props) {
       y: (pointer.y - stagePos.y) / oldScale,
     };
     const direction = e.evt.deltaY > 0 ? 1 / scaleBy : scaleBy;
-    const newScale = Math.min(6, Math.max(0.3, oldScale * direction));
-    setStageScale(newScale);
-    setStagePos({
+    const newScale = Math.min(6, Math.max(0.15, oldScale * direction));
+    const rawPos = {
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
-    });
-  }, [stagePos, stageScale]);
+    };
+    setStageScale(newScale);
+    setStagePos(clampPos(rawPos, newScale));
+  }, [stagePos, stageScale, clampPos]);
 
   // Pan via drag på tom yta
   const handleStageClick = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
@@ -114,10 +116,89 @@ export function HallStage({ className, onStageReady }: Props) {
     }
   };
 
+  // Pinch-to-zoom for touch devices
+  const lastDist = useRef(0);
+  const lastCenter = useRef<{ x: number; y: number } | null>(null);
+
+  const getTouchDist = (t1: Touch, t2: Touch) =>
+    Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  const getTouchCenter = (t1: Touch, t2: Touch) => ({
+    x: (t1.clientX + t2.clientX) / 2,
+    y: (t1.clientY + t2.clientY) / 2,
+  });
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      lastDist.current = getTouchDist(e.touches[0], e.touches[1]);
+      lastCenter.current = getTouchCenter(e.touches[0], e.touches[1]);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 2 || !containerRef.current) return;
+    e.preventDefault();
+    const dist = getTouchDist(e.touches[0], e.touches[1]);
+    const center = getTouchCenter(e.touches[0], e.touches[1]);
+    const rect = containerRef.current.getBoundingClientRect();
+
+    if (lastDist.current > 0) {
+      const scaleChange = dist / lastDist.current;
+      const newScale = Math.min(6, Math.max(0.3, stageScale * scaleChange));
+      // Zoom toward pinch center
+      const px = center.x - rect.left;
+      const py = center.y - rect.top;
+      const pointTo = {
+        x: (px - stagePos.x) / stageScale,
+        y: (py - stagePos.y) / stageScale,
+      };
+      // Also pan by center movement
+      const panDx = lastCenter.current ? center.x - lastCenter.current.x : 0;
+      const panDy = lastCenter.current ? center.y - lastCenter.current.y : 0;
+      setStageScale(newScale);
+      setStagePos(clampPos({
+        x: px - pointTo.x * newScale + panDx,
+        y: py - pointTo.y * newScale + panDy,
+      }, newScale));
+    }
+    lastDist.current = dist;
+    lastCenter.current = center;
+  };
+
+  const handleTouchEnd = () => {
+    lastDist.current = 0;
+    lastCenter.current = null;
+  };
+
   const resetView = useCallback(() => {
     setStagePos({ x: 0, y: 0 });
     setStageScale(1);
   }, []);
+
+  /**
+   * Clamp stagePos so the hall is never fully scrolled off-screen.
+   * At least `margin` px of the hall rectangle must remain visible.
+   */
+  const clampPos = useCallback(
+    (pos: { x: number; y: number }, scale: number) => {
+      const margin = 60;
+      const hallPxW = plan.hall.widthM * fitScale * scale;
+      const hallPxH = plan.hall.heightM * fitScale * scale;
+      const hallLeft = pos.x + fitOffset.x * scale;
+      const hallTop = pos.y + fitOffset.y * scale;
+      const hallRight = hallLeft + hallPxW;
+      const hallBottom = hallTop + hallPxH;
+
+      let dx = 0;
+      let dy = 0;
+      if (hallRight < margin) dx = margin - hallRight;
+      else if (hallLeft > size.width - margin) dx = size.width - margin - hallLeft;
+      if (hallBottom < margin) dy = margin - hallBottom;
+      else if (hallTop > size.height - margin) dy = size.height - margin - hallTop;
+
+      return { x: pos.x + dx, y: pos.y + dy };
+    },
+    [fitOffset, fitScale, plan.hall, size],
+  );
 
   // Exponera reset via global event (används av Toolbar-knapp)
   useEffect(() => {
@@ -130,9 +211,17 @@ export function HallStage({ className, onStageReady }: Props) {
   const handleDragOver = (e: React.DragEvent) => {
     if (e.dataTransfer.types.includes("application/x-gymnastik-equipment")) {
       e.preventDefault();
+      setIsDragOver(true);
+    }
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear when leaving the container itself, not child elements
+    if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
     }
   };
   const handleDrop = (e: React.DragEvent) => {
+    setIsDragOver(false);
     const typeId = e.dataTransfer.getData("application/x-gymnastik-equipment");
     if (!typeId || !containerRef.current) return;
     e.preventDefault();
@@ -159,7 +248,11 @@ export function HallStage({ className, onStageReady }: Props) {
       ref={containerRef}
       className="h-full w-full relative"
       onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{ touchAction: "none" }}
     >
       {/* Inline note-editing textarea overlay */}
@@ -201,6 +294,9 @@ export function HallStage({ className, onStageReady }: Props) {
         </div>
       )}
 
+      {isDragOver && (
+        <div className="pointer-events-none absolute inset-0 z-20 rounded-sm border-4 border-dashed border-accent/70 bg-accent/5" />
+      )}
       {isEmpty && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/85 px-5 py-4 text-center shadow-xs backdrop-blur">
@@ -227,7 +323,10 @@ export function HallStage({ className, onStageReady }: Props) {
         draggable
         onDragEnd={(e) => {
           if (e.target === e.target.getStage()) {
-            setStagePos({ x: e.target.x(), y: e.target.y() });
+            const raw = { x: e.target.x(), y: e.target.y() };
+            const clamped = clampPos(raw, stageScale);
+            setStagePos(clamped);
+            e.target.position(clamped);
           }
         }}
         onWheel={handleWheel}

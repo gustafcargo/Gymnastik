@@ -1,14 +1,13 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type Konva from "konva";
-import { Settings2, X } from "lucide-react";
+import { Plus, Settings2, X } from "lucide-react";
 import { Toolbar } from "./components/Toolbar";
 import { EquipmentPalette } from "./components/Sidebar/EquipmentPalette";
 import { PropertyPanel } from "./components/Sidebar/PropertyPanel";
 import { HallStage } from "./components/Canvas/HallStage";
 import { StationTimeline } from "./components/Timeline/StationTimeline";
 import { CommandPalette } from "./components/CommandPalette";
-import { FabButton } from "./components/Mobile/FabButton";
 import { BottomSheet } from "./components/Mobile/BottomSheet";
 import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
@@ -146,12 +145,7 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <Toolbar
-        stageRef={stageRef}
-        onToggleSidebar={
-          !isDesktop ? () => setPaletteOpen((o) => !o) : undefined
-        }
-      />
+      <Toolbar stageRef={stageRef} />
 
       {/* ── Desktop layout: always-visible sidebars ── */}
       {isDesktop && (
@@ -169,100 +163,104 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Tablet layout: overlay slide-in panels ── */}
+      {/* ── Tablet layout: collapsible push-in panels (like desktop) ── */}
       {isTablet && (
-        <div className="relative flex min-h-0 flex-1">
-          {/* Left: equipment palette */}
-          <aside
-            className="absolute inset-y-0 left-0 z-30 flex w-72 flex-col overflow-hidden border-r border-surface-3 bg-surface-1 shadow-2xl transition-transform duration-300"
-            style={{
-              transform: paletteOpen ? "translateX(0)" : "translateX(-100%)",
-            }}
-          >
-            <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
-              <span className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-                Redskap
-              </span>
+        <div className="flex min-h-0 flex-1">
+          {paletteOpen && (
+            <aside className="flex w-72 shrink-0 flex-col border-r border-surface-3 bg-surface-1">
+              <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
+                <span className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+                  Redskap
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPaletteOpen(false)}
+                  className="grid h-7 w-7 place-items-center rounded-md text-slate-500 hover:bg-surface-2"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <EquipmentPalette />
+              </div>
+            </aside>
+          )}
+          <main className="relative flex min-w-0 flex-1 flex-col">
+            {!paletteOpen && (
               <button
                 type="button"
-                onClick={() => setPaletteOpen(false)}
-                className="grid h-7 w-7 place-items-center rounded-md text-slate-500 hover:bg-surface-2"
+                onClick={() => setPaletteOpen(true)}
+                aria-label="Visa redskap"
+                className="absolute left-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full border border-surface-3 bg-white/90 text-slate-600 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-accent"
               >
-                <X size={15} />
+                <Plus size={20} />
               </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <EquipmentPalette />
-            </div>
-          </aside>
-
-          {/* Main canvas */}
-          <main className="relative flex min-w-0 flex-1 flex-col">
+            )}
             {canvasArea}
             <StationTimeline />
           </main>
-
-          {/* Right: property panel */}
-          <aside
-            className="absolute inset-y-0 right-0 z-30 w-80 overflow-hidden border-l border-surface-3 bg-surface-1 shadow-2xl transition-transform duration-300"
-            style={{
-              transform: propertyOpen ? "translateX(0)" : "translateX(100%)",
-            }}
-          >
-            <PropertyPanel onClose={() => setPropertyOpen(false)} />
-          </aside>
+          {propertyOpen && (
+            <aside className="w-80 shrink-0 border-l border-surface-3 bg-surface-1">
+              <PropertyPanel onClose={() => setPropertyOpen(false)} />
+            </aside>
+          )}
         </div>
       )}
 
-      {/* ── Mobile layout: FAB + bottom sheets ── */}
+      {/* ── Mobile layout: top-left open button + bottom sheets ── */}
       {isMobile && (
         <div className="flex min-h-0 flex-1 flex-col">
           <main className="relative flex min-w-0 flex-1 flex-col">
-            {canvasArea}
-            <StationTimeline />
-          </main>
-        </div>
-      )}
-
-      <CommandPalette />
-      <EquipmentEditor />
-
-      {/* Mobile-only: FAB, selection bar, bottom sheets */}
-      {isMobile && (
-        <>
-          <FabButton onClick={() => setPaletteOpen(true)} />
-
-          {selectedId && !propertyOpen && (
-            <div
-              className="fixed bottom-24 left-4 right-20 z-30 flex items-center gap-2 rounded-2xl border border-surface-3 bg-white px-4 py-2.5 shadow-lg"
-              style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Visa redskap"
+              className="absolute left-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-surface-3 bg-white/95 text-slate-600 shadow-md backdrop-blur-sm transition active:scale-95"
             >
+              <Plus size={22} />
+            </button>
+            {canvasArea}
+          </main>
+
+          {/* Selection bar – in normal flow, above timeline */}
+          {selectedId && !propertyOpen && (
+            <div className="safe-bottom flex items-center gap-2 border-t border-surface-3 bg-white px-3 py-2">
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
                 {selectedLabel}
               </span>
               <button
                 type="button"
                 onClick={() => setPropertyOpen(true)}
-                className="flex shrink-0 items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white active:opacity-80"
               >
-                <Settings2 size={13} /> Egenskaper
+                <Settings2 size={14} /> Egenskaper
               </button>
               <button
                 type="button"
                 onClick={() => selectEquipment(null)}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-surface-2"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-slate-500"
                 aria-label="Avmarkera"
               >
-                <X size={14} />
+                <X size={16} />
               </button>
             </div>
           )}
 
+          <StationTimeline />
+        </div>
+      )}
+
+      <CommandPalette />
+      <EquipmentEditor />
+
+      {/* Mobile-only: bottom sheets */}
+      {isMobile && (
+        <>
           <BottomSheet
             open={paletteOpen}
             onClose={() => setPaletteOpen(false)}
             title="Redskap"
-            heightPct={78}
+            heightPct={82}
           >
             <EquipmentPalette
               compact
@@ -279,7 +277,7 @@ export default function App() {
               setPropertyOpen(false);
               usePlanStore.getState().selectEquipment(null);
             }}
-            heightPct={62}
+            heightPct={78}
           >
             <PropertyPanel onClose={() => setPropertyOpen(false)} />
           </BottomSheet>
