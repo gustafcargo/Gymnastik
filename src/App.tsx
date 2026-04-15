@@ -86,9 +86,14 @@ export default function App() {
   const [propertyOpen, setPropertyOpen] = useState(false);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
 
-  // Close property sheet when selection is cleared
+  // Close property sheet whenever selection changes (cleared or switched to another piece).
+  // The sheet must be explicitly re-opened via the "Egenskaper" button.
+  const prevSelectedIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!selectedId) setPropertyOpen(false);
+    if (selectedId !== prevSelectedIdRef.current) {
+      setPropertyOpen(false);
+    }
+    prevSelectedIdRef.current = selectedId;
   }, [selectedId]);
 
   return (
