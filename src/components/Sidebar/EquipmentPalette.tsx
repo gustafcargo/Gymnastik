@@ -6,7 +6,7 @@ import {
   getEquipmentById,
 } from "../../catalog/equipment";
 import type { EquipmentType, SavedEquipmentTemplate } from "../../types";
-import { EquipmentIcon } from "./EquipmentIcon";
+import { Equipment3DThumbnail } from "./Equipment3DThumbnail";
 import { usePlanStore } from "../../store/usePlanStore";
 import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { useCustomEquipmentStore } from "../../store/useCustomEquipmentStore";
@@ -311,11 +311,11 @@ function TemplateItem({
       >
         <div
           className={
-            "flex shrink-0 items-center justify-center rounded-md bg-surface-2 " +
+            "shrink-0 overflow-hidden rounded-md bg-surface-2 " +
             (compact ? "h-14 w-14" : "h-10 w-10")
           }
         >
-          <EquipmentIcon type={baseType} size={compact ? 36 : 28} />
+          <Equipment3DThumbnail type={baseType} size={compact ? 56 : 40} color={tpl.customColor} partColors={tpl.partColors} params={tpl.params} />
         </div>
         <div className={compact ? "w-full" : "min-w-0 flex-1"}>
           <div className="truncate text-sm font-semibold text-accent-ink">
@@ -382,11 +382,11 @@ function PaletteItem({
       >
         <div
           className={
-            "flex shrink-0 items-center justify-center rounded-md bg-surface-2 " +
+            "shrink-0 overflow-hidden rounded-md bg-surface-2 " +
             (compact ? "h-14 w-14" : "h-12 w-12")
           }
         >
-          <EquipmentIcon type={type} size={compact ? 40 : 36} />
+          <Equipment3DThumbnail type={type} size={compact ? 56 : 48} />
         </div>
         <div className={compact ? "w-full" : "min-w-0 flex-1"}>
           <div className="truncate text-sm font-semibold text-slate-800">

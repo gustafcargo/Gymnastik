@@ -25,44 +25,49 @@ function pc(
 }
 
 export function Equipment3D({ type, color, partColors, params }: Props) {
-  switch (type.detail?.kind) {
-    case "parallel-bars":
-      return <ParallelBars w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
-    case "high-bar":
-      return <HighBar w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
-    case "beam":
-      return <Beam w={type.widthM} color={color} partColors={partColors} params={params} />;
-    case "pommel-horse":
-      return <PommelHorse w={type.widthM} color={color} partColors={partColors} params={params} />;
-    case "rings":
-      return <Rings w={type.widthM} d={type.heightM} h={type.physicalHeightM} partColors={partColors} params={params} />;
-    case "rings-free":
-      return <RingsFree h={type.physicalHeightM} partColors={partColors} params={params} />;
-    case "uneven-bars":
-      return <UnevenBars w={type.widthM} d={type.heightM} partColors={partColors} params={params} />;
-    case "vault":
-      return <Vault w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
-    case "trampette":
-      return <Trampette w={type.widthM} d={type.heightM} color={color} partColors={partColors} />;
-    case "mini-tramp":
-      return <MiniTramp w={type.widthM} d={type.heightM} color={color} partColors={partColors} />;
-    case "tumbling-track":
-      return <Track w={type.widthM} d={type.heightM} h={params?.trackH ?? type.physicalHeightM} color={color} />;
-    case "air-track":
-      return <AirTrack w={type.widthM} d={type.heightM} h={params?.trackH ?? type.physicalHeightM} color={color} />;
-    case "floor":
-      return <Floor w={type.widthM} d={type.heightM} color={color} />;
-    case "thick-mat":
-      return <Mat w={type.widthM} d={type.heightM} h={params?.matH ?? type.physicalHeightM} color={color ?? "#2A60A0"} />;
-    case "landing-mat":
-      return <Mat w={type.widthM} d={type.heightM} h={params?.matH ?? type.physicalHeightM} color={color ?? "#CC7020"} />;
-    case "plinth":
-      return <Plinth w={type.widthM} d={type.heightM} h={type.physicalHeightM} color={color} params={params} />;
-    case "buck":
-      return <Buck w={type.widthM} h={type.physicalHeightM} color={color} partColors={partColors} params={params} />;
-    case "foam-pit":
-      return <FoamPit w={type.widthM} d={type.heightM} color={color} />;
-    default: {
+  const hitH = Math.max(0.15, type.physicalHeightM);
+  const hitW = type.widthM;
+  const hitD = type.heightM;
+
+  function model() {
+    switch (type.detail?.kind) {
+      case "parallel-bars":
+        return <ParallelBars w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
+      case "high-bar":
+        return <HighBar w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
+      case "beam":
+        return <Beam w={type.widthM} color={color} partColors={partColors} params={params} />;
+      case "pommel-horse":
+        return <PommelHorse w={type.widthM} color={color} partColors={partColors} params={params} />;
+      case "rings":
+        return <Rings w={type.widthM} d={type.heightM} h={type.physicalHeightM} partColors={partColors} params={params} />;
+      case "rings-free":
+        return <RingsFree h={type.physicalHeightM} partColors={partColors} params={params} />;
+      case "uneven-bars":
+        return <UnevenBars w={type.widthM} d={type.heightM} partColors={partColors} params={params} />;
+      case "vault":
+        return <Vault w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
+      case "trampette":
+        return <Trampette w={type.widthM} d={type.heightM} color={color} partColors={partColors} />;
+      case "mini-tramp":
+        return <MiniTramp w={type.widthM} d={type.heightM} color={color} partColors={partColors} />;
+      case "tumbling-track":
+        return <Track w={type.widthM} d={type.heightM} h={params?.trackH ?? type.physicalHeightM} color={color} />;
+      case "air-track":
+        return <AirTrack w={type.widthM} d={type.heightM} h={params?.trackH ?? type.physicalHeightM} color={color} />;
+      case "floor":
+        return <Floor w={type.widthM} d={type.heightM} color={color} />;
+      case "thick-mat":
+        return <Mat w={type.widthM} d={type.heightM} h={params?.matH ?? type.physicalHeightM} color={color ?? "#2A60A0"} />;
+      case "landing-mat":
+        return <Mat w={type.widthM} d={type.heightM} h={params?.matH ?? type.physicalHeightM} color={color ?? "#CC7020"} />;
+      case "plinth":
+        return <Plinth w={type.widthM} d={type.heightM} h={type.physicalHeightM} color={color} params={params} />;
+      case "buck":
+        return <Buck w={type.widthM} h={type.physicalHeightM} color={color} partColors={partColors} params={params} />;
+      case "foam-pit":
+        return <FoamPit w={type.widthM} d={type.heightM} color={color} />;
+      default: {
       // Render custom parts if defined, otherwise fall back to a single box.
       const parts = type.customParts;
       if (parts && parts.length > 0) {
@@ -102,7 +107,19 @@ export function Equipment3D({ type, color, partColors, params }: Props) {
         </mesh>
       );
     }
-  }
+  } // end switch
+  } // end model()
+
+  return (
+    <>
+      {model()}
+      {/* Invisible bounding box for reliable raycasting on thin geometry (rings, beam, etc.) */}
+      <mesh position={[0, hitH / 2, 0]}>
+        <boxGeometry args={[hitW, hitH, hitD]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+    </>
+  );
 }
 
 // ---------------------------------------------------------------------------
