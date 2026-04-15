@@ -6,6 +6,7 @@ import type {
   PlacedEquipment,
   Plan,
   Station,
+  ViewMode,
 } from "../types";
 import { DEFAULT_HALL } from "../catalog/halls";
 import { EQUIPMENT_BY_ID } from "../catalog/equipment";
@@ -24,6 +25,7 @@ type PlanState = {
   selectedEquipmentId: string | null;
   snapToGrid: boolean;
   snapStepM: number;
+  viewMode: ViewMode;
 };
 
 type PlanActions = {
@@ -53,6 +55,8 @@ type PlanActions = {
   // selection & settings
   selectEquipment: (id: string | null) => void;
   setSnapToGrid: (enabled: boolean) => void;
+  setViewMode: (mode: ViewMode) => void;
+  toggleViewMode: () => void;
 
   // stations
   addStation: (name?: string) => string;
@@ -119,6 +123,7 @@ export const usePlanStore = create<PlanStore>()(
       selectedEquipmentId: null,
       snapToGrid: true,
       snapStepM: 0.25,
+      viewMode: "2D" as ViewMode,
 
       newPlan: (name) =>
         set(() => {
@@ -277,6 +282,9 @@ export const usePlanStore = create<PlanStore>()(
 
       selectEquipment: (id) => set({ selectedEquipmentId: id }),
       setSnapToGrid: (enabled) => set({ snapToGrid: enabled }),
+      setViewMode: (mode) => set({ viewMode: mode }),
+      toggleViewMode: () =>
+        set((s) => ({ viewMode: s.viewMode === "2D" ? "3D" : "2D" })),
 
       addStation: (name) => {
         const state = get();
@@ -375,10 +383,17 @@ export const usePlanStore = create<PlanStore>()(
     {
       // Exclude ephemeral fields from undo history.
       partialize: (state) => {
-        const { selectedEquipmentId: _sel, snapToGrid: _s, snapStepM: _ss, ...rest } = state;
+        const {
+          selectedEquipmentId: _sel,
+          snapToGrid: _s,
+          snapStepM: _ss,
+          viewMode: _vm,
+          ...rest
+        } = state;
         void _sel;
         void _s;
         void _ss;
+        void _vm;
         return rest;
       },
       limit: 100,

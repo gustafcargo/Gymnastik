@@ -11,12 +11,16 @@ export type EquipmentType = {
   category: EquipmentCategory;
   widthM: number;
   heightM: number;
+  /** Verklig fysisk höjd över golvet i meter (för 3D-vyn). */
+  physicalHeightM: number;
   color: string; // Tailwind-färg (hex)
   shape: EquipmentShape;
   /** SVG-detaljer som ritas ovanpå grundformen (koordinater 0..1 relativa). */
   detail?: EquipmentDetail;
   description?: string;
 };
+
+export type ViewMode = "2D" | "3D";
 
 export type EquipmentDetail =
   | { kind: "parallel-bars" }

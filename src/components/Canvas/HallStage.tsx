@@ -24,6 +24,8 @@ export function HallStage({ className, onStageReady }: Props) {
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const addEquipment = usePlanStore((s) => s.addEquipment);
+  const viewMode = usePlanStore((s) => s.viewMode);
+  const is3D = viewMode === "3D";
 
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -180,7 +182,12 @@ export function HallStage({ className, onStageReady }: Props) {
         onTouchStart={handleStageClick}
       >
         <Layer>
-          <Group x={fitOffset.x} y={fitOffset.y}>
+          <Group
+            x={fitOffset.x + (is3D ? plan.hall.widthM * fitScale * 0.15 : 0)}
+            y={fitOffset.y + (is3D ? plan.hall.heightM * fitScale * 0.18 : 0)}
+            scaleY={is3D ? 0.62 : 1}
+            skewX={is3D ? -0.32 : 0}
+          >
             <HallFloor hall={plan.hall} pxPerM={fitScale} />
             {activeStation?.equipment.map((eq) => (
               <EquipmentNode
@@ -190,6 +197,7 @@ export function HallStage({ className, onStageReady }: Props) {
                 hallWidthM={plan.hall.widthM}
                 hallHeightM={plan.hall.heightM}
                 isSelected={eq.id === selectedId}
+                is3D={is3D}
                 onSelect={() => selectEquipment(eq.id)}
               />
             ))}

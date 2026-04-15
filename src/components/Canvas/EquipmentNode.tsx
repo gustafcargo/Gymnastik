@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type Konva from "konva";
-import { Ellipse, Group, Rect, Text, Transformer } from "react-konva";
+import { Group, Text, Transformer } from "react-konva";
 import type { PlacedEquipment } from "../../types";
 import { EQUIPMENT_BY_ID } from "../../catalog/equipment";
-import { EquipmentDetailOverlay } from "./EquipmentDetail";
+import { EquipmentVisual } from "./EquipmentVisual";
 import { clampToHall, snap, snapRotation } from "../../lib/geometry";
 import { usePlanStore } from "../../store/usePlanStore";
 
@@ -14,8 +14,13 @@ type Props = {
   hallWidthM: number;
   hallHeightM: number;
   isSelected: boolean;
+  is3D?: boolean;
   onSelect: () => void;
 };
+
+/** Bredden på text-boxen (fast pixelvärde, samma storlek oavsett skala). */
+const LABEL_BOX_WIDTH = 180;
+const LABEL_FONT_SIZE = 11;
 
 export function EquipmentNode({
   equipment,
@@ -23,10 +28,12 @@ export function EquipmentNode({
   hallWidthM,
   hallHeightM,
   isSelected,
+  is3D = false,
   onSelect,
 }: Props) {
   const type = EQUIPMENT_BY_ID[equipment.typeId];
   const groupRef = useRef<Konva.Group>(null);
+  const textRef = useRef<Konva.Text>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
 
   const transformEquipment = usePlanStore((s) => s.transformEquipment);
@@ -48,7 +55,6 @@ export function EquipmentNode({
 
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
     const node = e.target;
-    // Node-koordinaterna är center (pga offset); konvertera tillbaka till meter.
     const xM = node.x() / pxPerM;
     const yM = node.y() / pxPerM;
     const snappedX = snapToGrid ? snap(xM, snapStepM) : xM;
@@ -63,6 +69,20 @@ export function EquipmentNode({
     );
     node.position({ x: x * pxPerM, y: y * pxPerM });
     transformEquipment(equipment.id, { x, y });
+  };
+
+  /**
+   * Uppdatera textens invers-skala live under transform så att texten
+   * håller konstant pixelstorlek oavsett hur stort redskapet skalas.
+   */
+  const handleTransform = () => {
+    const g = groupRef.current;
+    const t = textRef.current;
+    if (!g || !t) return;
+    const sx = g.scaleX() || 1;
+    const sy = g.scaleY() || 1;
+    t.scaleX(1 / sx);
+    t.scaleY(1 / sy);
   };
 
   const handleTransformEnd = () => {
@@ -83,8 +103,6 @@ export function EquipmentNode({
     node.rotation(rotation);
   };
 
-  const shape = type.shape;
-
   return (
     <>
       <Group
@@ -96,6 +114,7 @@ export function EquipmentNode({
         scaleY={equipment.scaleY}
         draggable
         onDragEnd={handleDragEnd}
+        onTransform={handleTransform}
         onTransformEnd={handleTransformEnd}
         onMouseDown={onSelect}
         onTap={onSelect}
@@ -103,57 +122,38 @@ export function EquipmentNode({
         offsetX={wPx / 2}
         offsetY={hPx / 2}
       >
-        {shape === "ellipse" ? (
-          <Ellipse
-            x={wPx / 2}
-            y={hPx / 2}
-            radiusX={wPx / 2}
-            radiusY={hPx / 2}
-            fill={type.color}
-            stroke={isSelected ? "#0B3FA8" : "#334155"}
-            strokeWidth={isSelected ? 2 : 1.2}
-            shadowColor="#0F172A"
-            shadowBlur={isSelected ? 14 : 4}
-            shadowOpacity={isSelected ? 0.35 : 0.15}
-            shadowOffsetY={2}
-          />
-        ) : (
-          <Rect
-            x={0}
-            y={0}
-            width={wPx}
-            height={hPx}
-            cornerRadius={Math.min(8, Math.min(wPx, hPx) * 0.12)}
-            fill={type.color}
-            stroke={isSelected ? "#0B3FA8" : "#334155"}
-            strokeWidth={isSelected ? 2 : 1.2}
-            shadowColor="#0F172A"
-            shadowBlur={isSelected ? 14 : 4}
-            shadowOpacity={isSelected ? 0.35 : 0.15}
-            shadowOffsetY={2}
-          />
-        )}
-
-        <EquipmentDetailOverlay
-          detail={type.detail}
+        <EquipmentVisual
+          type={type}
           widthPx={wPx}
           heightPx={hPx}
+          pxPerM={pxPerM}
+          isSelected={isSelected}
+          is3D={is3D}
         />
 
+        {/* Label med invers skala så texten aldrig växer/krymper */}
         <Text
-          x={0}
-          y={hPx / 2 - 7}
-          width={wPx}
+          ref={textRef}
+          x={wPx / 2}
+          y={hPx / 2}
+          offsetX={LABEL_BOX_WIDTH / 2}
+          offsetY={LABEL_FONT_SIZE / 2}
+          width={LABEL_BOX_WIDTH}
           align="center"
           text={equipment.label ?? type.name}
-          fontSize={Math.max(9, Math.min(14, wPx * 0.08))}
+          fontSize={LABEL_FONT_SIZE}
           fontStyle="600"
           fill="#0F172A"
+          shadowColor="#FFFFFF"
+          shadowBlur={4}
+          shadowOpacity={0.7}
+          scaleX={1 / (equipment.scaleX || 1)}
+          scaleY={1 / (equipment.scaleY || 1)}
           listening={false}
         />
       </Group>
 
-      {isSelected && (
+      {isSelected && !is3D && (
         <Transformer
           ref={transformerRef}
           rotateEnabled
@@ -174,10 +174,8 @@ export function EquipmentNode({
           borderStroke="#2563EB"
           borderDash={[4, 4]}
           rotateAnchorOffset={28}
-          boundBoxFunc={(_oldBox, newBox) => {
-            if (newBox.width < 20 || newBox.height < 20) {
-              return _oldBox;
-            }
+          boundBoxFunc={(oldBox, newBox) => {
+            if (newBox.width < 20 || newBox.height < 20) return oldBox;
             return newBox;
           }}
         />
