@@ -28,7 +28,6 @@ function HallScene({ W, H }: { W: number; H: number }) {
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const moveEquipment = usePlanStore((s) => s.moveEquipment);
   const updateEquipment = usePlanStore((s) => s.updateEquipment);
-  const openEquipmentEditor = usePlanStore((s) => s.openEquipmentEditor);
   const showLabels = usePlanStore((s) => s.showLabels);
   const snapToGrid = usePlanStore((s) => s.snapToGrid);
   const setEquipmentNoteOffset = usePlanStore((s) => s.setEquipmentNoteOffset);
@@ -159,7 +158,6 @@ function HallScene({ W, H }: { W: number; H: number }) {
         while (obj) {
           if (obj.name?.startsWith("eq-")) {
             selectEquipment(obj.name.slice(3));
-            openEquipmentEditor();
             return;
           }
           obj = obj.parent;
@@ -169,7 +167,7 @@ function HallScene({ W, H }: { W: number; H: number }) {
 
     canvas.addEventListener("dblclick", onDblClick);
     return () => canvas.removeEventListener("dblclick", onDblClick);
-  }, [camera, gl, scene, selectEquipment, openEquipmentEditor]);
+  }, [camera, gl, scene, selectEquipment]);
 
   // ── Drag: move + release ─────────────────────────────────────────────────
   useEffect(() => {
@@ -415,7 +413,6 @@ function HallScene({ W, H }: { W: number; H: number }) {
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     selectEquipment(eq.id);
-                    openEquipmentEditor();
                   }}
                 >
                   {labelText}

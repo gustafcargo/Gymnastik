@@ -104,7 +104,7 @@ export const EQUIPMENT_CATALOG: EquipmentType[] = [
   },
   {
     id: "trampett",
-    name: "Trampett",
+    name: "Satsbräda",
     category: "hopp",
     widthM: 1.15,
     heightM: 1.15,
@@ -112,11 +112,11 @@ export const EQUIPMENT_CATALOG: EquipmentType[] = [
     color: "#E06020",
     shape: "roundedRect",
     detail: { kind: "trampette" },
-    description: "Trampett (studsbräda).",
+    description: "Satsbräda (Reuther-bräda). Används inför hopp.",
   },
   {
     id: "minitramp",
-    name: "Mini-trampolin",
+    name: "Trampett",
     category: "hopp",
     widthM: 1.0,
     heightM: 1.0,
@@ -124,7 +124,7 @@ export const EQUIPMENT_CATALOG: EquipmentType[] = [
     color: "#23293A",
     shape: "roundedRect",
     detail: { kind: "mini-tramp" },
-    description: "Mini-trampolin.",
+    description: "Trampett – studsande startbräda.",
   },
   {
     id: "tumblingbana",
@@ -236,7 +236,7 @@ export const EQUIPMENT_CATALOG: EquipmentType[] = [
   },
   {
     id: "gymnastibank",
-    name: "Gymnastiksätta",
+    name: "Gymnastikbänk",
     category: "tillbehor",
     widthM: 3.5,
     heightM: 0.28,
@@ -244,7 +244,7 @@ export const EQUIPMENT_CATALOG: EquipmentType[] = [
     color: "#D4A84B",
     shape: "roundedRect",
     detail: { kind: "gym-bench" },
-    description: "Gymnastiksätta (bänk), 3.5 m lång. Kan lutas mot ribbstol.",
+    description: "Gymnastikbänk, 3.5 m lång. Kan lutas mot ribbstol.",
   },
   {
     id: "klatterrep",

@@ -563,81 +563,96 @@ function RingsFree({
 }
 
 // ---------------------------------------------------------------------------
-// Hoppbord (Vault table) – Spieth-style: curved orange saddle top,
-//   single central column, cross/star base with red foot pads
+// Hoppbord (Vault table) – FIG standard: rectangular padded top (95×120 cm),
+//   tall central column with height-adjustment, wide rectangular base plate.
 // ---------------------------------------------------------------------------
 
 function Vault({
   w, d, color, partColors, params,
 }: { w: number; d: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
-  const standH    = params?.standH ?? 1.12;
-  const padH      = params?.padH   ?? 0.24;
-  const totalH    = standH + padH;
-  // Orange body + darker leather surface
+  const standH    = params?.standH ?? 1.12;  // floor → underside of pad
+  const padH      = params?.padH   ?? 0.22;  // padding thickness
+  const baseH     = 0.055;
+  // Colors
   const bodyColor  = pc(partColors, "kropp",   color ?? "#CC4E10");
   const topColor   = pc(partColors, "yta",     "#B84010");
-  // Gray column — matches Spieth vault aesthetics
-  const metalColor = pc(partColors, "stommar", "#606A74");
-  const footColor  = "#B81818";
+  const metalColor = pc(partColors, "stommar", "#5A6270");
 
-  const colW = 0.38;
-  const colD = 0.30;
+  // Base plate — wide, rectangular, rubber feet at corners
+  const baseW = Math.min(w * 0.92, 0.86);
+  const baseD = Math.min(d * 0.78, 0.95);
+
+  // Central column — proportional to the load
+  const colW = Math.min(w * 0.44, 0.44);
+  const colD = Math.min(d * 0.40, 0.50);
+
+  // Pad sits on top of column + small transition cap
+  const capH   = 0.038;
+  const padY   = standH + capH;
 
   return (
     <group>
-      {/* Cross base — 2 arms (front/back + left/right) */}
-      {([[1, 0, 0.60, 0.14], [-1, 0, 0.60, 0.14], [0, 1, 0.14, 0.55], [0, -1, 0.14, 0.55]] as [number,number,number,number][]).map(([sx, sz, aw, ad], i) => (
-        <mesh key={`arm-${i}`} position={[sx * 0.22, 0.028, sz * 0.22]} castShadow>
-          <boxGeometry args={[aw, 0.055, ad]} />
-          <meshPhysicalMaterial color={metalColor} roughness={0.30} metalness={0.88} />
-        </mesh>
-      ))}
-      {/* Red rubber foot pads at arm ends */}
-      {([[0.52, 0], [-0.52, 0], [0, 0.50], [0, -0.50]] as [number,number][]).map(([px, pz], i) => (
-        <mesh key={`foot-${i}`} position={[px, 0.007, pz]} receiveShadow>
-          <boxGeometry args={[0.14, 0.014, 0.14]} />
-          <meshPhysicalMaterial color={footColor} roughness={0.72} metalness={0.08} />
-        </mesh>
-      ))}
+      {/* ── Base plate ── */}
+      <mesh position={[0, baseH / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[baseW, baseH, baseD]} />
+        <meshPhysicalMaterial color={metalColor} roughness={0.32} metalness={0.80} />
+      </mesh>
+      {/* Rubber corner feet */}
+      {([-baseW / 2 + 0.07, baseW / 2 - 0.07] as number[]).flatMap((px) =>
+        ([-baseD / 2 + 0.07, baseD / 2 - 0.07] as number[]).map((pz, j) => (
+          <mesh key={`f-${px}-${j}`} position={[px, 0.012, pz]} receiveShadow>
+            <cylinderGeometry args={[0.044, 0.048, 0.024, 10]} />
+            <meshPhysicalMaterial color="#B81818" roughness={0.75} metalness={0} />
+          </mesh>
+        ))
+      )}
 
-      {/* Central column */}
-      <mesh position={[0, standH / 2 + 0.055, 0]} castShadow>
+      {/* ── Main column ── */}
+      <mesh position={[0, baseH + standH / 2, 0]} castShadow>
         <boxGeometry args={[colW, standH, colD]} />
-        <meshPhysicalMaterial color={metalColor} roughness={0.22} metalness={0.90} clearcoat={0.25} />
+        <meshPhysicalMaterial color={metalColor} roughness={0.22} metalness={0.82} clearcoat={0.2} />
       </mesh>
-      {/* Height-adjustment band ring */}
-      <mesh position={[0, standH * 0.58, 0]} castShadow>
-        <boxGeometry args={[colW + 0.018, 0.048, colD + 0.018]} />
-        <meshPhysicalMaterial color="#2E3440" roughness={0.45} metalness={0.72} />
+      {/* Height-adjustment collar (clamping ring) */}
+      <mesh position={[0, baseH + standH * 0.52, 0]} castShadow>
+        <boxGeometry args={[colW + 0.022, 0.052, colD + 0.022]} />
+        <meshPhysicalMaterial color="#28303E" roughness={0.48} metalness={0.72} />
       </mesh>
-      {/* Column top cap */}
-      <mesh position={[0, standH + 0.055, 0]} castShadow>
-        <boxGeometry args={[colW + 0.02, 0.03, colD + 0.02]} />
-        <meshPhysicalMaterial color="#404858" roughness={0.30} metalness={0.80} />
+      {/* Column top transition cap (spreads load to pad) */}
+      <mesh position={[0, baseH + standH + capH / 2, 0]} castShadow>
+        <boxGeometry args={[w * 0.82, capH, d * 0.82]} />
+        <meshPhysicalMaterial color={metalColor} roughness={0.28} metalness={0.78} />
       </mesh>
 
-      {/* Saddle pad – main body (box, depth slightly shorter for end rounding) */}
-      <mesh position={[0, standH + 0.07 + padH / 2, 0]} castShadow>
-        <boxGeometry args={[w, padH, d - padH * 0.85]} />
-        <meshPhysicalMaterial color={bodyColor} roughness={0.62} metalness={0} />
+      {/* ── Padded top body ── */}
+      {/* Main box, slightly shorter in Z for the rounded edges */}
+      <mesh position={[0, padY + padH / 2, 0]} castShadow>
+        <boxGeometry args={[w, padH, d - padH * 0.90]} />
+        <meshPhysicalMaterial color={bodyColor} roughness={0.60} metalness={0} />
       </mesh>
-      {/* Rounded front edge (approach side — run-up direction) */}
-      <mesh position={[0, standH + 0.07 + padH / 2, -(d - padH * 0.85) / 2]}
-        rotation={[0, Math.PI / 2, 0]} castShadow>
+      {/* Rounded approach edge (front — gymnast runs toward) */}
+      <mesh position={[0, padY + padH / 2, -(d - padH * 0.90) / 2]}
+            rotation={[0, Math.PI / 2, 0]} castShadow>
         <cylinderGeometry args={[padH / 2, padH / 2, w, 20]} />
-        <meshPhysicalMaterial color={bodyColor} roughness={0.62} metalness={0} />
+        <meshPhysicalMaterial color={bodyColor} roughness={0.60} metalness={0} />
       </mesh>
-      {/* Rounded back edge */}
-      <mesh position={[0, standH + 0.07 + padH / 2, (d - padH * 0.85) / 2]}
-        rotation={[0, Math.PI / 2, 0]} castShadow>
+      {/* Rounded landing edge (back) */}
+      <mesh position={[0, padY + padH / 2, (d - padH * 0.90) / 2]}
+            rotation={[0, Math.PI / 2, 0]} castShadow>
         <cylinderGeometry args={[padH / 2, padH / 2, w, 20]} />
-        <meshPhysicalMaterial color={bodyColor} roughness={0.62} metalness={0} />
+        <meshPhysicalMaterial color={bodyColor} roughness={0.60} metalness={0} />
       </mesh>
-      {/* Suede/leather top surface layer */}
-      <mesh position={[0, totalH + 0.072, 0]} castShadow>
-        <boxGeometry args={[w - 0.01, 0.014, d - 0.01]} />
-        <meshPhysicalMaterial color={topColor} roughness={0.92} metalness={0} />
+      {/* Leather/synthetic top surface */}
+      <mesh position={[0, padY + padH + 0.008, 0]} castShadow>
+        <boxGeometry args={[w - 0.012, 0.015, d - 0.012]} />
+        <meshPhysicalMaterial color={topColor} roughness={0.90} metalness={0} />
       </mesh>
+      {/* Side seam strips (decorative lines on the pad sides) */}
+      {([-w / 2 + 0.015, w / 2 - 0.015] as number[]).map((px, i) => (
+        <mesh key={`seam-${i}`} position={[px, padY + padH / 2, 0]} castShadow>
+          <boxGeometry args={[0.018, padH + 0.004, d - 0.025]} />
+          <meshPhysicalMaterial color={topColor} roughness={0.88} metalness={0} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -1182,50 +1197,67 @@ function WallBars({
 }
 
 // ---------------------------------------------------------------------------
-// Gymnastiksätta (gym bench) – flat board on angled leg frames
+// Gymnastikbänk (gym bench) – plank running along X, A-frame legs only at the
+//   two short ends. Tilt rotates around Z axis (one X-end lifts to lean on ribbstol).
 // ---------------------------------------------------------------------------
 
 function GymBench({
   w, partColors, params,
 }: { w: number; partColors?: Record<string, string>; params?: Record<string, number> }) {
-  const tiltDeg   = params?.tilt ?? 0;
-  const tiltRad   = (tiltDeg * Math.PI) / 180;
-  const boardT    = 0.032;  // board thickness
-  const boardW    = 0.24;   // board width (narrow side = the seat)
-  const legH      = 0.28;   // leg height at floor level
-  const legT      = 0.028;
-  const nLegs     = Math.max(2, Math.round(w / 1.0));
-  const boardColor = pc(partColors, "bräda", "#D4A84B");
-  const legColor   = pc(partColors, "ben",   "#B8923A");
+  const tiltDeg    = params?.tilt ?? 0;
+  const tiltRad    = (tiltDeg * Math.PI) / 180;
+  const boardT     = 0.036;   // board thickness
+  const boardD     = 0.26;    // board depth (Z, the narrow side)
+  const legH       = 0.28;    // leg height
+  const legT       = 0.030;   // leg thickness
+  const footSpread = 0.06;    // how far feet extend beyond board edge in Z
+  const boardColor  = pc(partColors, "bräda", "#D4A84B");
+  const legColor    = pc(partColors, "ben",   "#B8923A");
+
+  // With Rz(tiltRad): +X end rises, -X end stays at floor.
+  // groupY = (w/2)*sin(tiltRad) keeps the -X end at Y=0.
+  const groupY = (w / 2) * Math.sin(Math.abs(tiltRad));
 
   return (
-    <group rotation={[-Math.abs(tiltRad), 0, 0]} position={[0, (w / 2) * Math.sin(Math.abs(tiltRad)), 0]}>
-      {/* Main board */}
+    <group rotation={[0, 0, Math.abs(tiltRad)]} position={[0, groupY, 0]}>
+      {/* Main plank – runs along X */}
       <mesh position={[0, legH + boardT / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[boardW, boardT, w]} />
-        <meshPhysicalMaterial color={boardColor} roughness={0.6} metalness={0} />
+        <boxGeometry args={[w, boardT, boardD]} />
+        <meshPhysicalMaterial color={boardColor} roughness={0.58} metalness={0} />
       </mesh>
+      {/* Rounded end caps */}
+      {([-w / 2, w / 2] as number[]).map((px, i) => (
+        <mesh key={`cap-${i}`} position={[px, legH + boardT / 2, 0]}
+              rotation={[0, Math.PI / 2, 0]} castShadow>
+          <cylinderGeometry args={[boardT / 2, boardT / 2, boardD, 10]} />
+          <meshPhysicalMaterial color={boardColor} roughness={0.58} metalness={0} />
+        </mesh>
+      ))}
 
-      {/* Leg pairs */}
-      {Array.from({ length: nLegs }).map((_, li) => {
-        const pz = -w / 2 + (w / (nLegs - 1)) * li;
-        return (
-          <group key={`leg-${li}`} position={[0, legH / 2, pz]}>
-            {/* Two angled legs forming an A-frame */}
-            {([-boardW / 2 + legT, boardW / 2 - legT] as number[]).map((x, i) => (
-              <mesh key={i} position={[x, 0, 0]} castShadow>
-                <boxGeometry args={[legT, legH, legT]} />
-                <meshPhysicalMaterial color={legColor} roughness={0.6} metalness={0} />
-              </mesh>
-            ))}
-            {/* Cross-brace */}
-            <mesh position={[0, -legH * 0.2, 0]} castShadow>
-              <boxGeometry args={[boardW - legT * 2, legT, legT]} />
+      {/* A-frame leg pairs – only at the two short ends */}
+      {([-w / 2 + legT / 2, w / 2 - legT / 2] as number[]).map((px, si) => (
+        <group key={`side-${si}`} position={[px, 0, 0]}>
+          {/* Two legs, spread in Z */}
+          {([-boardD / 2 - footSpread + legT, boardD / 2 + footSpread - legT] as number[]).map((pz, li) => (
+            <mesh key={`leg-${li}`} position={[0, legH / 2, pz]} castShadow>
+              <boxGeometry args={[legT, legH, legT]} />
               <meshPhysicalMaterial color={legColor} roughness={0.6} metalness={0} />
             </mesh>
-          </group>
-        );
-      })}
+          ))}
+          {/* Horizontal cross-brace */}
+          <mesh position={[0, legH * 0.38, 0]} castShadow>
+            <boxGeometry args={[legT, legT, boardD + footSpread * 2]} />
+            <meshPhysicalMaterial color={legColor} roughness={0.6} metalness={0} />
+          </mesh>
+          {/* Rubber foot pads */}
+          {([-boardD / 2 - footSpread + legT, boardD / 2 + footSpread - legT] as number[]).map((pz, li) => (
+            <mesh key={`foot-${li}`} position={[0, 0.008, pz]} receiveShadow>
+              <boxGeometry args={[0.08, 0.016, 0.06]} />
+              <meshPhysicalMaterial color="#2A2A2A" roughness={0.8} metalness={0} />
+            </mesh>
+          ))}
+        </group>
+      ))}
     </group>
   );
 }
