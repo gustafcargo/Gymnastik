@@ -112,8 +112,10 @@ function HighBar({ w, d }: { w: number; d: number }) {
 
       {([-1, 1] as number[]).flatMap((sx) =>
         ([-1, 1] as number[]).map((sz) => {
-          const from: [number, number, number] = [xPost * sx, barH * 0.85, 0];
-          const to: [number, number, number] = [xPost * sx, baseH, sz * d * 0.42];
+          // Wire from upper post → corner of base plate (spread outward, within base)
+          const anchorX = Math.min(xPost + 0.1, w / 2 - 0.06) * sx;
+          const from: [number, number, number] = [xPost * sx, barH * 0.9 + baseH, 0];
+          const to: [number, number, number] = [anchorX, baseH, sz * d * 0.44];
           const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
           const len = Math.hypot(dx, dy, dz);
           const mid: [number, number, number] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2];

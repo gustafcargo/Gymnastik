@@ -18,12 +18,19 @@ const Hall3D = lazy(() =>
   import("./components/Canvas3D/Hall3D").then((m) => ({ default: m.Hall3D })),
 );
 
-/** Fångar krascher i 3D-vyn och återställer till 2D-läge. */
+/** Fångar krascher i 3D-vyn och återställer till 2D-läge.
+ *  Exponerar en reset-funktion via onRegisterReset så att föräldern kan
+ *  nollställa tillståndet nästa gång användaren byter till 3D. */
 class ThreeDErrorBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; onRegisterReset: (fn: () => void) => void },
   { crashed: boolean }
 > {
   state = { crashed: false };
+
+  componentDidMount() {
+    this.props.onRegisterReset(() => this.setState({ crashed: false }));
+  }
+
   static getDerivedStateFromError() {
     return { crashed: true };
   }
@@ -44,6 +51,14 @@ export default function App() {
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const viewMode = usePlanStore((s) => s.viewMode);
   const is3D = viewMode === "3D";
+
+  // Ref to ThreeDErrorBoundary's reset function.
+  // Called every time the user switches to 3D so the boundary doesn't stay
+  // permanently crashed after a previous error.
+  const reset3DRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (is3D) reset3DRef.current();
+  }, [is3D]);
 
   // Once 3D has been requested we keep the Canvas mounted forever.
   // Unmounting a Three.js/WebGL Canvas tears down the GL context which
@@ -92,7 +107,7 @@ export default function App() {
                   pointerEvents: is3D ? "auto" : "none",
                 }}
               >
-                <ThreeDErrorBoundary>
+                <ThreeDErrorBoundary onRegisterReset={(fn) => { reset3DRef.current = fn; }}>
                   <Suspense
                     fallback={
                       <div className="flex h-full items-center justify-center text-sm text-slate-400">

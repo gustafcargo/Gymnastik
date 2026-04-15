@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
-  ContactShadows,
   Environment,
   OrbitControls,
   Grid,
@@ -31,7 +30,6 @@ export function Hall3D({ className }: Props) {
     <div className={className}>
       <Canvas
         shadows
-        frameloop="demand"
         dpr={[1, 2]}
         camera={{
           position: [cx + camDist * 0.55, camDist * 0.55, cz + camDist * 0.85],
@@ -54,7 +52,7 @@ export function Hall3D({ className }: Props) {
           position={[W * 0.4, Math.max(W, H) * 1.2, H * 0.3]}
           intensity={1.8}
           castShadow
-          shadow-mapSize={[4096, 4096]}
+          shadow-mapSize={[2048, 2048]}
           shadow-bias={-0.0003}
           shadow-camera-left={-W}
           shadow-camera-right={W * 2}
@@ -91,15 +89,6 @@ export function Hall3D({ className }: Props) {
           fadeStrength={1}
           followCamera={false}
           infiniteGrid={false}
-        />
-
-        {/* Mjuk kontaktskugga under allt */}
-        <ContactShadows
-          position={[cx, 0.01, cz]}
-          opacity={0.45}
-          scale={Math.max(W, H) * 1.4}
-          blur={2.6}
-          far={4}
         />
 
         {/* Redskap */}
