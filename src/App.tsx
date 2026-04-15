@@ -267,10 +267,7 @@ export default function App() {
           >
             <EquipmentPalette
               compact
-              onItemActivate={(typeId) => {
-                usePlanStore.getState().addEquipmentCenter(typeId);
-                setPaletteOpen(false);
-              }}
+              onItemActivate={() => setPaletteOpen(false)}
             />
           </BottomSheet>
 
