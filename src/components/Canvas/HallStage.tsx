@@ -100,13 +100,14 @@ export function HallStage({ className, onStageReady }: Props) {
       y: (pointer.y - stagePos.y) / oldScale,
     };
     const direction = e.evt.deltaY > 0 ? 1 / scaleBy : scaleBy;
-    const newScale = Math.min(6, Math.max(0.3, oldScale * direction));
-    setStageScale(newScale);
-    setStagePos({
+    const newScale = Math.min(6, Math.max(0.15, oldScale * direction));
+    const rawPos = {
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
-    });
-  }, [stagePos, stageScale]);
+    };
+    setStageScale(newScale);
+    setStagePos(clampPos(rawPos, newScale));
+  }, [stagePos, stageScale, clampPos]);
 
   // Pan via drag på tom yta
   const handleStageClick = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
@@ -154,10 +155,10 @@ export function HallStage({ className, onStageReady }: Props) {
       const panDx = lastCenter.current ? center.x - lastCenter.current.x : 0;
       const panDy = lastCenter.current ? center.y - lastCenter.current.y : 0;
       setStageScale(newScale);
-      setStagePos({
+      setStagePos(clampPos({
         x: px - pointTo.x * newScale + panDx,
         y: py - pointTo.y * newScale + panDy,
-      });
+      }, newScale));
     }
     lastDist.current = dist;
     lastCenter.current = center;
@@ -172,6 +173,32 @@ export function HallStage({ className, onStageReady }: Props) {
     setStagePos({ x: 0, y: 0 });
     setStageScale(1);
   }, []);
+
+  /**
+   * Clamp stagePos so the hall is never fully scrolled off-screen.
+   * At least `margin` px of the hall rectangle must remain visible.
+   */
+  const clampPos = useCallback(
+    (pos: { x: number; y: number }, scale: number) => {
+      const margin = 60;
+      const hallPxW = plan.hall.widthM * fitScale * scale;
+      const hallPxH = plan.hall.heightM * fitScale * scale;
+      const hallLeft = pos.x + fitOffset.x * scale;
+      const hallTop = pos.y + fitOffset.y * scale;
+      const hallRight = hallLeft + hallPxW;
+      const hallBottom = hallTop + hallPxH;
+
+      let dx = 0;
+      let dy = 0;
+      if (hallRight < margin) dx = margin - hallRight;
+      else if (hallLeft > size.width - margin) dx = size.width - margin - hallLeft;
+      if (hallBottom < margin) dy = margin - hallBottom;
+      else if (hallTop > size.height - margin) dy = size.height - margin - hallTop;
+
+      return { x: pos.x + dx, y: pos.y + dy };
+    },
+    [fitOffset, fitScale, plan.hall, size],
+  );
 
   // Exponera reset via global event (används av Toolbar-knapp)
   useEffect(() => {
@@ -296,7 +323,10 @@ export function HallStage({ className, onStageReady }: Props) {
         draggable
         onDragEnd={(e) => {
           if (e.target === e.target.getStage()) {
-            setStagePos({ x: e.target.x(), y: e.target.y() });
+            const raw = { x: e.target.x(), y: e.target.y() };
+            const clamped = clampPos(raw, stageScale);
+            setStagePos(clamped);
+            e.target.position(clamped);
           }
         }}
         onWheel={handleWheel}
