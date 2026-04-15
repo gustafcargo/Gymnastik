@@ -197,11 +197,12 @@ function HallScene({ W, H }: { W: number; H: number }) {
       }
     };
 
-    canvas.addEventListener("pointermove", onMove);
-    canvas.addEventListener("pointerup", onUp);
+    // Use document-level listeners so drags started on HTML overlays (labels) also work
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
     return () => {
-      canvas.removeEventListener("pointermove", onMove);
-      canvas.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
     };
   }, [camera, gl, moveEquipment]);
 
@@ -368,12 +369,12 @@ function HallScene({ W, H }: { W: number; H: number }) {
                 params={eq.params}
               />
             )}
-            {/* Floating label */}
+            {/* Floating label — click to select, drag to move equipment */}
             {showThisLabel && (
               <Html
                 position={[0, type.physicalHeightM + 0.28, 0]}
                 center
-                style={{ pointerEvents: "none" }}
+                style={{ pointerEvents: "all" }}
                 zIndexRange={[10, 20]}
               >
                 <div
@@ -390,6 +391,31 @@ function HallScene({ W, H }: { W: number; H: number }) {
                     fontFamily: "system-ui, sans-serif",
                     boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
                     transform: `scale(${1 / Math.max(eq.scaleX, eq.scaleY, 0.5)})`,
+                    cursor: draggingId.current === eq.id ? "grabbing" : "grab",
+                    userSelect: "none",
+                  }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    (e.target as Element).setPointerCapture(e.pointerId);
+                    selectEquipment(eq.id);
+                    // Project pointer to floor to compute initial offset
+                    const rect = gl.domElement.getBoundingClientRect();
+                    const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                    raycaster.current.setFromCamera(new THREE.Vector2(nx, ny), camera);
+                    const hit = new THREE.Vector3();
+                    if (raycaster.current.ray.intersectPlane(floorPlane.current, hit)) {
+                      startDrag(eq.id, hit, eq.x, eq.y);
+                    } else {
+                      draggingId.current = eq.id;
+                      dragOffset.current = { dx: 0, dz: 0 };
+                      if (orbitRef.current) orbitRef.current.enabled = false;
+                    }
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    selectEquipment(eq.id);
+                    openEquipmentEditor();
                   }}
                 >
                   {labelText}

@@ -18,10 +18,10 @@ export const EQUIPMENT_PARTS: Partial<Record<string, Record<string, string>>> = 
     sockel:  "#252D3A",   // base plates
   },
   beam: {
-    stöd:    "#CC2020",   // pedestal tubes
+    stöd:    "#CC2020",   // adjustable pedestal tubes (red)
     bom:     "#4A2810",   // beam structural body
     yta:     "#B8875A",   // leather/suede top surface
-    sockel:  "#252D3A",   // base plates
+    sockel:  "#EEEEEE",   // white rubber foot pads
   },
   "pommel-horse": {
     kropp:   "#7A5230",   // saddle body

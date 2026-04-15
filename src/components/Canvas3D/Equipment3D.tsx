@@ -293,7 +293,8 @@ function Beam({
   const postColor  = pc(partColors, "stöd",   color ?? "#C82020");
   const bodyColor  = pc(partColors, "bom",    "#4A2810");
   const topColor   = pc(partColors, "yta",    "#B8875A");
-  const baseColor  = pc(partColors, "sockel", "#252D3A");
+  const baseColor  = pc(partColors, "sockel", "#EEEEEE");  // white rubber feet
+  const tBar       = 0.70;   // T-bar arm half-length (total 1.40 m foot span)
 
   const postXs = [-w * 0.36, w * 0.36] as number[];
 
@@ -301,25 +302,32 @@ function Beam({
     <group>
       {postXs.map((x, i) => (
         <group key={i} position={[x, 0, 0]}>
-          {/* Floor base plate */}
-          <mesh position={[0, 0.022, 0]} receiveShadow castShadow>
-            <boxGeometry args={[0.58, 0.044, 0.60]} />
-            <meshPhysicalMaterial color={baseColor} roughness={0.5} metalness={0.75} />
+          {/* T-bar foot — one arm along Z perpendicular to beam */}
+          <mesh position={[0, 0.018, 0]} receiveShadow castShadow>
+            <boxGeometry args={[0.06, 0.035, tBar * 2]} />
+            <meshPhysicalMaterial color="#7A7A8A" roughness={0.45} metalness={0.72} />
           </mesh>
-          {/* Outer fixed post – slim round tube */}
-          <mesh position={[0, pedestalH * 0.50, 0]} castShadow>
-            <cylinderGeometry args={[0.034, 0.038, pedestalH, 16]} />
-            <meshPhysicalMaterial color={postColor} roughness={0.10} metalness={0.95} clearcoat={0.55} clearcoatRoughness={0.10} />
+          {/* White rubber foot pads at T-arm ends */}
+          {([-tBar + 0.05, tBar - 0.05] as number[]).map((pz, j) => (
+            <mesh key={j} position={[0, 0.007, pz]} receiveShadow>
+              <boxGeometry args={[0.12, 0.014, 0.18]} />
+              <meshPhysicalMaterial color={baseColor} roughness={0.70} metalness={0} />
+            </mesh>
+          ))}
+          {/* Outer fixed post – slim red round tube, lower section */}
+          <mesh position={[0, pedestalH * 0.42, 0]} castShadow>
+            <cylinderGeometry args={[0.034, 0.038, pedestalH * 0.80, 16]} />
+            <meshPhysicalMaterial color={postColor} roughness={0.10} metalness={0.92} clearcoat={0.5} clearcoatRoughness={0.10} />
           </mesh>
-          {/* Inner telescoping section (narrower, top 40 %) */}
-          <mesh position={[0, pedestalH * 0.78, 0]} castShadow>
+          {/* Inner telescoping section — narrower, slides into outer */}
+          <mesh position={[0, pedestalH * 0.80, 0]} castShadow>
             <cylinderGeometry args={[0.026, 0.030, pedestalH * 0.44, 16]} />
-            <meshPhysicalMaterial color={postColor} roughness={0.08} metalness={0.98} clearcoat={0.6} clearcoatRoughness={0.08} />
+            <meshPhysicalMaterial color={postColor} roughness={0.08} metalness={0.95} clearcoat={0.55} clearcoatRoughness={0.08} />
           </mesh>
-          {/* Top bracket / spring cap */}
-          <mesh position={[0, pedestalH + 0.025, 0]} castShadow>
-            <boxGeometry args={[0.16, 0.05, 0.16]} />
-            <meshPhysicalMaterial color="#3A4455" roughness={0.2} metalness={0.9} />
+          {/* Gray top bracket / cradle connecting to beam */}
+          <mesh position={[0, pedestalH + 0.028, 0]} castShadow>
+            <boxGeometry args={[0.15, 0.056, 0.14]} />
+            <meshPhysicalMaterial color="#3E4A58" roughness={0.22} metalness={0.88} />
           </mesh>
         </group>
       ))}
@@ -555,181 +563,147 @@ function RingsFree({
 }
 
 // ---------------------------------------------------------------------------
-// Hoppbord (Vault table) – FIG: 95×120 cm top pad, exposed metal leg frame
+// Hoppbord (Vault table) – Spieth-style: curved orange saddle top,
+//   single central column, cross/star base with red foot pads
 // ---------------------------------------------------------------------------
 
 function Vault({
   w, d, color, partColors, params,
 }: { w: number; d: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
   const standH    = params?.standH ?? 1.12;
-  const padH      = params?.padH   ?? 0.22;
+  const padH      = params?.padH   ?? 0.24;
   const totalH    = standH + padH;
-  const bodyColor  = pc(partColors, "kropp",   color ?? "#4A2810");
-  const topColor   = pc(partColors, "yta",     "#C8A878");
-  const metalColor = pc(partColors, "stommar", "#252D3A");
+  // Orange body + darker leather surface
+  const bodyColor  = pc(partColors, "kropp",   color ?? "#CC4E10");
+  const topColor   = pc(partColors, "yta",     "#B84010");
+  // Gray column — matches Spieth vault aesthetics
+  const metalColor = pc(partColors, "stommar", "#606A74");
+  const footColor  = "#B81818";
 
-  // Leg frame — much narrower than the top pad so the overhang is visible
-  const legW = 0.20;  // ±0.20 m from center (total 0.40 m)
-  const legD = 0.26;  // ±0.26 m from center (total 0.52 m)
-  const legR = 0.022;
-  const lxs = [-legW, legW] as number[];
-  const lzs = [-legD, legD] as number[];
+  const colW = 0.38;
+  const colD = 0.30;
 
   return (
     <group>
-      {/* Floor base plate */}
-      <mesh position={[0, 0.02, 0]} receiveShadow castShadow>
-        <boxGeometry args={[legW * 2 + 0.22, 0.04, legD * 2 + 0.18]} />
-        <meshPhysicalMaterial color={metalColor} roughness={0.45} metalness={0.80} />
+      {/* Cross base — 2 arms (front/back + left/right) */}
+      {([[1, 0, 0.60, 0.14], [-1, 0, 0.60, 0.14], [0, 1, 0.14, 0.55], [0, -1, 0.14, 0.55]] as [number,number,number,number][]).map(([sx, sz, aw, ad], i) => (
+        <mesh key={`arm-${i}`} position={[sx * 0.22, 0.028, sz * 0.22]} castShadow>
+          <boxGeometry args={[aw, 0.055, ad]} />
+          <meshPhysicalMaterial color={metalColor} roughness={0.30} metalness={0.88} />
+        </mesh>
+      ))}
+      {/* Red rubber foot pads at arm ends */}
+      {([[0.52, 0], [-0.52, 0], [0, 0.50], [0, -0.50]] as [number,number][]).map(([px, pz], i) => (
+        <mesh key={`foot-${i}`} position={[px, 0.007, pz]} receiveShadow>
+          <boxGeometry args={[0.14, 0.014, 0.14]} />
+          <meshPhysicalMaterial color={footColor} roughness={0.72} metalness={0.08} />
+        </mesh>
+      ))}
+
+      {/* Central column */}
+      <mesh position={[0, standH / 2 + 0.055, 0]} castShadow>
+        <boxGeometry args={[colW, standH, colD]} />
+        <meshPhysicalMaterial color={metalColor} roughness={0.22} metalness={0.90} clearcoat={0.25} />
+      </mesh>
+      {/* Height-adjustment band ring */}
+      <mesh position={[0, standH * 0.58, 0]} castShadow>
+        <boxGeometry args={[colW + 0.018, 0.048, colD + 0.018]} />
+        <meshPhysicalMaterial color="#2E3440" roughness={0.45} metalness={0.72} />
+      </mesh>
+      {/* Column top cap */}
+      <mesh position={[0, standH + 0.055, 0]} castShadow>
+        <boxGeometry args={[colW + 0.02, 0.03, colD + 0.02]} />
+        <meshPhysicalMaterial color="#404858" roughness={0.30} metalness={0.80} />
       </mesh>
 
-      {/* 4 vertical legs – full height */}
-      {lxs.flatMap((x) => lzs.map((z) => (
-        <mesh key={`leg-${x}-${z}`} position={[x, standH / 2 + 0.02, z]} castShadow>
-          <cylinderGeometry args={[legR, legR * 1.10, standH, 12]} />
-          <meshPhysicalMaterial color={metalColor} roughness={0.20} metalness={0.92} clearcoat={0.3} />
-        </mesh>
-      )))}
-
-      {/* Diagonal X-braces on the two short (side) faces */}
-      {lxs.flatMap((x) => {
-        const from: [number,number,number] = [x, standH * 0.28 + 0.02, -legD];
-        const to:   [number,number,number] = [x, standH * 0.72 + 0.02,  legD];
-        const dx = to[0]-from[0], dy = to[1]-from[1], dz = to[2]-from[2];
-        const len = Math.hypot(dx, dy, dz);
-        const mid: [number,number,number] = [(from[0]+to[0])/2,(from[1]+to[1])/2,(from[2]+to[2])/2];
-        return [
-          <mesh key={`brace-a-${x}`} position={mid} quaternion={alignY(dx, dy, dz)} castShadow>
-            <cylinderGeometry args={[0.011, 0.011, len, 8]} />
-            <meshPhysicalMaterial color={metalColor} roughness={0.35} metalness={0.85} />
-          </mesh>,
-          <mesh key={`brace-b-${x}`}
-            position={[(from[0]+to[0])/2, (from[1]+to[1])/2, (from[2]+to[2])/2]}
-            quaternion={alignY(-dx, -dy, dz)} castShadow>
-            <cylinderGeometry args={[0.011, 0.011, len, 8]} />
-            <meshPhysicalMaterial color={metalColor} roughness={0.35} metalness={0.85} />
-          </mesh>,
-        ];
-      }).flat()}
-
-      {/* Horizontal top frame at standH – connects all 4 legs */}
-      {lzs.map((z, i) => (
-        <mesh key={`tf-z-${i}`} position={[0, standH + 0.02, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[0.016, 0.016, legW * 2, 8]} />
-          <meshPhysicalMaterial color={metalColor} roughness={0.3} metalness={0.88} />
-        </mesh>
-      ))}
-      {lxs.map((x, i) => (
-        <mesh key={`tf-x-${i}`} position={[x, standH + 0.02, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[0.016, 0.016, legD * 2, 8]} />
-          <meshPhysicalMaterial color={metalColor} roughness={0.3} metalness={0.88} />
-        </mesh>
-      ))}
-
-      {/* Top pad – box body (shorter in depth to accommodate rounded edges) */}
-      <mesh position={[0, standH + 0.04 + padH / 2, 0]} castShadow>
-        <boxGeometry args={[w, padH, d - padH]} />
-        <meshPhysicalMaterial color={bodyColor} roughness={0.68} metalness={0} />
+      {/* Saddle pad – main body (box, depth slightly shorter for end rounding) */}
+      <mesh position={[0, standH + 0.07 + padH / 2, 0]} castShadow>
+        <boxGeometry args={[w, padH, d - padH * 0.85]} />
+        <meshPhysicalMaterial color={bodyColor} roughness={0.62} metalness={0} />
       </mesh>
-      {/* Rounded front + back edges (the "böj" / curve) */}
-      {([-d / 2 + padH / 2, d / 2 - padH / 2] as number[]).map((z, i) => (
-        <mesh key={`edge-${i}`} position={[0, standH + 0.04 + padH / 2, z]} rotation={[0, Math.PI / 2, 0]} castShadow>
-          <cylinderGeometry args={[padH / 2, padH / 2, w, 18]} />
-          <meshPhysicalMaterial color={bodyColor} roughness={0.68} metalness={0} />
-        </mesh>
-      ))}
-
-      {/* Leather top surface */}
-      <mesh position={[0, totalH + 0.046, 0]} castShadow>
-        <boxGeometry args={[w - 0.02, 0.008, d - 0.02]} />
-        <meshPhysicalMaterial color={topColor} roughness={0.90} metalness={0} />
+      {/* Rounded front edge (approach side — run-up direction) */}
+      <mesh position={[0, standH + 0.07 + padH / 2, -(d - padH * 0.85) / 2]}
+        rotation={[0, Math.PI / 2, 0]} castShadow>
+        <cylinderGeometry args={[padH / 2, padH / 2, w, 20]} />
+        <meshPhysicalMaterial color={bodyColor} roughness={0.62} metalness={0} />
+      </mesh>
+      {/* Rounded back edge */}
+      <mesh position={[0, standH + 0.07 + padH / 2, (d - padH * 0.85) / 2]}
+        rotation={[0, Math.PI / 2, 0]} castShadow>
+        <cylinderGeometry args={[padH / 2, padH / 2, w, 20]} />
+        <meshPhysicalMaterial color={bodyColor} roughness={0.62} metalness={0} />
+      </mesh>
+      {/* Suede/leather top surface layer */}
+      <mesh position={[0, totalH + 0.072, 0]} castShadow>
+        <boxGeometry args={[w - 0.01, 0.014, d - 0.01]} />
+        <meshPhysicalMaterial color={topColor} roughness={0.92} metalness={0} />
       </mesh>
     </group>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Trampett – strongly inclined springboard (~28°), short front legs + tall rear legs
+// Trampett – Reuther-style springboard: modest incline, visible coil springs,
+//            curved padded top surface (orange), wood-coloured base board
 // ---------------------------------------------------------------------------
 
 function Trampette({
   w, d, color, partColors,
 }: { w: number; d: number; color?: string; partColors?: Record<string, string> }) {
-  const tiltAngle  = 0.49;    // ~28° forward incline
-  const frontH     = 0.12;    // front leg height
-  const rearH      = frontH + Math.sin(tiltAngle) * d; // rear leg height from incline geometry
-  const frameT     = 0.028;
-  const frameColor = pc(partColors, "ram",   "#232C3A");
-  const bedColor   = pc(partColors, "matta", color ?? "#B02020");
-  const springColor = "#6B7080";
-  const nSprings   = Math.max(3, Math.round((w - 0.15) / 0.18));
-  const springLen  = 0.08;
+  // Modest incline: front ~0.08 m, rear ~0.22 m ≈ 12°
+  const tiltAngle  = 0.22;
+  const baseH      = 0.045;    // base board thickness
+  const springH    = 0.16;     // spring height (compressed)
+  const padH       = 0.075;    // padded top thickness
+  const nSprings   = 5;        // 5 prominent load-bearing springs
+  const frameColor = pc(partColors, "ram",    "#2A2A2A");
+  const padColor   = pc(partColors, "matta",  color ?? "#E06020");  // orange
+  const woodColor  = "#C8A060";   // natural wood base
+  const springColor = "#4A4A4A";  // dark metal
 
-  // The whole assembly sits at frontH above floor; front edge is flush, rear edge elevated
   return (
     <group>
-      {/* Front two legs – short */}
-      {([-w / 2 + 0.07, w / 2 - 0.07] as number[]).map((px, i) => (
-        <mesh key={`fl-${i}`} position={[px, frontH / 2, -d / 2 + 0.07]} castShadow>
-          <cylinderGeometry args={[0.018, 0.018, frontH, 8]} />
-          <meshPhysicalMaterial color={frameColor} roughness={0.3} metalness={0.85} />
+      {/* Inclined assembly — front low, rear slightly higher */}
+      <group rotation={[-tiltAngle, 0, 0]} position={[0, baseH / 2 + 0.01, 0]}>
+        {/* Wooden base board */}
+        <mesh position={[0, 0, 0]} castShadow receiveShadow>
+          <boxGeometry args={[w * 0.96, baseH, d * 0.96]} />
+          <meshPhysicalMaterial color={woodColor} roughness={0.6} metalness={0} />
         </mesh>
-      ))}
-      {/* Rear two legs – tall */}
-      {([-w / 2 + 0.07, w / 2 - 0.07] as number[]).map((px, i) => (
-        <mesh key={`rl-${i}`} position={[px, rearH / 2, d / 2 - 0.07]} castShadow>
-          <cylinderGeometry args={[0.018, 0.018, rearH, 8]} />
-          <meshPhysicalMaterial color={frameColor} roughness={0.3} metalness={0.85} />
-        </mesh>
-      ))}
-      {/* Cross-brace between front legs at bottom */}
-      <mesh position={[0, 0.045, -d / 2 + 0.07]} castShadow>
-        <boxGeometry args={[w - 0.14, frameT, frameT]} />
-        <meshPhysicalMaterial color={frameColor} roughness={0.3} metalness={0.85} />
-      </mesh>
-      {/* Cross-brace between rear legs at mid-height */}
-      <mesh position={[0, rearH * 0.45, d / 2 - 0.07]} castShadow>
-        <boxGeometry args={[w - 0.14, frameT, frameT]} />
-        <meshPhysicalMaterial color={frameColor} roughness={0.3} metalness={0.85} />
-      </mesh>
-
-      {/* Inclined frame + bed */}
-      <group position={[0, frontH, 0]} rotation={[-tiltAngle, 0, 0]}>
-        {/* Long side rails */}
-        {([-w / 2 + 0.04, w / 2 - 0.04] as number[]).map((x, i) => (
-          <mesh key={`lr-${i}`} position={[x, 0, 0]} castShadow>
-            <boxGeometry args={[frameT, frameT, d - 0.08]} />
-            <meshPhysicalMaterial color={frameColor} roughness={0.3} metalness={0.85} />
-          </mesh>
-        ))}
-        {/* Short end rails */}
-        {([-d / 2 + 0.04, d / 2 - 0.04] as number[]).map((z, i) => (
-          <mesh key={`sr-${i}`} position={[0, 0, z]} castShadow>
-            <boxGeometry args={[w - 0.08, frameT, frameT]} />
-            <meshPhysicalMaterial color={frameColor} roughness={0.3} metalness={0.85} />
+        {/* Metal side frames */}
+        {([-w / 2 + 0.015, w / 2 - 0.015] as number[]).map((x, i) => (
+          <mesh key={`sf-${i}`} position={[x, (baseH + springH + padH) / 2 - baseH / 2, 0]} castShadow>
+            <boxGeometry args={[0.025, baseH + springH + padH, d * 0.96]} />
+            <meshPhysicalMaterial color={frameColor} roughness={0.25} metalness={0.88} />
           </mesh>
         ))}
 
-        {/* Springs along both long sides */}
-        {Array.from({ length: nSprings }).flatMap((_, si) => {
+        {/* 5 load-bearing coil springs (thick cylinders) in a row */}
+        {Array.from({ length: nSprings }).map((_, si) => {
           const t  = (si + 0.5) / nSprings;
-          const px = -w / 2 + 0.08 + t * (w - 0.16);
-          return ([-1, 1] as number[]).map((sz) => {
-            const pz  = (d / 2 - 0.04) * sz;
-            const ang = -sz * 0.50;
-            return (
-              <mesh key={`sp-${si}-${sz}`} position={[px, frameT * 0.5, pz * 0.78]} rotation={[ang, 0, 0]} castShadow>
-                <cylinderGeometry args={[0.005, 0.005, springLen, 6]} />
-                <meshPhysicalMaterial color={springColor} roughness={0.45} metalness={0.80} />
-              </mesh>
-            );
-          });
+          const pz = -d * 0.42 + t * d * 0.84;
+          return (
+            <mesh key={`sp-${si}`} position={[0, baseH / 2 + springH / 2, pz]} castShadow>
+              <cylinderGeometry args={[0.035, 0.038, springH, 12]} />
+              <meshPhysicalMaterial color={springColor} roughness={0.30} metalness={0.88} />
+            </mesh>
+          );
         })}
 
-        {/* Jump bed */}
-        <mesh position={[0, frameT * 0.8, 0]} castShadow receiveShadow>
-          <boxGeometry args={[w * 0.82, 0.012, d * 0.82]} />
-          <meshPhysicalMaterial color={bedColor} roughness={0.80} metalness={0.0} />
+        {/* Padded curved top */}
+        <mesh position={[0, baseH / 2 + springH + padH / 2, 0]} castShadow>
+          <boxGeometry args={[w * 0.93, padH, d * 0.90]} />
+          <meshPhysicalMaterial color={padColor} roughness={0.70} metalness={0} />
+        </mesh>
+        {/* Rounded front edge of pad */}
+        <mesh position={[0, baseH / 2 + springH + padH / 2, -d * 0.45]} rotation={[0, Math.PI / 2, 0]} castShadow>
+          <cylinderGeometry args={[padH / 2, padH / 2, w * 0.93, 14]} />
+          <meshPhysicalMaterial color={padColor} roughness={0.70} metalness={0} />
+        </mesh>
+        {/* Rounded rear edge of pad */}
+        <mesh position={[0, baseH / 2 + springH + padH / 2, d * 0.45]} rotation={[0, Math.PI / 2, 0]} castShadow>
+          <cylinderGeometry args={[padH / 2, padH / 2, w * 0.93, 14]} />
+          <meshPhysicalMaterial color={padColor} roughness={0.70} metalness={0} />
         </mesh>
       </group>
     </group>
@@ -737,86 +711,89 @@ function Trampette({
 }
 
 // ---------------------------------------------------------------------------
-// Mini-trampolin – flat, 4 equal legs, springs all around the perimeter
+// Mini-trampolin – NEMO-style: flat elastic surface, A-frame side supports,
+//                  adjustable tilt, blue competition pad with grid marking
 // ---------------------------------------------------------------------------
 
 function MiniTramp({
   w, d, color, partColors,
 }: { w: number; d: number; color?: string; partColors?: Record<string, string> }) {
-  const legH       = 0.28;
-  const frameT     = 0.030;
-  const frameColor = pc(partColors, "ram",   "#232C3A");
-  const bedColor   = pc(partColors, "matta", color ?? "#B02020");
-  const springColor = "#6B7080";
-  const springLen  = 0.075;
-
-  // Springs along all 4 sides
-  const nLong  = Math.max(2, Math.round((w - 0.15) / 0.16));
-  const nShort = Math.max(2, Math.round((d - 0.15) / 0.16));
+  const frameColor  = pc(partColors, "ram",   "#3A4050");
+  const padColor    = pc(partColors, "matta", color ?? "#1A72B8");  // competition blue
+  const footColor   = "#B01818";
+  const metalColor  = "#5A6070";
+  const frameT      = 0.025;
+  const padH        = 0.045;
+  const frameH      = 0.06;   // frame surround height
+  const legReach    = 0.32;   // how far legs splay outward
+  const deviceH     = 0.30;   // surface height from floor
 
   return (
-    <group position={[0, legH, 0]}>
-      {/* Four legs */}
-      {([
-        [-w / 2 + 0.07, -d / 2 + 0.07],
-        [ w / 2 - 0.07, -d / 2 + 0.07],
-        [-w / 2 + 0.07,  d / 2 - 0.07],
-        [ w / 2 - 0.07,  d / 2 - 0.07],
-      ] as [number, number][]).map(([px, pz], i) => (
-        <mesh key={`leg-${i}`} position={[px, -legH / 2, pz]} castShadow>
-          <cylinderGeometry args={[0.020, 0.020, legH, 8]} />
-          <meshPhysicalMaterial color={frameColor} roughness={0.3} metalness={0.85} />
-        </mesh>
-      ))}
-
-      {/* Rectangular frame border */}
-      {([-d / 2 + 0.04, d / 2 - 0.04] as number[]).map((z, i) => (
+    <group position={[0, deviceH, 0]}>
+      {/* Metal frame surround */}
+      {([-d / 2 + frameT / 2, d / 2 - frameT / 2] as number[]).map((z, i) => (
         <mesh key={`fl-${i}`} position={[0, 0, z]} castShadow>
-          <boxGeometry args={[w - 0.08, frameT, frameT]} />
-          <meshPhysicalMaterial color={frameColor} roughness={0.3} metalness={0.85} />
+          <boxGeometry args={[w, frameH, frameT]} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.25} metalness={0.88} />
         </mesh>
       ))}
-      {([-w / 2 + 0.04, w / 2 - 0.04] as number[]).map((x, i) => (
+      {([-w / 2 + frameT / 2, w / 2 - frameT / 2] as number[]).map((x, i) => (
         <mesh key={`fs-${i}`} position={[x, 0, 0]} castShadow>
-          <boxGeometry args={[frameT, frameT, d - 0.08]} />
-          <meshPhysicalMaterial color={frameColor} roughness={0.3} metalness={0.85} />
+          <boxGeometry args={[frameT, frameH, d]} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.25} metalness={0.88} />
         </mesh>
       ))}
 
-      {/* Springs along long sides (X-axis sides) */}
-      {Array.from({ length: nLong }).flatMap((_, si) => {
-        const t  = (si + 0.5) / nLong;
-        const px = -w / 2 + 0.08 + t * (w - 0.16);
-        return ([-1, 1] as number[]).map((sz) => {
-          const pz  = (d / 2 - 0.04) * sz;
-          return (
-            <mesh key={`lsp-${si}-${sz}`} position={[px, frameT * 0.5, pz * 0.78]} rotation={[-sz * 0.50, 0, 0]} castShadow>
-              <cylinderGeometry args={[0.005, 0.005, springLen, 6]} />
-              <meshPhysicalMaterial color={springColor} roughness={0.45} metalness={0.80} />
-            </mesh>
-          );
-        });
-      })}
-      {/* Springs along short sides (Z-axis sides) */}
-      {Array.from({ length: nShort }).flatMap((_, si) => {
-        const t  = (si + 0.5) / nShort;
-        const pz = -d / 2 + 0.08 + t * (d - 0.16);
-        return ([-1, 1] as number[]).map((sx) => {
-          const px  = (w / 2 - 0.04) * sx;
-          return (
-            <mesh key={`ssp-${si}-${sx}`} position={[px * 0.78, frameT * 0.5, pz]} rotation={[0, 0, sx * 0.50]} castShadow>
-              <cylinderGeometry args={[0.005, 0.005, springLen, 6]} />
-              <meshPhysicalMaterial color={springColor} roughness={0.45} metalness={0.80} />
-            </mesh>
-          );
-        });
-      })}
-
-      {/* Trampoline bed – slightly smaller than frame, nearly circular pad feel */}
-      <mesh position={[0, frameT * 0.8, 0]} castShadow receiveShadow>
-        <boxGeometry args={[w * 0.78, 0.015, d * 0.78]} />
-        <meshPhysicalMaterial color={bedColor} roughness={0.80} metalness={0.0} />
+      {/* Blue padded elastic surface */}
+      <mesh position={[0, frameH * 0.55, 0]} castShadow receiveShadow>
+        <boxGeometry args={[w - frameT * 2, padH, d - frameT * 2]} />
+        <meshPhysicalMaterial color={padColor} roughness={0.72} metalness={0} />
       </mesh>
+      {/* Grid lines on pad (thin raised lines) */}
+      {([-w * 0.25, 0, w * 0.25] as number[]).map((px, i) => (
+        <mesh key={`gl-${i}`} position={[px, frameH * 0.55 + padH / 2 + 0.002, 0]} castShadow>
+          <boxGeometry args={[0.008, 0.004, d - frameT * 3]} />
+          <meshPhysicalMaterial color="#3A8AE0" roughness={0.5} metalness={0} />
+        </mesh>
+      ))}
+      {([-d * 0.25, 0, d * 0.25] as number[]).map((pz, i) => (
+        <mesh key={`gr-${i}`} position={[0, frameH * 0.55 + padH / 2 + 0.002, pz]} castShadow>
+          <boxGeometry args={[w - frameT * 3, 0.004, 0.008]} />
+          <meshPhysicalMaterial color="#3A8AE0" roughness={0.5} metalness={0} />
+        </mesh>
+      ))}
+
+      {/* A-frame leg supports on each long side */}
+      {([-1, 1] as number[]).map((sz) => (
+        <group key={`af-${sz}`} position={[0, -deviceH / 2, sz * d * 0.22]}>
+          {/* Two angled legs per side */}
+          {([-w * 0.30, w * 0.30] as number[]).map((px, i) => {
+            const legLen = Math.hypot(legReach, deviceH);
+            const ang    = Math.atan2(legReach, deviceH);
+            return (
+              <mesh key={`al-${sz}-${i}`}
+                position={[px, 0, sz * legReach / 2]}
+                rotation={[sz * ang, 0, 0]}
+                castShadow>
+                <cylinderGeometry args={[0.018, 0.018, legLen, 8]} />
+                <meshPhysicalMaterial color={metalColor} roughness={0.35} metalness={0.85} />
+              </mesh>
+            );
+          })}
+          {/* Cross-bar connecting legs */}
+          <mesh position={[0, -deviceH * 0.2, sz * legReach * 0.4]} castShadow>
+            <boxGeometry args={[w * 0.65, 0.022, 0.022]} />
+            <meshPhysicalMaterial color={metalColor} roughness={0.35} metalness={0.85} />
+          </mesh>
+          {/* Red foot pads */}
+          {([-w * 0.30, w * 0.30] as number[]).map((px, i) => (
+            <mesh key={`fp-${sz}-${i}`} position={[px, -deviceH / 2, sz * legReach]} receiveShadow>
+              <boxGeometry args={[0.12, 0.018, 0.10]} />
+              <meshPhysicalMaterial color={footColor} roughness={0.7} metalness={0.1} />
+            </mesh>
+          ))}
+        </group>
+      ))}
     </group>
   );
 }
