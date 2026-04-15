@@ -21,9 +21,7 @@ const Hall3D = lazy(() =>
   import("./components/Canvas3D/Hall3D").then((m) => ({ default: m.Hall3D })),
 );
 
-/** Fångar krascher i 3D-vyn och återställer till 2D-läge.
- *  Exponerar en reset-funktion via onRegisterReset så att föräldern kan
- *  nollställa tillståndet nästa gång användaren byter till 3D. */
+/** Fångar krascher i 3D-vyn och återställer till 2D-läge. */
 class ThreeDErrorBoundary extends Component<
   { children: ReactNode; onRegisterReset: (fn: () => void) => void },
   { crashed: boolean }
@@ -50,33 +48,36 @@ class ThreeDErrorBoundary extends Component<
 export default function App() {
   useKeyboardShortcuts();
   const stageRef = useRef<Konva.Stage | null>(null);
-  // Use desktop layout only on devices with a mouse (hover+fine pointer).
-  // This keeps iPads (touch-only) on the mobile bottom-sheet layout.
-  const isDesktop = useMediaQuery("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
+
+  // Three layout tiers:
+  //   desktop  – mouse device ≥1024px  → always-visible sidebars
+  //   tablet   – touch device ≥768px   → slide-in overlay panels (iPad)
+  //   mobile   – anything <768px       → FAB + bottom sheets
+  const isDesktop = useMediaQuery(
+    "(min-width: 1024px) and (hover: hover) and (pointer: fine)",
+  );
+  const isLargeScreen = useMediaQuery("(min-width: 768px)");
+  const isTablet = isLargeScreen && !isDesktop;
+  const isMobile = !isLargeScreen;
+
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const viewMode = usePlanStore((s) => s.viewMode);
   const is3D = viewMode === "3D";
 
-  // Derive selected equipment label for mobile bar
   const plan = usePlanStore((s) => s.plan);
   const selectedEq = selectedId
-    ? plan.stations.find((s) => s.id === plan.activeStationId)?.equipment.find((e) => e.id === selectedId)
+    ? plan.stations
+        .find((s) => s.id === plan.activeStationId)
+        ?.equipment.find((e) => e.id === selectedId)
     : null;
   const selectedType = selectedEq ? getEquipmentById(selectedEq.typeId) : null;
   const selectedLabel = selectedEq?.label ?? selectedType?.name ?? "";
 
-  // Ref to ThreeDErrorBoundary's reset function.
-  // Called every time the user switches to 3D so the boundary doesn't stay
-  // permanently crashed after a previous error.
   const reset3DRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (is3D) reset3DRef.current();
   }, [is3D]);
 
-  // Once 3D has been requested we keep the Canvas mounted forever.
-  // Unmounting a Three.js/WebGL Canvas tears down the GL context which
-  // occasionally throws and crashes the whole app. Hiding it with CSS
-  // is the safe alternative.
   const [has3DLoaded, setHas3DLoaded] = useState(
     () => usePlanStore.getState().viewMode === "3D",
   );
@@ -88,85 +89,160 @@ export default function App() {
   const [propertyOpen, setPropertyOpen] = useState(false);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
 
-  // Close property sheet whenever selection changes (cleared or switched to another piece).
-  // The sheet must be explicitly re-opened via the "Egenskaper" button.
+  // Close property panel when nothing is selected
+  useEffect(() => {
+    if (!selectedId) setPropertyOpen(false);
+  }, [selectedId]);
+
+  // Tablet: auto-open property panel when equipment becomes selected
+  useEffect(() => {
+    if (isTablet && selectedId) setPropertyOpen(true);
+  }, [isTablet, selectedId]);
+
+  // Mobile: close property sheet when selection changes (re-open manually)
   const prevSelectedIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (selectedId !== prevSelectedIdRef.current) {
+    if (isMobile && selectedId !== prevSelectedIdRef.current) {
       setPropertyOpen(false);
     }
     prevSelectedIdRef.current = selectedId;
-  }, [selectedId]);
+  }, [isMobile, selectedId]);
+
+  const canvasArea = (
+    <div className="relative flex-1">
+      {has3DLoaded && (
+        <div
+          className="absolute inset-0"
+          style={{
+            visibility: is3D ? "visible" : "hidden",
+            pointerEvents: is3D ? "auto" : "none",
+          }}
+        >
+          <ThreeDErrorBoundary
+            onRegisterReset={(fn) => {
+              reset3DRef.current = fn;
+            }}
+          >
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                  Laddar 3D-vy…
+                </div>
+              }
+            >
+              <Hall3D className="h-full w-full" />
+            </Suspense>
+          </ThreeDErrorBoundary>
+        </div>
+      )}
+      {!is3D && (
+        <HallStage
+          className="absolute inset-0"
+          onStageReady={(s) => (stageRef.current = s)}
+        />
+      )}
+    </div>
+  );
 
   return (
     <div className="flex h-full flex-col">
       <Toolbar
         stageRef={stageRef}
         onToggleSidebar={
-          isDesktop ? undefined : () => setPaletteOpen((o) => !o)
+          !isDesktop ? () => setPaletteOpen((o) => !o) : undefined
         }
       />
 
-      <div className="flex min-h-0 flex-1">
-        {isDesktop && (
+      {/* ── Desktop layout: always-visible sidebars ── */}
+      {isDesktop && (
+        <div className="flex min-h-0 flex-1">
           <aside className="w-72 shrink-0 border-r border-surface-3 bg-surface-1">
             <EquipmentPalette />
           </aside>
-        )}
-
-        <main className="relative flex min-w-0 flex-1 flex-col">
-          {/* Delade canvas-ytan – båda ligger i samma absoluta container
-              så Three.js-canvas alltid har rätt storlek (aldrig 0×0). */}
-          <div className="relative flex-1">
-            {/* Three.js – monteras en gång, göms med visibility (ej display:none) */}
-            {has3DLoaded && (
-              <div
-                className="absolute inset-0"
-                style={{
-                  visibility: is3D ? "visible" : "hidden",
-                  pointerEvents: is3D ? "auto" : "none",
-                }}
-              >
-                <ThreeDErrorBoundary onRegisterReset={(fn) => { reset3DRef.current = fn; }}>
-                  <Suspense
-                    fallback={
-                      <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                        Laddar 3D-vy…
-                      </div>
-                    }
-                  >
-                    <Hall3D className="h-full w-full" />
-                  </Suspense>
-                </ThreeDErrorBoundary>
-              </div>
-            )}
-
-            {/* 2D Konva – monteras/avmonteras normalt */}
-            {!is3D && (
-              <HallStage
-                className="absolute inset-0"
-                onStageReady={(s) => (stageRef.current = s)}
-              />
-            )}
-          </div>
-          <StationTimeline />
-        </main>
-
-        {isDesktop && (
+          <main className="relative flex min-w-0 flex-1 flex-col">
+            {canvasArea}
+            <StationTimeline />
+          </main>
           <aside className="w-80 shrink-0 border-l border-surface-3 bg-surface-1">
             <PropertyPanel />
           </aside>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* ── Tablet layout: overlay slide-in panels ── */}
+      {isTablet && (
+        <div className="relative flex min-h-0 flex-1">
+          {/* Backdrop – closes whichever panel is open */}
+          {(paletteOpen || propertyOpen) && (
+            <div
+              className="absolute inset-0 z-20 bg-black/30"
+              onClick={() => {
+                setPaletteOpen(false);
+                setPropertyOpen(false);
+              }}
+            />
+          )}
+
+          {/* Left: equipment palette */}
+          <aside
+            className="absolute inset-y-0 left-0 z-30 flex w-72 flex-col overflow-hidden border-r border-surface-3 bg-surface-1 shadow-2xl transition-transform duration-300"
+            style={{
+              transform: paletteOpen ? "translateX(0)" : "translateX(-100%)",
+            }}
+          >
+            <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
+              <span className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+                Redskap
+              </span>
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(false)}
+                className="grid h-7 w-7 place-items-center rounded-md text-slate-500 hover:bg-surface-2"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <EquipmentPalette />
+            </div>
+          </aside>
+
+          {/* Main canvas */}
+          <main className="relative flex min-w-0 flex-1 flex-col">
+            {canvasArea}
+            <StationTimeline />
+          </main>
+
+          {/* Right: property panel */}
+          <aside
+            className="absolute inset-y-0 right-0 z-30 w-80 overflow-hidden border-l border-surface-3 bg-surface-1 shadow-2xl transition-transform duration-300"
+            style={{
+              transform: propertyOpen ? "translateX(0)" : "translateX(100%)",
+            }}
+          >
+            <PropertyPanel onClose={() => setPropertyOpen(false)} />
+          </aside>
+        </div>
+      )}
+
+      {/* ── Mobile layout: FAB + bottom sheets ── */}
+      {isMobile && (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <main className="relative flex min-w-0 flex-1 flex-col">
+            {canvasArea}
+            <StationTimeline />
+          </main>
+        </div>
+      )}
 
       <CommandPalette />
       <EquipmentEditor />
 
-      {!isDesktop && (
+      {/* Mobile-only: FAB, selection bar, bottom sheets */}
+      {isMobile && (
         <>
           <FabButton onClick={() => setPaletteOpen(true)} />
 
-          {/* Compact selection bar – appears when equipment is selected; does NOT open full panel automatically */}
           {selectedId && !propertyOpen && (
             <div
               className="fixed bottom-24 left-4 right-20 z-30 flex items-center gap-2 rounded-2xl border border-surface-3 bg-white px-4 py-2.5 shadow-lg"
@@ -207,6 +283,7 @@ export default function App() {
               }}
             />
           </BottomSheet>
+
           <BottomSheet
             open={propertyOpen}
             onClose={() => {
