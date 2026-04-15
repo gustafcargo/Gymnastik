@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { BookmarkMinus, Search } from "lucide-react";
 import {
   CATEGORY_LABELS,
+  EQUIPMENT_BY_ID,
   EQUIPMENT_CATALOG,
 } from "../../catalog/equipment";
-import type { EquipmentType } from "../../types";
+import type { EquipmentType, SavedEquipmentTemplate } from "../../types";
 import { EquipmentIcon } from "./EquipmentIcon";
 import { usePlanStore } from "../../store/usePlanStore";
+import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { formatMeters } from "../../lib/geometry";
 
 type Props = {
@@ -20,6 +22,9 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const addEquipmentCenter = usePlanStore((s) => s.addEquipmentCenter);
+  const updateEquipment = usePlanStore((s) => s.updateEquipment);
+  const templates = useSavedEquipmentStore((s) => s.templates);
+  const removeTemplate = useSavedEquipmentStore((s) => s.removeTemplate);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -45,6 +50,21 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
   const handleActivate = (typeId: string) => {
     if (onItemActivate) onItemActivate(typeId);
     else addEquipmentCenter(typeId);
+  };
+
+  const handleTemplateActivate = (tpl: SavedEquipmentTemplate) => {
+    const id = addEquipmentCenter(tpl.baseTypeId);
+    if (id) {
+      updateEquipment(id, {
+        label: tpl.name,
+        customColor: tpl.customColor,
+        partColors: tpl.partColors,
+        params: tpl.params,
+        z: tpl.z,
+        notes: tpl.notes,
+      });
+    }
+    if (onItemActivate) onItemActivate(tpl.baseTypeId);
   };
 
   return (
@@ -86,6 +106,34 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
+        {/* ── Sparade mallar ── */}
+        {templates.length > 0 && (
+          <section className="border-b border-surface-3 py-2">
+            <h3 className="px-4 pb-1 text-xs font-semibold uppercase tracking-wider text-accent">
+              Sparade mallar
+            </h3>
+            <ul className={compact ? "grid grid-cols-2 gap-2 px-3" : "space-y-1 px-2"}>
+              {templates.map((tpl) => {
+                const baseType = EQUIPMENT_BY_ID[tpl.baseTypeId];
+                if (!baseType) return null;
+                // Build a display type that reflects the template's custom color
+                const displayType: EquipmentType = { ...baseType, color: tpl.customColor ?? baseType.color };
+                return (
+                  <li key={tpl.id}>
+                    <TemplateItem
+                      tpl={tpl}
+                      baseType={displayType}
+                      compact={compact}
+                      onActivate={() => handleTemplateActivate(tpl)}
+                      onDelete={() => removeTemplate(tpl.id)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {CATEGORY_ORDER.map((cat) => {
           const items = grouped[cat];
           if (!items || items.length === 0) return null;
@@ -140,6 +188,60 @@ function CategoryChip({
     >
       {children}
     </button>
+  );
+}
+
+function TemplateItem({
+  tpl,
+  baseType,
+  onActivate,
+  onDelete,
+  compact,
+}: {
+  tpl: SavedEquipmentTemplate;
+  baseType: EquipmentType;
+  onActivate: () => void;
+  onDelete: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={
+        "group flex w-full items-center gap-2 rounded-lg border border-accent/20 bg-accent-soft p-2 " +
+        (compact ? "flex-col text-center" : "")
+      }
+    >
+      <button
+        type="button"
+        onClick={onActivate}
+        className={
+          "flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left " +
+          (compact ? "flex-col" : "")
+        }
+        title={`Lägg till ${tpl.name}`}
+      >
+        <div
+          className={
+            "flex shrink-0 items-center justify-center rounded-md bg-surface-2 " +
+            (compact ? "h-14 w-14" : "h-10 w-10")
+          }
+        >
+          <EquipmentIcon type={baseType} size={compact ? 36 : 28} />
+        </div>
+        <div className={compact ? "w-full" : "min-w-0 flex-1"}>
+          <div className="truncate text-sm font-semibold text-accent-ink">{tpl.name}</div>
+          <div className="truncate text-xs text-slate-500">{baseType.name}</div>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        title="Ta bort mall"
+        className="shrink-0 grid h-7 w-7 place-items-center rounded-md text-slate-400 opacity-0 transition hover:bg-red-100 hover:text-red-600 group-hover:opacity-100"
+      >
+        <BookmarkMinus size={14} />
+      </button>
+    </div>
   );
 }
 

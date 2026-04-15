@@ -1,8 +1,9 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment } from "@react-three/drei";
-import { Copy, Trash2, X } from "lucide-react";
+import { BookmarkPlus, Copy, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
+import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { EQUIPMENT_BY_ID } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
 import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
@@ -22,6 +23,8 @@ export function EquipmentEditor() {
   const updateEquipment = usePlanStore((s) => s.updateEquipment);
   const deleteEquipment = usePlanStore((s) => s.deleteEquipment);
   const duplicateEquipment = usePlanStore((s) => s.duplicateEquipment);
+  const addTemplate = useSavedEquipmentStore((s) => s.addTemplate);
+  const [savedFeedback, setSavedFeedback] = useState(false);
 
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
   const selected = station?.equipment.find((e) => e.id === selectedId) ?? null;
@@ -62,6 +65,20 @@ export function EquipmentEditor() {
   const handleDuplicate = () => {
     duplicateEquipment(selected.id);
     closeEquipmentEditor();
+  };
+
+  const handleSaveTemplate = () => {
+    addTemplate({
+      name: selected.label ?? type.name,
+      baseTypeId: selected.typeId,
+      customColor: selected.customColor,
+      partColors: selected.partColors,
+      params: selected.params,
+      z: selected.z,
+      notes: selected.notes,
+    });
+    setSavedFeedback(true);
+    setTimeout(() => setSavedFeedback(false), 2000);
   };
 
   return (
@@ -387,21 +404,36 @@ export function EquipmentEditor() {
           </div>
 
           {/* Footer */}
-          <div className="flex gap-2 border-t border-slate-800 p-4">
+          <div className="space-y-2 border-t border-slate-800 p-4">
             <button
               type="button"
-              onClick={handleDuplicate}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-700"
+              onClick={handleSaveTemplate}
+              className={
+                "flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium transition " +
+                (savedFeedback
+                  ? "border-green-700 bg-green-900/50 text-green-400"
+                  : "border-blue-700/50 bg-blue-900/30 text-blue-400 hover:bg-blue-900/50")
+              }
             >
-              <Copy size={15} /> Duplicera
+              <BookmarkPlus size={15} />
+              {savedFeedback ? "Sparad som mall!" : "Spara som mall"}
             </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-900/60 bg-red-950/60 py-2 text-sm font-medium text-red-400 transition hover:bg-red-900/60"
-            >
-              <Trash2 size={15} /> Ta bort
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleDuplicate}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-700"
+              >
+                <Copy size={15} /> Duplicera
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-900/60 bg-red-950/60 py-2 text-sm font-medium text-red-400 transition hover:bg-red-900/60"
+              >
+                <Trash2 size={15} /> Ta bort
+              </button>
+            </div>
           </div>
         </div>
       </div>

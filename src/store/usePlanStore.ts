@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { temporal } from "zundo";
 import { nanoid } from "nanoid";
 import type {
+  EquipmentType,
   HallTemplate,
   PlacedEquipment,
   Plan,
@@ -11,6 +12,39 @@ import type {
 import { DEFAULT_HALL } from "../catalog/halls";
 import { EQUIPMENT_BY_ID } from "../catalog/equipment";
 import { clampToHall } from "../lib/geometry";
+
+// ---------------------------------------------------------------------------
+// Mat auto-stacking
+// ---------------------------------------------------------------------------
+
+const MAT_KINDS = new Set(["thick-mat", "landing-mat"]);
+
+/**
+ * Compute the z-offset for a mat so it stacks on top of any overlapping mats.
+ * Returns 0 when there's nothing underneath.
+ */
+function getMatStackZ(
+  station: Station,
+  excludeId: string,
+  x: number,
+  y: number,
+  type: EquipmentType,
+): number {
+  let maxTop = 0;
+  for (const eq of station.equipment) {
+    if (eq.id === excludeId) continue;
+    const eqType = EQUIPMENT_BY_ID[eq.typeId];
+    if (!eqType || !MAT_KINDS.has(eqType.detail?.kind ?? "")) continue;
+    // Require >50 % center-to-center overlap on each axis
+    const threshW = Math.min(type.widthM, eqType.widthM) * 0.5;
+    const threshD = Math.min(type.heightM, eqType.heightM) * 0.5;
+    if (Math.abs(eq.x - x) < threshW && Math.abs(eq.y - y) < threshD) {
+      const eqH = eq.params?.matH ?? eqType.physicalHeightM;
+      maxTop = Math.max(maxTop, (eq.z ?? 0) + eqH);
+    }
+  }
+  return maxTop;
+}
 import {
   getActivePlanId,
   getPlan,
@@ -180,6 +214,15 @@ export const usePlanStore = create<PlanStore>()(
           hall.widthM,
           hall.heightM,
         );
+        // Auto-stack for mats
+        const station = state.plan.stations.find(
+          (s) => s.id === state.plan.activeStationId,
+        );
+        const isMatKind = MAT_KINDS.has(type.detail?.kind ?? "");
+        const z =
+          isMatKind && station
+            ? getMatStackZ(station, "", x, y, type)
+            : undefined;
         const newEq: PlacedEquipment = {
           id: nanoid(),
           typeId,
@@ -188,6 +231,7 @@ export const usePlanStore = create<PlanStore>()(
           rotation: 0,
           scaleX: 1,
           scaleY: 1,
+          ...(z !== undefined ? { z } : {}),
         };
         set((s) => ({
           plan: withActiveStation(s.plan, (st) => ({
@@ -210,12 +254,22 @@ export const usePlanStore = create<PlanStore>()(
 
       moveEquipment: (id, xM, yM) =>
         set((s) => ({
-          plan: withActiveStation(s.plan, (st) => ({
-            ...st,
-            equipment: st.equipment.map((eq) =>
-              eq.id === id ? { ...eq, x: xM, y: yM } : eq,
-            ),
-          })),
+          plan: withActiveStation(s.plan, (st) => {
+            const eq = st.equipment.find((e) => e.id === id);
+            if (!eq) return st;
+            const type = EQUIPMENT_BY_ID[eq.typeId];
+            const isMatKind = MAT_KINDS.has(type?.detail?.kind ?? "");
+            const newZ =
+              isMatKind && type
+                ? getMatStackZ(st, id, xM, yM, type)
+                : eq.z;
+            return {
+              ...st,
+              equipment: st.equipment.map((e) =>
+                e.id === id ? { ...e, x: xM, y: yM, z: newZ } : e,
+              ),
+            };
+          }),
         })),
 
       transformEquipment: (id, next) =>
