@@ -147,7 +147,7 @@ function createStation(name = "Station 1"): Station {
   };
 }
 
-function createPlan(name = "Nytt pass"): Plan {
+function createPlan(name = "Gymnastik"): Plan {
   const station = createStation("Uppvärmning");
   return {
     id: nanoid(),
