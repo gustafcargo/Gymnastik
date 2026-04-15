@@ -63,10 +63,13 @@ function ParallelBars({ w, d }: { w: number; d: number }) {
         <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
       </mesh>
 
-      {([-d * 0.4, d * 0.4] as number[]).flatMap((zOff) =>
+      {([
+        { zOff: -d * 0.4, h: railH1 },
+        { zOff:  d * 0.4, h: railH2 },
+      ] as { zOff: number; h: number }[]).flatMap(({ zOff, h }) =>
         ([-w * 0.42, w * 0.42] as number[]).map((xOff, i) => (
-          <mesh key={`${zOff}-${i}`} position={[xOff, railH2 / 2 + baseH, zOff]} castShadow>
-            <cylinderGeometry args={[postR, postR * 1.1, railH2, 20]} />
+          <mesh key={`${zOff}-${i}`} position={[xOff, h / 2 + baseH, zOff]} castShadow>
+            <cylinderGeometry args={[postR, postR * 1.1, h, 20]} />
             <meshPhysicalMaterial color="#CDD2DA" roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
           </mesh>
         )),
@@ -110,7 +113,7 @@ function HighBar({ w, d }: { w: number; d: number }) {
       {([-1, 1] as number[]).flatMap((sx) =>
         ([-1, 1] as number[]).map((sz) => {
           const from: [number, number, number] = [xPost * sx, barH * 0.85, 0];
-          const to: [number, number, number] = [xPost * sx + sx * 0.55, baseH, sz * d * 0.42];
+          const to: [number, number, number] = [xPost * sx, baseH, sz * d * 0.42];
           const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
           const len = Math.hypot(dx, dy, dz);
           const mid: [number, number, number] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2];
@@ -325,8 +328,8 @@ function AirTrack({ w, d }: { w: number; d: number }) {
   const h = 0.28;
   return (
     <group>
-      <mesh position={[0, h / 2, 0]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
-        <capsuleGeometry args={[h / 2, w - h, 8, 20]} />
+      <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[w, h, d]} />
         <meshPhysicalMaterial color="#2878C0" roughness={0.5} metalness={0} clearcoat={0.35} clearcoatRoughness={0.3} />
       </mesh>
       <mesh position={[0, h + 0.003, 0]} castShadow>

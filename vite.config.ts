@@ -27,7 +27,21 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Ta kontroll direkt utan att vänta på nästa navigation.
+        // Förhindrar att gamla cachade JS-chunk-filer serveras efter deploy.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,woff2}"],
+        // HTML: hämta alltid från nätverket först så index.html aldrig
+        // serveras från cache med felaktiga chunk-hash-referenser.
+        navigationPreload: false,
+        runtimeCaching: [
+          {
+            urlPattern: /\/index\.html$/,
+            handler: "NetworkFirst",
+            options: { cacheName: "html-cache" },
+          },
+        ],
       },
     }),
   ],
