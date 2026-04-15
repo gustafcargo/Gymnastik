@@ -288,15 +288,20 @@ export const usePlanStore = create<PlanStore>()(
             const eq = st.equipment.find((e) => e.id === id);
             if (!eq) return st;
             const type = getEquipmentById(eq.typeId);
+            const hall = s.plan.hall;
+            // Clamp to hall bounds so the equipment can't leave the floor area
+            const { x, y } = type
+              ? clampToHall(xM, yM, type.widthM * eq.scaleX, type.heightM * eq.scaleY, hall.widthM, hall.heightM)
+              : { x: xM, y: yM };
             const isMatKind = MAT_KINDS.has(type?.detail?.kind ?? "");
             const newZ =
               isMatKind && type
-                ? getMatStackZ(st, id, xM, yM, type)
+                ? getMatStackZ(st, id, x, y, type)
                 : eq.z;
             return {
               ...st,
               equipment: st.equipment.map((e) =>
-                e.id === id ? { ...e, x: xM, y: yM, z: newZ } : e,
+                e.id === id ? { ...e, x, y, z: newZ } : e,
               ),
             };
           }),

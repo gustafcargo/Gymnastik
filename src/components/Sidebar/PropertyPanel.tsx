@@ -2,6 +2,7 @@ import { Copy, RotateCw, Settings2, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
+import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
 import { formatMeters } from "../../lib/geometry";
 import { EquipmentIcon } from "./EquipmentIcon";
 
@@ -195,6 +196,59 @@ export function PropertyPanel({ onClose }: Props) {
           </div>
         </Field>
 
+        <Field label="Orientering">
+          <div className="grid grid-cols-2 gap-1.5">
+            {(
+              [
+                { value: "normal",        label: "Upprätt" },
+                { value: "upside-down",   label: "Upp-och-ned" },
+                { value: "on-long-side",  label: "På lång sida" },
+                { value: "on-short-side", label: "På kortsida" },
+              ] as const
+            ).map(({ value, label }) => {
+              const current = selected.orientation ?? "normal";
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    updateEquipment(selected.id, {
+                      orientation: value === "normal" ? undefined : value,
+                    })
+                  }
+                  className={
+                    "rounded-lg border px-2 py-1.5 text-xs font-medium transition " +
+                    (current === value
+                      ? "border-accent bg-accent/15 text-accent"
+                      : "border-surface-3 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-800")
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+
+        {type.detail?.kind && (EQUIPMENT_PARAMS[type.detail.kind]?.length ?? 0) > 0 && (
+          <GeometryParamsSection
+            kind={type.detail.kind}
+            params={selected.params}
+            onChange={(key, value) =>
+              updateEquipment(selected.id, {
+                params: { ...selected.params, [key]: value },
+              })
+            }
+            onReset={(key) => {
+              const { [key]: _, ...rest } = selected.params ?? {};
+              void _;
+              updateEquipment(selected.id, {
+                params: Object.keys(rest).length ? rest : undefined,
+              });
+            }}
+          />
+        )}
+
         <Field label="Huvudfärg">
           <ColorPicker
             value={selected.customColor ?? type.color}
@@ -314,6 +368,65 @@ function PartColorsSection({
                     />
                   ))}
                 </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Field>
+  );
+}
+
+function GeometryParamsSection({
+  kind,
+  params,
+  onChange,
+  onReset,
+}: {
+  kind: string;
+  params: Record<string, number> | undefined;
+  onChange: (key: string, value: number) => void;
+  onReset: (key: string) => void;
+}) {
+  const defs = EQUIPMENT_PARAMS[kind];
+  if (!defs || defs.length === 0) return null;
+  return (
+    <Field label="Geometri">
+      <div className="space-y-4">
+        {defs.map((def) => {
+          const value = params?.[def.key] ?? def.defaultValue;
+          const isCustom = params?.[def.key] !== undefined;
+          return (
+            <div key={def.key}>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-600">{def.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-slate-500">
+                    {value % 1 === 0 ? value : value.toFixed(2)} {def.unit}
+                  </span>
+                  {isCustom && (
+                    <button
+                      type="button"
+                      onClick={() => onReset(def.key)}
+                      className="text-xs text-accent hover:underline"
+                    >
+                      Återställ
+                    </button>
+                  )}
+                </div>
+              </div>
+              <input
+                type="range"
+                min={def.min}
+                max={def.max}
+                step={def.step}
+                value={value}
+                onChange={(e) => onChange(def.key, Number(e.target.value))}
+                className="w-full accent-accent"
+              />
+              <div className="flex justify-between text-[10px] text-slate-400">
+                <span>{def.min} {def.unit}</span>
+                <span>{def.max} {def.unit}</span>
               </div>
             </div>
           );
