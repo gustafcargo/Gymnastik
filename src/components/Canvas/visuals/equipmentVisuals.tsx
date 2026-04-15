@@ -82,6 +82,14 @@ export function renderEquipment({ type, w, h, selected, colorOverride }: Props) 
       return <WoodVisual w={w} h={h} selected={selected} base={c ?? "#A47551"} />;
     case "foam-pit":
       return <FoamPit w={w} h={h} selected={selected} color={c} />;
+    case "gym-bench":
+      return <GymBench w={w} h={h} selected={selected} color={c} />;
+    case "wall-bars":
+      return <WallBars w={w} h={h} selected={selected} color={c} />;
+    case "climbing-rope":
+      return <ClimbingRope w={w} h={h} selected={selected} color={c} />;
+    case "rings-free":
+      return <RingsFreeVisual w={w} h={h} selected={selected} />;
     default:
       return (
         <Rect
@@ -588,6 +596,166 @@ function FoamPit({ w, h, selected, color }: { w: number; h: number; selected: bo
           </Group>
         </>
       )}
+    </Group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Gymnastikbänk – long plank top-view, A-frame leg marks at both short ends
+// ---------------------------------------------------------------------------
+function GymBench({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
+  const base = color ?? "#C8A870";
+  const legW = Math.max(4, h * 0.7);
+  const legH = h;
+  return (
+    <Group>
+      {/* Shadow */}
+      <Rect x={2} y={3} width={w - 4} height={h - 2} cornerRadius={2} fill="#000" opacity={0.2} />
+      {/* Plank */}
+      <Rect
+        width={w}
+        height={h}
+        cornerRadius={Math.min(h * 0.35, 5)}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: 0, y: h }}
+        fillLinearGradientColorStops={[0, lighten(base, 0.25), 0.5, base, 1, darken(base, 0.22)]}
+        stroke={sel(selected)}
+        strokeWidth={selected ? 2 : 0.8}
+        {...SHADOW(selected)}
+      />
+      {/* Centre grain line */}
+      <Line points={[w * 0.06, h * 0.5, w * 0.94, h * 0.5]} stroke={darken(base, 0.18)} strokeWidth={0.5} opacity={0.5} />
+      {/* Leg marks at each end */}
+      {[legW / 2, w - legW / 2].map((cx, i) => (
+        <Group key={i}>
+          {/* Left foot */}
+          <Circle x={cx - legW * 0.22} y={h * 0.5} radius={Math.max(2, legH * 0.18)} fill={darken(base, 0.45)} opacity={0.65} />
+          {/* Right foot */}
+          <Circle x={cx + legW * 0.22} y={h * 0.5} radius={Math.max(2, legH * 0.18)} fill={darken(base, 0.45)} opacity={0.65} />
+        </Group>
+      ))}
+    </Group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ribbstol (wall-bars) – top-view of horizontal bars + wall-mounting rail
+// ---------------------------------------------------------------------------
+function WallBars({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
+  const base = color ?? "#C8904A";
+  const barCount = Math.max(3, Math.round(h / 6));
+  return (
+    <Group>
+      {/* Mounting rail (back, thin) */}
+      <Rect
+        x={0}
+        y={0}
+        width={w}
+        height={h}
+        cornerRadius={3}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: 0, y: h }}
+        fillLinearGradientColorStops={[0, lighten(base, 0.18), 0.5, base, 1, darken(base, 0.25)]}
+        stroke={sel(selected)}
+        strokeWidth={selected ? 2 : 0.8}
+        {...SHADOW(selected)}
+      />
+      {/* Horizontal rungs */}
+      {Array.from({ length: barCount }).map((_, i) => {
+        const y = (h / (barCount + 1)) * (i + 1);
+        return (
+          <Rect
+            key={i}
+            x={w * 0.05}
+            y={y - Math.max(1, h * 0.055)}
+            width={w * 0.9}
+            height={Math.max(2, h * 0.11)}
+            cornerRadius={1}
+            fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+            fillLinearGradientEndPoint={{ x: 0, y: h * 0.11 }}
+            fillLinearGradientColorStops={[0, lighten(base, 0.35), 1, darken(base, 0.2)]}
+            stroke={darken(base, 0.3)}
+            strokeWidth={0.4}
+          />
+        );
+      })}
+    </Group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Klätterrep – top-view shows circular rope cross-section with coil texture
+// ---------------------------------------------------------------------------
+function ClimbingRope({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
+  const base = color ?? "#8B6A3A";
+  const cx = w / 2;
+  const cy = h / 2;
+  const r = Math.min(w, h) / 2 - 1;
+  return (
+    <Group>
+      {/* Shadow */}
+      <Circle x={cx + 2} y={cy + 3} radius={r} fill="#000" opacity={0.2} />
+      {/* Rope circle */}
+      <Circle
+        x={cx}
+        y={cy}
+        radius={r}
+        fillRadialGradientStartPoint={{ x: -r * 0.3, y: -r * 0.3 }}
+        fillRadialGradientEndPoint={{ x: 0, y: 0 }}
+        fillRadialGradientStartRadius={0}
+        fillRadialGradientEndRadius={r}
+        fillRadialGradientColorStops={[0, lighten(base, 0.4), 0.6, base, 1, darken(base, 0.3)]}
+        stroke={sel(selected)}
+        strokeWidth={selected ? 2 : 0.8}
+        {...SHADOW(selected)}
+      />
+      {/* Strand pattern */}
+      {Array.from({ length: 6 }).map((_, i) => {
+        const a = (i / 6) * Math.PI * 2;
+        const ir = r * 0.3;
+        const or = r * 0.75;
+        return (
+          <Line
+            key={i}
+            points={[cx + Math.cos(a) * ir, cy + Math.sin(a) * ir, cx + Math.cos(a) * or, cy + Math.sin(a) * or]}
+            stroke={darken(base, 0.2)}
+            strokeWidth={0.8}
+            opacity={0.6}
+          />
+        );
+      })}
+      {/* Centre knot */}
+      <Circle x={cx} y={cy} radius={r * 0.22} fill={darken(base, 0.15)} opacity={0.7} />
+    </Group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ringar (fristående) – top-view of two ring circles on a narrow base
+// ---------------------------------------------------------------------------
+function RingsFreeVisual({ w, h, selected }: { w: number; h: number; selected: boolean }) {
+  const ringR = Math.min(w, h) * 0.22;
+  const cx = w / 2;
+  const cy = h / 2;
+  const sep = Math.min(w * 0.28, h * 0.28);
+  return (
+    <Group>
+      <Rect
+        width={w}
+        height={h}
+        cornerRadius={Math.min(w, h) * 0.1}
+        fill={sel(selected) === "#0B3FA8" ? "#DBEAFE" : "#E8EDF3"}
+        stroke={sel(selected)}
+        strokeWidth={selected ? 2 : 0.8}
+        {...SHADOW(selected)}
+      />
+      {[cx - sep, cx + sep].map((rx, i) => (
+        <Group key={i}>
+          <Circle x={rx} y={cy} radius={ringR + 2} fill="#000" opacity={0.15} />
+          <Circle x={rx} y={cy} radius={ringR} fill="none" stroke="#7A5C30" strokeWidth={Math.max(2, ringR * 0.3)} />
+          <Circle x={rx} y={cy} radius={ringR * 0.55} fill="none" stroke="#A07840" strokeWidth={0.6} opacity={0.5} />
+        </Group>
+      ))}
     </Group>
   );
 }
