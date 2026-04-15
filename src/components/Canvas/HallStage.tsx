@@ -86,6 +86,32 @@ export function HallStage({ className, onStageReady }: Props) {
     if (stageRef.current && onStageReady) onStageReady(stageRef.current);
   }, [onStageReady]);
 
+  /**
+   * Clamp stagePos so the hall is never fully scrolled off-screen.
+   * At least `margin` px of the hall rectangle must remain visible.
+   */
+  const clampPos = useCallback(
+    (pos: { x: number; y: number }, scale: number) => {
+      const margin = 60;
+      const hallPxW = plan.hall.widthM * fitScale * scale;
+      const hallPxH = plan.hall.heightM * fitScale * scale;
+      const hallLeft = pos.x + fitOffset.x * scale;
+      const hallTop = pos.y + fitOffset.y * scale;
+      const hallRight = hallLeft + hallPxW;
+      const hallBottom = hallTop + hallPxH;
+
+      let dx = 0;
+      let dy = 0;
+      if (hallRight < margin) dx = margin - hallRight;
+      else if (hallLeft > size.width - margin) dx = size.width - margin - hallLeft;
+      if (hallBottom < margin) dy = margin - hallBottom;
+      else if (hallTop > size.height - margin) dy = size.height - margin - hallTop;
+
+      return { x: pos.x + dx, y: pos.y + dy };
+    },
+    [fitOffset, fitScale, plan.hall, size],
+  );
+
   // Zoom med mushjul + trackpad-pinch
   const handleWheel = useCallback((e: KonvaEventObject<WheelEvent>) => {
     const stage = stageRef.current;
@@ -120,9 +146,9 @@ export function HallStage({ className, onStageReady }: Props) {
   const lastDist = useRef(0);
   const lastCenter = useRef<{ x: number; y: number } | null>(null);
 
-  const getTouchDist = (t1: Touch, t2: Touch) =>
+  const getTouchDist = (t1: React.Touch, t2: React.Touch) =>
     Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-  const getTouchCenter = (t1: Touch, t2: Touch) => ({
+  const getTouchCenter = (t1: React.Touch, t2: React.Touch) => ({
     x: (t1.clientX + t2.clientX) / 2,
     y: (t1.clientY + t2.clientY) / 2,
   });
@@ -173,32 +199,6 @@ export function HallStage({ className, onStageReady }: Props) {
     setStagePos({ x: 0, y: 0 });
     setStageScale(1);
   }, []);
-
-  /**
-   * Clamp stagePos so the hall is never fully scrolled off-screen.
-   * At least `margin` px of the hall rectangle must remain visible.
-   */
-  const clampPos = useCallback(
-    (pos: { x: number; y: number }, scale: number) => {
-      const margin = 60;
-      const hallPxW = plan.hall.widthM * fitScale * scale;
-      const hallPxH = plan.hall.heightM * fitScale * scale;
-      const hallLeft = pos.x + fitOffset.x * scale;
-      const hallTop = pos.y + fitOffset.y * scale;
-      const hallRight = hallLeft + hallPxW;
-      const hallBottom = hallTop + hallPxH;
-
-      let dx = 0;
-      let dy = 0;
-      if (hallRight < margin) dx = margin - hallRight;
-      else if (hallLeft > size.width - margin) dx = size.width - margin - hallLeft;
-      if (hallBottom < margin) dy = margin - hallBottom;
-      else if (hallTop > size.height - margin) dy = size.height - margin - hallTop;
-
-      return { x: pos.x + dx, y: pos.y + dy };
-    },
-    [fitOffset, fitScale, plan.hall, size],
-  );
 
   // Exponera reset via global event (används av Toolbar-knapp)
   useEffect(() => {
