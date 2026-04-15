@@ -88,7 +88,7 @@ export default function App() {
       />
 
       <div className="flex min-h-0 flex-1">
-        {isDesktop && !is3D && (
+        {isDesktop && (
           <aside className="w-72 shrink-0 border-r border-surface-3 bg-surface-1">
             <EquipmentPalette />
           </aside>
@@ -132,7 +132,7 @@ export default function App() {
           <StationTimeline />
         </main>
 
-        {isDesktop && !is3D && (
+        {isDesktop && (
           <aside className="w-80 shrink-0 border-l border-surface-3 bg-surface-1">
             <PropertyPanel />
           </aside>
@@ -143,7 +143,7 @@ export default function App() {
 
       {!isDesktop && (
         <>
-          {!is3D && <FabButton onClick={() => setPaletteOpen(true)} />}
+          <FabButton onClick={() => setPaletteOpen(true)} />
           <BottomSheet
             open={paletteOpen}
             onClose={() => setPaletteOpen(false)}

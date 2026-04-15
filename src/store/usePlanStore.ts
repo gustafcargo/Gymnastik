@@ -123,7 +123,7 @@ export const usePlanStore = create<PlanStore>()(
       selectedEquipmentId: null,
       snapToGrid: true,
       snapStepM: 0.25,
-      viewMode: "2D" as ViewMode,
+      viewMode: "3D" as ViewMode,
 
       newPlan: (name) =>
         set(() => {
