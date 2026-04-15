@@ -1,6 +1,4 @@
-import { Suspense, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Environment } from "@react-three/drei";
+import { useState } from "react";
 import { BookmarkPlus, Copy, RotateCw, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
 import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
@@ -8,7 +6,6 @@ import { getEquipmentById } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
 import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
 import { formatMeters } from "../../lib/geometry";
-import { Equipment3D } from "../Canvas3D/Equipment3D";
 
 type Props = {
   onClose?: () => void;
@@ -64,10 +61,6 @@ export function PropertyPanel({ onClose }: Props) {
   const widthM = type.widthM * selected.scaleX;
   const heightM = type.heightM * selected.scaleY;
 
-  const maxDim = Math.max(type.widthM, type.heightM, type.physicalHeightM, 0.5);
-  const camDist = maxDim * 2.5;
-  const targetY = type.physicalHeightM / 2;
-
   const handleSaveTemplate = () => {
     addTemplate({
       name: selected.label ?? type.name,
@@ -116,76 +109,6 @@ export function PropertyPanel({ onClose }: Props) {
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto scrollbar-thin px-4 py-4">
-
-        {/* ── Interactive 3D preview ── */}
-        <div className="relative h-44 overflow-hidden rounded-xl bg-slate-950">
-          <Canvas
-            shadows
-            gl={{ antialias: true }}
-            camera={{
-              position: [
-                camDist * 0.65,
-                Math.max(targetY, camDist * 0.4),
-                camDist,
-              ],
-              fov: 42,
-              near: 0.05,
-              far: 200,
-            }}
-            style={{ position: "absolute", inset: 0 }}
-          >
-            <color attach="background" args={["#090d14"]} />
-            <ambientLight intensity={0.45} />
-            <directionalLight
-              position={[3, 6, 4]}
-              intensity={1.6}
-              castShadow
-              shadow-mapSize={[512, 512]}
-            />
-            <hemisphereLight
-              intensity={0.25}
-              groundColor="#1a2030"
-              color="#8aabcc"
-            />
-            <Suspense fallback={null}>
-              <Environment
-                preset="city"
-                background={false}
-                environmentIntensity={0.4}
-              />
-            </Suspense>
-            <mesh
-              rotation={[-Math.PI / 2, 0, 0]}
-              position={[0, -0.005, 0]}
-              receiveShadow
-            >
-              <planeGeometry args={[maxDim * 4, maxDim * 4]} />
-              <meshPhysicalMaterial
-                color="#1e2a38"
-                roughness={0.5}
-                metalness={0}
-              />
-            </mesh>
-            <Equipment3D
-              type={type}
-              color={selected.customColor}
-              partColors={selected.partColors}
-              params={selected.params}
-            />
-            <OrbitControls
-              target={[0, targetY, 0]}
-              autoRotate
-              autoRotateSpeed={1.4}
-              enablePan={false}
-              minDistance={maxDim * 0.6}
-              maxDistance={maxDim * 8}
-              maxPolarAngle={Math.PI / 2 - 0.02}
-            />
-          </Canvas>
-          <p className="pointer-events-none absolute bottom-2 right-2 text-[10px] text-slate-500">
-            {type.widthM} × {type.heightM} m · {type.physicalHeightM} m hög
-          </p>
-        </div>
 
         <Field label="Position (m)">
           <div className="grid grid-cols-2 gap-2">
