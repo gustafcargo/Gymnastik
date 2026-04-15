@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Layer, Stage } from "react-konva";
 import type Konva from "konva";
 import { HallFloor } from "./HallFloor";
 import { EquipmentNode } from "./EquipmentNode";
+import { EquipmentNoteBubble } from "./EquipmentNoteBubble";
 import { usePlanStore } from "../../store/usePlanStore";
 import { computePixelsPerMeter } from "../../lib/geometry";
+import { computeStackInfo } from "../../lib/stackGroups";
+import { getEquipmentById } from "../../catalog/equipment";
 
 type Props = {
   className?: string;
@@ -24,6 +27,13 @@ export function HallStage({ className, onStageReady }: Props) {
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const addEquipment = usePlanStore((s) => s.addEquipment);
+  const setEquipmentNoteOffset = usePlanStore((s) => s.setEquipmentNoteOffset);
+  const showLabels = usePlanStore((s) => s.showLabels);
+
+  const stackInfo = useMemo(
+    () => computeStackInfo(activeStation?.equipment ?? []),
+    [activeStation?.equipment],
+  );
 
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -192,11 +202,36 @@ export function HallStage({ className, onStageReady }: Props) {
                 hallWidthM={plan.hall.widthM}
                 hallHeightM={plan.hall.heightM}
                 isSelected={eq.id === selectedId}
+                stackInfo={stackInfo.get(eq.id)}
                 onSelect={() => selectEquipment(eq.id)}
               />
             ))}
           </Group>
         </Layer>
+
+        {/* Note bubbles – separate layer so they render above equipment */}
+        {showLabels && (
+          <Layer>
+            <Group x={fitOffset.x} y={fitOffset.y}>
+              {activeStation?.equipment.map((eq) => {
+                if (!eq.notes) return null;
+                const type = getEquipmentById(eq.typeId);
+                if (!type) return null;
+                return (
+                  <EquipmentNoteBubble
+                    key={`note-${eq.id}`}
+                    eq={eq}
+                    type={type}
+                    pxPerM={fitScale}
+                    onOffsetChange={(offset) =>
+                      setEquipmentNoteOffset(eq.id, offset)
+                    }
+                  />
+                );
+              })}
+            </Group>
+          </Layer>
+        )}
       </Stage>
     </div>
     </div>

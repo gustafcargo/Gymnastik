@@ -3,10 +3,11 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import type Konva from "konva";
 import { Group, Text, Transformer } from "react-konva";
 import type { PlacedEquipment } from "../../types";
-import { EQUIPMENT_BY_ID } from "../../catalog/equipment";
+import { getEquipmentById } from "../../catalog/equipment";
 import { EquipmentVisual } from "./EquipmentVisual";
 import { clampToHall, snap, snapRotation } from "../../lib/geometry";
 import { usePlanStore } from "../../store/usePlanStore";
+import type { StackInfo } from "../../lib/stackGroups";
 
 type Props = {
   equipment: PlacedEquipment;
@@ -15,6 +16,7 @@ type Props = {
   hallHeightM: number;
   isSelected: boolean;
   is3D?: boolean;
+  stackInfo?: StackInfo;
   onSelect: () => void;
 };
 
@@ -29,9 +31,10 @@ export function EquipmentNode({
   hallHeightM,
   isSelected,
   is3D = false,
+  stackInfo,
   onSelect,
 }: Props) {
-  const type = EQUIPMENT_BY_ID[equipment.typeId];
+  const type = getEquipmentById(equipment.typeId);
   const groupRef = useRef<Konva.Group>(null);
   const textRef = useRef<Konva.Text>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -85,6 +88,14 @@ export function EquipmentNode({
     node.rotation(rotation);
   };
 
+  // For stacked mats: only the leader shows the label; suppress others.
+  const showLabel = showLabels && (stackInfo === undefined || stackInfo.isLeader);
+  const baseLabel = equipment.label ?? type.name;
+  const labelText =
+    showLabel && stackInfo && stackInfo.count > 1
+      ? `${baseLabel} ×${stackInfo.count}`
+      : baseLabel;
+
   return (
     <>
       <Group
@@ -113,8 +124,8 @@ export function EquipmentNode({
           colorOverride={equipment.customColor}
         />
 
-        {/* Label – visas om showLabels är på */}
-        {showLabels && (
+        {/* Label – visas om showLabels är på och (icke-matta eller stackledare) */}
+        {showLabel && (
           <Text
             ref={textRef}
             x={wPx / 2}
@@ -123,7 +134,7 @@ export function EquipmentNode({
             offsetY={LABEL_FONT_SIZE / 2}
             width={LABEL_BOX_WIDTH}
             align="center"
-            text={equipment.label ?? type.name}
+            text={labelText}
             fontSize={LABEL_FONT_SIZE}
             fontStyle="600"
             fill="#0F172A"
