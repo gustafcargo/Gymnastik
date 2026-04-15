@@ -52,6 +52,8 @@ export type PlacedEquipment = {
   label?: string;
   /** Valfri färgöverlagring (hex) för 2D- och 3D-vyn. */
   customColor?: string;
+  /** Per-del färgöverlagringar (hex), nyckel = delens namn (se EQUIPMENT_PARTS). */
+  partColors?: Record<string, string>;
 };
 
 export type HallTemplate = {

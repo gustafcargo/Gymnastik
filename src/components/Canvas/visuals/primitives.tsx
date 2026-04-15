@@ -60,16 +60,18 @@ export function MatVisual({
         />
       ))}
       {/* Topp-highlight */}
-      <Rect
-        x={4}
-        y={4}
-        width={w - 8}
-        height={Math.max(2, h * 0.18)}
-        cornerRadius={r * 0.6}
-        fill="#FFFFFF"
-        opacity={0.18}
-        listening={false}
-      />
+      {w > 8 && (
+        <Rect
+          x={4}
+          y={4}
+          width={w - 8}
+          height={Math.max(2, h * 0.18)}
+          cornerRadius={r * 0.6}
+          fill="#FFFFFF"
+          opacity={0.18}
+          listening={false}
+        />
+      )}
     </Group>
   );
 }
@@ -87,16 +89,18 @@ export function WoodVisual({
   const darker = darken(base, 0.22);
   return (
     <Group>
-      <Rect
-        x={2}
-        y={3}
-        width={w - 4}
-        height={h - 4}
-        cornerRadius={r}
-        fill="#000"
-        opacity={0.18}
-        listening={false}
-      />
+      {w > 4 && h > 4 && (
+        <Rect
+          x={2}
+          y={3}
+          width={w - 4}
+          height={h - 4}
+          cornerRadius={r}
+          fill="#000"
+          opacity={0.18}
+          listening={false}
+        />
+      )}
       <Rect
         width={w}
         height={h}
@@ -109,16 +113,18 @@ export function WoodVisual({
         {...SHADOW(selected)}
       />
       {/* Ljus topp-yta */}
-      <Rect
-        x={3}
-        y={3}
-        width={w - 6}
-        height={Math.max(2, h * 0.28)}
-        cornerRadius={r * 0.6}
-        fill="#FFFFFF"
-        opacity={0.22}
-        listening={false}
-      />
+      {w > 6 && (
+        <Rect
+          x={3}
+          y={3}
+          width={w - 6}
+          height={Math.max(2, h * 0.28)}
+          cornerRadius={r * 0.6}
+          fill="#FFFFFF"
+          opacity={0.22}
+          listening={false}
+        />
+      )}
       {/* Ådringar (tunna mörka linjer) */}
       {Array.from({ length: 3 }).map((_, i) => (
         <Line

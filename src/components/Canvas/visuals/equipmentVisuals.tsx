@@ -299,15 +299,17 @@ function Vault({ w, h, selected, color }: { w: number; h: number; selected: bool
         />
       ))}
       {/* Topp-highlight */}
-      <Rect
-        x={4}
-        y={4}
-        width={w - 8}
-        height={h * 0.2}
-        cornerRadius={r * 0.6}
-        fill="#FFF"
-        opacity={0.25}
-      />
+      {w > 8 && (
+        <Rect
+          x={4}
+          y={4}
+          width={w - 8}
+          height={h * 0.2}
+          cornerRadius={r * 0.6}
+          fill="#FFF"
+          opacity={0.25}
+        />
+      )}
     </Group>
   );
 }
@@ -510,15 +512,17 @@ function Plinth({ w, h, selected, color }: { w: number; h: number; selected: boo
         />
       ))}
       {/* Top läder-yta */}
-      <Rect
-        x={3}
-        y={3}
-        width={w - 6}
-        height={h * 0.22}
-        cornerRadius={r * 0.6}
-        fill="#FFF"
-        opacity={0.2}
-      />
+      {w > 6 && (
+        <Rect
+          x={3}
+          y={3}
+          width={w - 6}
+          height={h * 0.22}
+          cornerRadius={r * 0.6}
+          fill="#FFF"
+          opacity={0.2}
+        />
+      )}
     </Group>
   );
 }
@@ -565,21 +569,25 @@ function FoamPit({ w, h, selected, color }: { w: number; h: number; selected: bo
         {...SHADOW(selected)}
       />
       {/* Inre fördjupning */}
-      <Rect
-        x={4}
-        y={4}
-        width={w - 8}
-        height={h - 8}
-        cornerRadius={r * 0.6}
-        fill="#2C3923"
-      />
-      <Group clipFunc={(ctx) => {
-        ctx.beginPath();
-        ctx.rect(4, 4, w - 8, h - 8);
-        ctx.closePath();
-      }}>
-        {blocks}
-      </Group>
+      {w > 8 && h > 8 && (
+        <>
+          <Rect
+            x={4}
+            y={4}
+            width={w - 8}
+            height={h - 8}
+            cornerRadius={r * 0.6}
+            fill="#2C3923"
+          />
+          <Group clipFunc={(ctx) => {
+            ctx.beginPath();
+            ctx.rect(4, 4, w - 8, h - 8);
+            ctx.closePath();
+          }}>
+            {blocks}
+          </Group>
+        </>
+      )}
     </Group>
   );
 }

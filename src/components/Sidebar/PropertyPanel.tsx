@@ -1,6 +1,7 @@
 import { Copy, RotateCw, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
 import { EQUIPMENT_BY_ID } from "../../catalog/equipment";
+import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
 import { formatMeters } from "../../lib/geometry";
 import { EquipmentIcon } from "./EquipmentIcon";
 
@@ -175,7 +176,7 @@ export function PropertyPanel({ onClose }: Props) {
           </div>
         </Field>
 
-        <Field label="Färg">
+        <Field label="Huvudfärg">
           <ColorPicker
             value={selected.customColor ?? type.color}
             isCustom={!!selected.customColor}
@@ -183,6 +184,25 @@ export function PropertyPanel({ onClose }: Props) {
             onReset={() => updateEquipment(selected.id, { customColor: undefined })}
           />
         </Field>
+
+        {type.detail?.kind && EQUIPMENT_PARTS[type.detail.kind] && (
+          <PartColorsSection
+            kind={type.detail.kind}
+            partColors={selected.partColors}
+            onChange={(key, color) =>
+              updateEquipment(selected.id, {
+                partColors: { ...selected.partColors, [key]: color },
+              })
+            }
+            onReset={(key) => {
+              const { [key]: _, ...rest } = selected.partColors ?? {};
+              void _;
+              updateEquipment(selected.id, {
+                partColors: Object.keys(rest).length ? rest : undefined,
+              });
+            }}
+          />
+        )}
 
         <Field label="Anteckningar">
           <textarea
@@ -214,6 +234,73 @@ export function PropertyPanel({ onClose }: Props) {
         </button>
       </div>
     </div>
+  );
+}
+
+function PartColorsSection({
+  kind,
+  partColors,
+  onChange,
+  onReset,
+}: {
+  kind: string;
+  partColors: Record<string, string> | undefined;
+  onChange: (key: string, color: string) => void;
+  onReset: (key: string) => void;
+}) {
+  const parts = EQUIPMENT_PARTS[kind];
+  if (!parts) return null;
+  return (
+    <Field label="Delarnas färger">
+      <div className="space-y-3">
+        {Object.entries(parts).map(([key, defaultColor]) => {
+          const current = partColors?.[key] ?? defaultColor;
+          const isCustom = !!partColors?.[key];
+          return (
+            <div key={key}>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-xs font-medium capitalize text-slate-600">
+                  {key.charAt(0).toUpperCase() + key.slice(1)}
+                </span>
+                {isCustom && (
+                  <button
+                    type="button"
+                    onClick={() => onReset(key)}
+                    className="text-xs text-accent hover:underline"
+                  >
+                    Återställ
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={current}
+                  onChange={(e) => onChange(key, e.target.value)}
+                  className="h-7 w-8 cursor-pointer rounded border border-surface-3 p-0.5"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {COLOR_PRESETS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      title={c}
+                      onClick={() => onChange(key, c)}
+                      className="h-5 w-5 rounded transition hover:scale-110"
+                      style={{
+                        background: c,
+                        outline: current === c ? "2px solid #3B82F6" : "none",
+                        outlineOffset: "1px",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Field>
   );
 }
 
