@@ -215,53 +215,52 @@ export default function App() {
               type="button"
               onClick={() => setPaletteOpen(true)}
               aria-label="Visa redskap"
-              className="absolute left-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full border border-surface-3 bg-white/90 text-slate-600 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-accent"
+              className="absolute left-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-surface-3 bg-white/95 text-slate-600 shadow-md backdrop-blur-sm transition active:scale-95"
             >
-              <Plus size={20} />
+              <Plus size={22} />
             </button>
             {canvasArea}
-            <StationTimeline />
           </main>
-        </div>
-      )}
 
-      <CommandPalette />
-      <EquipmentEditor />
-
-      {/* Mobile-only: selection bar, bottom sheets */}
-      {isMobile && (
-        <>
+          {/* Selection bar – in normal flow, above timeline */}
           {selectedId && !propertyOpen && (
-            <div
-              className="fixed bottom-6 left-4 right-4 z-30 flex items-center gap-2 rounded-2xl border border-surface-3 bg-white px-4 py-2.5 shadow-lg"
-              style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
-            >
+            <div className="safe-bottom flex items-center gap-2 border-t border-surface-3 bg-white px-3 py-2">
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
                 {selectedLabel}
               </span>
               <button
                 type="button"
                 onClick={() => setPropertyOpen(true)}
-                className="flex shrink-0 items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white active:opacity-80"
               >
-                <Settings2 size={13} /> Egenskaper
+                <Settings2 size={14} /> Egenskaper
               </button>
               <button
                 type="button"
                 onClick={() => selectEquipment(null)}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-surface-2"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-slate-500"
                 aria-label="Avmarkera"
               >
-                <X size={14} />
+                <X size={16} />
               </button>
             </div>
           )}
 
+          <StationTimeline />
+        </div>
+      )}
+
+      <CommandPalette />
+      <EquipmentEditor />
+
+      {/* Mobile-only: bottom sheets */}
+      {isMobile && (
+        <>
           <BottomSheet
             open={paletteOpen}
             onClose={() => setPaletteOpen(false)}
             title="Redskap"
-            heightPct={78}
+            heightPct={82}
           >
             <EquipmentPalette
               compact
@@ -278,7 +277,7 @@ export default function App() {
               setPropertyOpen(false);
               usePlanStore.getState().selectEquipment(null);
             }}
-            heightPct={62}
+            heightPct={78}
           >
             <PropertyPanel onClose={() => setPropertyOpen(false)} />
           </BottomSheet>

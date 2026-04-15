@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, MessageSquare, Plus, Trash2 } from "lucide-react";
+import { MessageSquare, Plus, Trash2 } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
 
 export function StationTimeline() {
@@ -10,7 +10,6 @@ export function StationTimeline() {
   const setStationDuration = usePlanStore((s) => s.setStationDuration);
   const setStationNotes = usePlanStore((s) => s.setStationNotes);
   const deleteStation = usePlanStore((s) => s.deleteStation);
-  const duplicateStation = usePlanStore((s) => s.duplicateStation);
 
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const reorderStations = usePlanStore((s) => s.reorderStations);
@@ -65,10 +64,10 @@ export function StationTimeline() {
             }}
             onClick={() => selectStation(st.id)}
             className={
-              "group relative flex w-56 shrink-0 cursor-pointer flex-col rounded-xl border px-3 py-2 shadow-xs transition " +
+              "group relative flex w-52 shrink-0 cursor-pointer flex-col rounded-xl border px-3 py-2 shadow-xs transition " +
               (active
                 ? "border-accent bg-accent-soft/60 shadow-selected"
-                : "border-surface-3 bg-white hover:border-accent/40")
+                : "border-surface-3 bg-white hover:border-accent/40 active:bg-surface-2")
             }
           >
             <div className="flex items-center gap-1.5">
@@ -89,6 +88,42 @@ export function StationTimeline() {
                 onClick={(e) => e.stopPropagation()}
                 className="min-w-0 flex-1 border-b border-transparent bg-transparent text-sm font-semibold outline-none focus:border-accent"
               />
+              {/* Action buttons – visible on hover (desktop) + always visible on touch */}
+              <div className="flex gap-0.5 opacity-0 transition group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+                <button
+                  id={`note-btn-${st.id}`}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenNoteId(noteOpen ? null : st.id);
+                  }}
+                  title={hasNotes ? "Visa/redigera förklaring" : "Lägg till förklaring"}
+                  className={
+                    "grid h-7 w-7 place-items-center rounded-lg transition " +
+                    (noteOpen
+                      ? "bg-accent text-white"
+                      : hasNotes
+                      ? "bg-accent-soft text-accent-ink"
+                      : "text-slate-400")
+                  }
+                >
+                  <MessageSquare size={13} />
+                </button>
+                {plan.stations.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Ta bort "${st.name}"?`))
+                        deleteStation(st.id);
+                    }}
+                    title="Ta bort station"
+                    className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
@@ -111,59 +146,10 @@ export function StationTimeline() {
 
             {/* Notes snippet – shown when notes exist and bubble is closed */}
             {hasNotes && !noteOpen && (
-              <p className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-slate-500">
+              <p className="mt-1.5 line-clamp-1 text-[11px] leading-snug text-slate-500">
                 {st.notes}
               </p>
             )}
-
-            {/* Hover actions */}
-            <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 transition group-hover:opacity-100">
-              {/* Notes / description bubble button */}
-              <button
-                id={`note-btn-${st.id}`}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpenNoteId(noteOpen ? null : st.id);
-                }}
-                title={hasNotes ? "Visa/redigera förklaring" : "Lägg till förklaring"}
-                className={
-                  "grid h-6 w-6 place-items-center rounded transition " +
-                  (noteOpen
-                    ? "bg-accent text-white"
-                    : hasNotes
-                    ? "bg-accent-soft text-accent-ink hover:bg-accent hover:text-white"
-                    : "text-slate-500 hover:bg-white")
-                }
-              >
-                <MessageSquare size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  duplicateStation(st.id);
-                }}
-                title="Duplicera station"
-                className="grid h-6 w-6 place-items-center rounded text-slate-500 hover:bg-white"
-              >
-                <Copy size={12} />
-              </button>
-              {plan.stations.length > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm(`Ta bort "${st.name}"?`))
-                      deleteStation(st.id);
-                  }}
-                  title="Ta bort station"
-                  className="grid h-6 w-6 place-items-center rounded text-slate-500 hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 size={12} />
-                </button>
-              )}
-            </div>
 
             {/* Notes bubble / popover */}
             {noteOpen && (

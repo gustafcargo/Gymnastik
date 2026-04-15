@@ -113,15 +113,15 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           </button>
         )}
 
-        <div className="flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-md bg-gradient-to-br from-accent to-purple-500 text-white font-bold shadow-sm">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-gradient-to-br from-accent to-purple-500 text-white font-bold shadow-sm">
             G
           </div>
           <input
             type="text"
             value={plan.name}
             onChange={(e) => renamePlan(e.target.value)}
-            className="w-24 border-b border-transparent bg-transparent text-sm font-semibold outline-none focus:border-accent sm:w-64"
+            className="min-w-0 flex-1 border-b border-transparent bg-transparent text-sm font-semibold outline-none focus:border-accent sm:w-48"
             aria-label="Passets namn"
           />
         </div>
@@ -212,7 +212,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           </select>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <div className="hidden items-center gap-1 text-xs text-slate-500 md:flex">
             <span className="font-medium">{totalEquip}</span> redskap ·{" "}
             <span className="font-medium">{totalDuration}</span> min
@@ -228,7 +228,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           <button
             type="button"
             onClick={() => setPlansOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-surface-2"
+            className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-surface-2 active:bg-surface-3"
             title="Mina pass"
           >
             <FolderOpen size={14} />{" "}
@@ -238,7 +238,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
             <button
               type="button"
               onClick={() => setExportOpen((o) => !o)}
-              className="flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-accent-ink"
+              className="flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-accent-ink active:opacity-80"
             >
               <Download size={14} />{" "}
               <span className="hidden sm:inline">Exportera</span>

@@ -115,6 +115,59 @@ export function HallStage({ className, onStageReady }: Props) {
     }
   };
 
+  // Pinch-to-zoom for touch devices
+  const lastDist = useRef(0);
+  const lastCenter = useRef<{ x: number; y: number } | null>(null);
+
+  const getTouchDist = (t1: Touch, t2: Touch) =>
+    Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  const getTouchCenter = (t1: Touch, t2: Touch) => ({
+    x: (t1.clientX + t2.clientX) / 2,
+    y: (t1.clientY + t2.clientY) / 2,
+  });
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      lastDist.current = getTouchDist(e.touches[0], e.touches[1]);
+      lastCenter.current = getTouchCenter(e.touches[0], e.touches[1]);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 2 || !containerRef.current) return;
+    e.preventDefault();
+    const dist = getTouchDist(e.touches[0], e.touches[1]);
+    const center = getTouchCenter(e.touches[0], e.touches[1]);
+    const rect = containerRef.current.getBoundingClientRect();
+
+    if (lastDist.current > 0) {
+      const scaleChange = dist / lastDist.current;
+      const newScale = Math.min(6, Math.max(0.3, stageScale * scaleChange));
+      // Zoom toward pinch center
+      const px = center.x - rect.left;
+      const py = center.y - rect.top;
+      const pointTo = {
+        x: (px - stagePos.x) / stageScale,
+        y: (py - stagePos.y) / stageScale,
+      };
+      // Also pan by center movement
+      const panDx = lastCenter.current ? center.x - lastCenter.current.x : 0;
+      const panDy = lastCenter.current ? center.y - lastCenter.current.y : 0;
+      setStageScale(newScale);
+      setStagePos({
+        x: px - pointTo.x * newScale + panDx,
+        y: py - pointTo.y * newScale + panDy,
+      });
+    }
+    lastDist.current = dist;
+    lastCenter.current = center;
+  };
+
+  const handleTouchEnd = () => {
+    lastDist.current = 0;
+    lastCenter.current = null;
+  };
+
   const resetView = useCallback(() => {
     setStagePos({ x: 0, y: 0 });
     setStageScale(1);
@@ -170,6 +223,9 @@ export function HallStage({ className, onStageReady }: Props) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{ touchAction: "none" }}
     >
       {/* Inline note-editing textarea overlay */}
