@@ -138,21 +138,6 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           >
             <Grid3x3 size={16} />
           </IconButton>
-          <span className="mx-1 h-6 w-px bg-surface-3" />
-          <button
-            type="button"
-            onClick={toggleViewMode}
-            className={
-              "flex h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold transition " +
-              (viewMode === "3D"
-                ? "bg-accent text-white shadow-sm"
-                : "bg-surface-2 text-slate-700 hover:bg-surface-3")
-            }
-            title={viewMode === "3D" ? "Visa 2D-vy" : "Visa 3D-vy"}
-          >
-            {viewMode === "3D" ? <Box size={14} /> : <Square size={14} />}
-            <span>{viewMode}</span>
-          </button>
           <IconButton
             title="Passa vyn"
             onClick={() =>
@@ -162,6 +147,23 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
             <Maximize2 size={16} />
           </IconButton>
         </div>
+
+        {/* Vy-toggle är alltid synlig (även på mobil) */}
+        <button
+          type="button"
+          onClick={toggleViewMode}
+          className={
+            "flex h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold transition " +
+            (viewMode === "3D"
+              ? "bg-accent text-white shadow-sm"
+              : "bg-surface-2 text-slate-700 hover:bg-surface-3")
+          }
+          title={viewMode === "3D" ? "Visa 2D-vy" : "Visa 3D-vy"}
+          aria-label={`V\u00e4xla till ${viewMode === "3D" ? "2D" : "3D"}-vy`}
+        >
+          {viewMode === "3D" ? <Box size={14} /> : <Square size={14} />}
+          <span>{viewMode}</span>
+        </button>
 
         <div className="hidden md:block">
           <label className="sr-only" htmlFor="hall-select">
