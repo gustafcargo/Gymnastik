@@ -79,6 +79,18 @@ export const EQUIPMENT_CATALOG: EquipmentType[] = [
     description: "Ringar. Ringarnas höjd: 2.5 m, ramhöjd: ~5.5 m.",
   },
   {
+    id: "ringar-fri",
+    name: "Ringar (utan ställning)",
+    category: "redskap",
+    widthM: 0.8,
+    heightM: 0.8,
+    physicalHeightM: 2.75,
+    color: "#8E4040",
+    shape: "roundedRect",
+    detail: { kind: "rings-free" },
+    description: "Ringar utan ställning (hänger i tak/rigg). Ringarnas höjd: 2.75 m.",
+  },
+  {
     id: "hopp",
     name: "Hoppbord",
     category: "hopp",

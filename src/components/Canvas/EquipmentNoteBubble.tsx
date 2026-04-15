@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef } from "react";
 import { Group, Line, Rect, Text } from "react-konva";
+import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { PlacedEquipment, EquipmentType } from "../../types";
 
@@ -27,23 +28,24 @@ function defaultOffset(type: EquipmentType) {
 export function EquipmentNoteBubble({ eq, type, pxPerM, onOffsetChange, onSelect, onStartEdit }: Props) {
   const offset = eq.noteOffset ?? defaultOffset(type);
 
-  // Track bubble center during drag so the connector line updates in real-time
-  const [dragCenter, setDragCenter] = useState<{ x: number; y: number } | null>(null);
+  // Connector line is updated imperatively during drag to avoid React state re-renders.
+  // Re-renders during drag reset the controlled x/y props and corrupt Konva's drag position
+  // (especially visible on mobile where renders are slower).
+  const lineRef = useRef<Konva.Line>(null);
 
   const eqCx = eq.x * pxPerM;
   const eqCy = eq.y * pxPerM;
-  const bubbleCx = dragCenter?.x ?? (eq.x + offset.x) * pxPerM;
-  const bubbleCy = dragCenter?.y ?? (eq.y + offset.y) * pxPerM;
+  const bubbleCx = (eq.x + offset.x) * pxPerM;
+  const bubbleCy = (eq.y + offset.y) * pxPerM;
 
   const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
-    // e.target.x/y is the group origin which equals the bubble center (offsetX/Y applied)
-    setDragCenter({ x: e.target.x(), y: e.target.y() });
+    lineRef.current?.points([eqCx, eqCy, e.target.x(), e.target.y()]);
+    lineRef.current?.getLayer()?.batchDraw();
   };
 
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
     const cx = e.target.x();
     const cy = e.target.y();
-    setDragCenter(null);
     onOffsetChange({ x: cx / pxPerM - eq.x, y: cy / pxPerM - eq.y });
   };
 
@@ -51,6 +53,7 @@ export function EquipmentNoteBubble({ eq, type, pxPerM, onOffsetChange, onSelect
     <>
       {/* Dashed connector line from equipment center to bubble center */}
       <Line
+        ref={lineRef}
         points={[eqCx, eqCy, bubbleCx, bubbleCy]}
         stroke="#475569"
         strokeWidth={1}

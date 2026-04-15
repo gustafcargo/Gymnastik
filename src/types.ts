@@ -30,6 +30,7 @@ export type EquipmentDetail =
   | { kind: "beam" }
   | { kind: "pommel-horse" }
   | { kind: "rings" }
+  | { kind: "rings-free" }
   | { kind: "vault" }
   | { kind: "trampette" }
   | { kind: "mini-tramp" }
