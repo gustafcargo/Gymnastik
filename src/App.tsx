@@ -60,32 +60,38 @@ export default function App() {
         )}
 
         <main className="relative flex min-w-0 flex-1 flex-col">
-          {/* Three.js canvas – keep mounted once loaded to avoid WebGL
-              context-loss crashes on unmount. Hidden via CSS in 2D mode. */}
-          {has3DLoaded && (
-            <div
-              className="flex-1 flex-col"
-              style={{ display: is3D ? "flex" : "none" }}
-            >
-              <Suspense
-                fallback={
-                  <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
-                    Laddar 3D-vy…
-                  </div>
-                }
+          {/* Delade canvas-ytan – båda ligger i samma absoluta container
+              så Three.js-canvas alltid har rätt storlek (aldrig 0×0). */}
+          <div className="relative flex-1">
+            {/* Three.js – monteras en gång, göms med visibility (ej display:none) */}
+            {has3DLoaded && (
+              <div
+                className="absolute inset-0"
+                style={{
+                  visibility: is3D ? "visible" : "hidden",
+                  pointerEvents: is3D ? "auto" : "none",
+                }}
               >
-                <Hall3D className="flex-1" />
-              </Suspense>
-            </div>
-          )}
+                <Suspense
+                  fallback={
+                    <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                      Laddar 3D-vy…
+                    </div>
+                  }
+                >
+                  <Hall3D className="h-full w-full" />
+                </Suspense>
+              </div>
+            )}
 
-          {/* 2D Konva canvas – only mounted in 2D mode */}
-          {!is3D && (
-            <HallStage
-              className="flex-1"
-              onStageReady={(s) => (stageRef.current = s)}
-            />
-          )}
+            {/* 2D Konva – monteras/avmonteras normalt */}
+            {!is3D && (
+              <HallStage
+                className="absolute inset-0"
+                onStageReady={(s) => (stageRef.current = s)}
+              />
+            )}
+          </div>
           <StationTimeline />
         </main>
 

@@ -184,21 +184,21 @@ function HighBar({ w, d }: { w: number; d: number }) {
 // ---------------------------------------------------------------------------
 
 function Beam({ w }: { w: number; d: number }) {
+  // Tävlingsbom: 5 m lång, 10×10 cm tvärsnitt
   const beamH = 1.25;
-  const beamLen = w;
   const baseH = 0.03;
+  const beamW = 0.1; // bredd
+  const beamD = 0.1; // djup (10 cm cross-section)
 
   return (
     <group>
-      {/* Två röda stöd (kilar) */}
+      {/* Två röda kilformade stöd */}
       {([-w * 0.38, w * 0.38] as number[]).map((x, i) => (
         <group key={i} position={[x, 0, 0]}>
-          {/* Röd stödplint */}
           <mesh position={[0, beamH * 0.5, 0]} castShadow>
             <boxGeometry args={[0.12, beamH, 0.45]} />
             <RedPad />
           </mesh>
-          {/* Bottenplatta */}
           <mesh position={[0, baseH / 2, 0]} receiveShadow castShadow>
             <boxGeometry args={[0.5, baseH, 0.55]} />
             <DarkMetal />
@@ -206,14 +206,14 @@ function Beam({ w }: { w: number; d: number }) {
         </group>
       ))}
 
-      {/* Bomkropp – läder */}
-      <group position={[0, beamH + 0.05, 0]} rotation={[0, Math.PI / 2, 0]}>
-        <RoundedBox args={[beamLen, 0.1, 0.24]} radius={0.015} smoothness={4} castShadow>
+      {/* Bomkropp – längs X-axeln (ingen rotation) */}
+      <group position={[0, beamH + beamW / 2, 0]}>
+        <RoundedBox args={[w, beamW, beamD]} radius={0.012} smoothness={4} castShadow>
           <LeatherMat />
         </RoundedBox>
         {/* Mocka-yta på toppen */}
-        <mesh position={[0, 0.055, 0]} castShadow>
-          <boxGeometry args={[beamLen - 0.02, 0.006, 0.19]} />
+        <mesh position={[0, beamW / 2 + 0.003, 0]} castShadow>
+          <boxGeometry args={[w - 0.02, 0.005, beamD * 0.8]} />
           <SuedeMat />
         </mesh>
       </group>
