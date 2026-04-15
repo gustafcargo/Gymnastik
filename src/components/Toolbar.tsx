@@ -107,7 +107,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
             type="button"
             onClick={onToggleSidebar}
             aria-label="Meny"
-            className="grid h-9 w-9 place-items-center rounded-md text-slate-600 hover:bg-surface-2 lg:hidden"
+            className="grid h-9 w-9 place-items-center rounded-md text-slate-600 hover:bg-surface-2"
           >
             <Menu size={18} />
           </button>
