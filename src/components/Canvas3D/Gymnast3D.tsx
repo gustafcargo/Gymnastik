@@ -1,9 +1,9 @@
 /**
  * Gymnast3D – animerad FK-figur för 3D-vyn.
  *
- * ROOT = höfter.  Bålen sträcker sig UPPÅT från ROOT; benen NEDÅT.
- * Armar hänger NEDÅT från axlarna men roteras uppåt (−π) vid häng-övningar
- * så händerna hamnar i stånggreppspunkten (physicalHeightM).
+ * ROOT = höfter.  Bålen sträcker sig UPPÅT; benen NEDÅT.
+ * Häng-övningar: händerna låsta vid stången via pendel-förskjutning
+ * (rootZ + rootY) som matchar rootRotX, så pivot är i greppspunkten.
  */
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
@@ -12,9 +12,10 @@ import type { EquipmentType } from "../../types";
 
 // ─── Proportioner (meter) ─────────────────────────────────────────────────────
 const H_HEAD  = 0.09;
+const H_NECK  = 0.09;
 const H_TORSO = 0.46;
-const H_UPPER = 0.27;   // överarm
-const H_LOWER = 0.24;   // underarm
+const H_UPPER = 0.27;
+const H_LOWER = 0.24;
 const H_THIGH = 0.38;
 const H_SHIN  = 0.35;
 const R_BODY  = 0.068;
@@ -23,7 +24,7 @@ const R_LEG   = 0.046;
 const W_SHLDR = 0.19;
 const W_HIP   = 0.11;
 
-// Avstånd höfter → händer (hängande, armar sträckta upp)
+// Avstånd höfter → händer (armar sträckta rakt upp)
 const HANG_DIST = H_TORSO * 0.85 + H_UPPER + H_LOWER; // ≈ 0.901 m
 
 // ─── Pose ─────────────────────────────────────────────────────────────────────
@@ -34,8 +35,8 @@ type Pose = {
   rShX: number; rShZ: number; rElX: number;
   lHipX: number; lKnX: number;
   rHipX: number; rKnX: number;
-  rootX: number; rootY: number;
-  rootRotX: number;
+  rootX: number; rootY: number; rootZ: number;
+  rootRotX: number; rootRotY: number;
 };
 
 const ZERO: Pose = {
@@ -44,16 +45,14 @@ const ZERO: Pose = {
   rShX: 0,  rShZ: 0,  rElX: 0,
   lHipX: 0, lKnX: 0,
   rHipX: 0, rKnX: 0,
-  rootX: 0, rootY: 0, rootRotX: 0,
+  rootX: 0, rootY: 0, rootZ: 0,
+  rootRotX: 0, rootRotY: 0,
 };
 
-// Armar sträckta uppåt (−π kring X vrider "neråt-segmentet" till uppåt)
-const HANG_STRAIGHT: Pose = {
-  ...ZERO,
-  lShX: -Math.PI, rShX: -Math.PI,
-};
+// Armar sträckta uppåt (−π vrider neråt-segmentet till uppåt)
+const HANG_STRAIGHT: Pose = { ...ZERO, lShX: -Math.PI, rShX: -Math.PI };
 
-// ─── Keyframes ────────────────────────────────────────────────────────────────
+// ─── Keyframe-hjälpare ────────────────────────────────────────────────────────
 type KF = { t: number; pose: Pose };
 
 function lerpPose(a: Pose, b: Pose, alpha: number): Pose {
@@ -65,7 +64,8 @@ function lerpPose(a: Pose, b: Pose, alpha: number): Pose {
     rShX:  l("rShX"),  rShZ:  l("rShZ"),  rElX:  l("rElX"),
     lHipX: l("lHipX"), lKnX:  l("lKnX"),
     rHipX: l("rHipX"), rKnX:  l("rKnX"),
-    rootX: l("rootX"), rootY: l("rootY"), rootRotX: l("rootRotX"),
+    rootX: l("rootX"), rootY: l("rootY"), rootZ: l("rootZ"),
+    rootRotX: l("rootRotX"), rootRotY: l("rootRotY"),
   };
 }
 
@@ -83,29 +83,35 @@ function evalKF(kfs: KF[], t: number): Pose {
   return kfs[kfs.length - 1].pose;
 }
 
+// Pendel-förskjutning: håller händerna vid stången vid vinkel a
+function pend(a: number) {
+  return {
+    rootZ: HANG_DIST * Math.sin(a),
+    rootY: HANG_DIST * (1 - Math.cos(a)),
+  };
+}
+
 // ─── Animationer ──────────────────────────────────────────────────────────────
 const P = Math.PI;
 
 const EXERCISES: Record<string, KF[]> = {
 
-  // Jättesving – ROOT cirkulerar runt stångpunkten (0, physicalHeightM, 0)
-  // rootX/rootY = offset från baseY; vid α=0 hänger figuren rakt ned.
+  // Jättesving – ROOT cirkulerar runt stången i YZ-planet
   "high-bar:giant-swing": (() => {
     const N = 20;
     return Array.from({ length: N + 1 }, (_, i) => {
-      const a    = (i / N) * 2 * P;
-      const bow  = Math.sin(a) * 0.13;   // ihålig/välvd kropp
-      const pike = -Math.abs(Math.sin(a)) * 0.08; // lätt höftvinkel
+      const a   = (i / N) * 2 * P;
+      const bow = Math.sin(a) * 0.14;
       return {
         t: i * (1.6 / N),
         pose: {
           ...HANG_STRAIGHT,
-          spineX:  bow,
-          lHipX:   pike,
-          rHipX:   pike,
+          spineX: bow,
+          lHipX: -Math.abs(Math.sin(a)) * 0.09,
+          rHipX: -Math.abs(Math.sin(a)) * 0.09,
           rootRotX: a,
-          rootX:   HANG_DIST * Math.sin(a),
-          rootY:   HANG_DIST * (1 - Math.cos(a)),
+          rootZ: HANG_DIST * Math.sin(a),
+          rootY: HANG_DIST * (1 - Math.cos(a)),
         } satisfies Pose,
       };
     });
@@ -114,75 +120,86 @@ const EXERCISES: Record<string, KF[]> = {
   // Kip – L-form → pull-up → stöd → häng
   "high-bar:kip": [
     { t: 0,    pose: { ...HANG_STRAIGHT } },
-    { t: 0.5,  pose: { ...HANG_STRAIGHT,
+    { t: 0.50, pose: { ...HANG_STRAIGHT,
         lHipX: -P*0.58, rHipX: -P*0.58,
-        lKnX:   P*0.14,  rKnX:  P*0.14,
-        spineX: -P*0.14, rootX: 0.14 } },
-    { t: 1.2,  pose: { ...ZERO,
+        lKnX:   P*0.14, rKnX:   P*0.14,
+        spineX: -P*0.14,
+        ...pend(0), rootX: 0.14 } },
+    { t: 1.20, pose: { ...ZERO,
         lShX: P*0.13, rShX: P*0.13,
         lElX: P*0.65, rElX: P*0.65,
         lHipX: P*0.18, rHipX: P*0.18,
-        spineX: P*0.1, rootY: 0.84 } },
+        spineX: P*0.10, rootY: 0.84 } },
     { t: 1.85, pose: { ...ZERO,
         lShX: P*0.04, rShX: P*0.04,
         lElX: P*0.06, rElX: P*0.06,
         rootY: 1.06 } },
-    { t: 2.4,  pose: { ...HANG_STRAIGHT } },
+    { t: 2.40, pose: { ...HANG_STRAIGHT } },
   ],
 
-  // Enkel sving räck
-  "high-bar:swing": [
-    { t: 0,   pose: { ...HANG_STRAIGHT, rootRotX:  P*0.44, lHipX:  P*0.14, rHipX:  P*0.14 } },
-    { t: 0.9, pose: { ...HANG_STRAIGHT, rootRotX: -P*0.44, lHipX: -P*0.09, rHipX: -P*0.09, spineX: P*0.05 } },
-    { t: 1.8, pose: { ...HANG_STRAIGHT, rootRotX:  P*0.44, lHipX:  P*0.14, rHipX:  P*0.14 } },
-  ],
+  // Enkel sving räck – pendel från händerna
+  "high-bar:swing": (() => {
+    const a = P * 0.30;
+    const fwd = { ...HANG_STRAIGHT, rootRotX:  a, lHipX:  P*0.1,  rHipX:  P*0.1,  spineX: -P*0.04, ...pend( a) };
+    const bak = { ...HANG_STRAIGHT, rootRotX: -a, lHipX: -P*0.08, rHipX: -P*0.08, spineX:  P*0.05, ...pend(-a) };
+    return [
+      { t: 0.0, pose: fwd },
+      { t: 0.9, pose: bak },
+      { t: 1.8, pose: fwd },
+    ];
+  })(),
 
   // Barrsving
   "parallel-bars:swing": [
-    { t: 0,   pose: { ...ZERO, lShX:-P*0.09, rShX:-P*0.09, lElX:P*0.13, rElX:P*0.13,
+    { t: 0,   pose: { ...ZERO, lShX:-P*0.09, rShX:-P*0.09, lElX:P*0.12, rElX:P*0.12,
                       lHipX: P*0.58, rHipX: P*0.58, lKnX:-P*0.12, rKnX:-P*0.12 } },
-    { t: 0.8, pose: { ...ZERO, lShX: P*0.09, rShX: P*0.09, lElX:P*0.13, rElX:P*0.13,
-                      lHipX:-P*0.48, rHipX:-P*0.48, lKnX: P*0.2,  rKnX: P*0.2  } },
-    { t: 1.6, pose: { ...ZERO, lShX:-P*0.09, rShX:-P*0.09, lElX:P*0.13, rElX:P*0.13,
+    { t: 0.8, pose: { ...ZERO, lShX: P*0.09, rShX: P*0.09, lElX:P*0.12, rElX:P*0.12,
+                      lHipX:-P*0.48, rHipX:-P*0.48, lKnX: P*0.20, rKnX: P*0.20 } },
+    { t: 1.6, pose: { ...ZERO, lShX:-P*0.09, rShX:-P*0.09, lElX:P*0.12, rElX:P*0.12,
                       lHipX: P*0.58, rHipX: P*0.58, lKnX:-P*0.12, rKnX:-P*0.12 } },
   ],
 
-  // Stöd barr
+  // Stöd barr – händerna vid stånghöjd, kropp ovanför
   "parallel-bars:support": [
-    { t: 0,   pose: { ...ZERO, lElX:P*0.10, rElX:P*0.10, spineX:-P*0.04, rootY:0.06 } },
-    { t: 1.5, pose: { ...ZERO, lElX:P*0.07, rElX:P*0.07, spineX: P*0.03, rootY:0.09,
+    { t: 0,   pose: { ...ZERO, lElX:P*0.10, rElX:P*0.10, spineX:-P*0.04 } },
+    { t: 1.5, pose: { ...ZERO, lElX:P*0.07, rElX:P*0.07, spineX: P*0.03, rootY:0.03,
                       lShZ:-0.04, rShZ: 0.04 } },
-    { t: 3.0, pose: { ...ZERO, lElX:P*0.10, rElX:P*0.10, spineX:-P*0.04, rootY:0.06 } },
+    { t: 3.0, pose: { ...ZERO, lElX:P*0.10, rElX:P*0.10, spineX:-P*0.04 } },
   ],
 
-  // Ojämna barr
-  "uneven-bars:swing": [
-    { t: 0,   pose: { ...HANG_STRAIGHT, rootRotX:  P*0.46, lHipX: P*0.12, rHipX: P*0.12 } },
-    { t: 0.9, pose: { ...HANG_STRAIGHT, rootRotX: -P*0.46, lHipX:-P*0.08, rHipX:-P*0.08 } },
-    { t: 1.8, pose: { ...HANG_STRAIGHT, rootRotX:  P*0.46, lHipX: P*0.12, rHipX: P*0.12 } },
-  ],
+  // Ojämna barr – pendel från händerna
+  "uneven-bars:swing": (() => {
+    const a = P * 0.28;
+    const fwd = { ...HANG_STRAIGHT, rootRotX:  a, lHipX:  P*0.10, rHipX:  P*0.10, ...pend( a) };
+    const bak = { ...HANG_STRAIGHT, rootRotX: -a, lHipX: -P*0.07, rHipX: -P*0.07, ...pend(-a) };
+    return [
+      { t: 0.0, pose: fwd },
+      { t: 0.9, pose: bak },
+      { t: 1.8, pose: fwd },
+    ];
+  })(),
 
   // Gång bom
   "beam:walk": [
     { t: 0,   pose: { ...ZERO,
-        lHipX: P*0.26, lKnX:-P*0.19, rHipX:-P*0.21,
-        lShX:-P*0.19,  lShZ:-0.07,   rShX: P*0.15, rShZ: 0.07 } },
+        lHipX: P*0.26, lKnX:-P*0.18, rHipX:-P*0.20,
+        lShX:-P*0.18, lShZ:-0.07, rShX: P*0.14, rShZ: 0.07 } },
     { t: 1.0, pose: { ...ZERO,
-        lHipX:-P*0.21, rHipX: P*0.26, rKnX:-P*0.19,
-        lShX: P*0.15,  lShZ: 0.07,    rShX:-P*0.19, rShZ:-0.07 } },
+        lHipX:-P*0.20, rHipX: P*0.26, rKnX:-P*0.18,
+        lShX: P*0.14, lShZ: 0.07, rShX:-P*0.18, rShZ:-0.07 } },
     { t: 2.0, pose: { ...ZERO,
-        lHipX: P*0.26, lKnX:-P*0.19, rHipX:-P*0.21,
-        lShX:-P*0.19,  lShZ:-0.07,   rShX: P*0.15, rShZ: 0.07 } },
+        lHipX: P*0.26, lKnX:-P*0.18, rHipX:-P*0.20,
+        lShX:-P*0.18, lShZ:-0.07, rShX: P*0.14, rShZ: 0.07 } },
   ],
 
   // Hopp bom
   "beam:jump": [
     { t: 0,    pose: { ...ZERO } },
-    { t: 0.3,  pose: { ...ZERO, lHipX:-P*0.08, rHipX:-P*0.08, lKnX:P*0.12, rKnX:P*0.12, rootY:-0.05 } },
+    { t: 0.30, pose: { ...ZERO, lHipX:-P*0.08, rHipX:-P*0.08, lKnX:P*0.12, rKnX:P*0.12, rootY:-0.05 } },
     { t: 0.65, pose: { ...ZERO, lHipX: P*0.42, rHipX: P*0.42, spineX:P*0.09, rootY:0.22,
                        lShZ:-0.22, rShZ:0.22 } },
-    { t: 1.05, pose: { ...ZERO, lHipX:-P*0.07, rHipX:-P*0.07, lKnX:P*0.1, rKnX:P*0.1, rootY:-0.04 } },
-    { t: 1.4,  pose: { ...ZERO } },
+    { t: 1.05, pose: { ...ZERO, lHipX:-P*0.07, rHipX:-P*0.07, lKnX:P*0.10, rKnX:P*0.10, rootY:-0.04 } },
+    { t: 1.40, pose: { ...ZERO } },
   ],
 
   // Stå (bom/plint/floor)
@@ -192,15 +209,103 @@ const EXERCISES: Record<string, KF[]> = {
     { t: 4.0, pose: { ...ZERO, lShZ:-0.07, rShZ: 0.07 } },
   ],
 
-  // Ringsving
-  "rings:swing": [
-    { t: 0,   pose: { ...HANG_STRAIGHT, lShZ:-0.10, rShZ: 0.10,
-                      rootRotX:  P*0.34, lHipX: P*0.09, rHipX: P*0.09 } },
-    { t: 0.9, pose: { ...HANG_STRAIGHT, lShZ:-0.10, rShZ: 0.10,
-                      rootRotX: -P*0.34, lHipX:-P*0.07, rHipX:-P*0.07 } },
-    { t: 1.8, pose: { ...HANG_STRAIGHT, lShZ:-0.10, rShZ: 0.10,
-                      rootRotX:  P*0.34, lHipX: P*0.09, rHipX: P*0.09 } },
+  // Arabesque – vänster ben bak, höger stödbenet
+  "beam:arabesque": [
+    { t: 0,   pose: { ...ZERO } },
+    { t: 0.70, pose: { ...ZERO,
+        lHipX: -P*0.50, lKnX: P*0.04,
+        rHipX:  P*0.04, rKnX:-P*0.03,
+        spineX: -P*0.08,
+        lShX: P*0.65, lElX: P*0.10,
+        rShZ: P*0.42, rShX:-P*0.04, rElX: P*0.06,
+        rootY: 0.01 } },
+    { t: 2.80, pose: { ...ZERO,
+        lHipX: -P*0.52, lKnX: P*0.04,
+        rHipX:  P*0.04, rKnX:-P*0.03,
+        spineX: -P*0.07,
+        lShX: P*0.67, lElX: P*0.10,
+        rShZ: P*0.40, rShX:-P*0.04, rElX: P*0.06,
+        rootY: 0.01 } },
+    { t: 3.50, pose: { ...ZERO } },
   ],
+
+  // Knähopp (tuck jump)
+  "beam:tuck-jump": [
+    { t: 0,    pose: { ...ZERO } },
+    { t: 0.28, pose: { ...ZERO, lKnX:P*0.12, rKnX:P*0.12, lHipX:-P*0.07, rHipX:-P*0.07, rootY:-0.06 } },
+    { t: 0.62, pose: { ...ZERO, lHipX:P*0.68, rHipX:P*0.68, lKnX:-P*0.52, rKnX:-P*0.52,
+                       spineX:P*0.06, rootY:0.34, lShZ:-0.24, rShZ:0.24 } },
+    { t: 0.98, pose: { ...ZERO, lHipX:-P*0.07, rHipX:-P*0.07, lKnX:P*0.10, rKnX:P*0.10, rootY:-0.05 } },
+    { t: 1.40, pose: { ...ZERO } },
+  ],
+
+  // Pirouette – en hel 360° rotation
+  "beam:pirouette": [
+    { t: 0,   pose: { ...ZERO, rootRotY: 0 } },
+    { t: 0.30, pose: { ...ZERO, rootY:0.05, rootRotY: P*0.4,
+                       lShZ:-0.14, rShZ:0.14, lHipX:P*0.04, rKnX:-P*0.06 } },
+    { t: 1.10, pose: { ...ZERO, rootY:0.06, rootRotY: P,
+                       lShZ:-0.10, rShZ:0.10 } },
+    { t: 1.80, pose: { ...ZERO, rootY:0.05, rootRotY: P*1.6,
+                       lShZ:-0.08, rShZ:0.08 } },
+    { t: 2.30, pose: { ...ZERO, rootY:0.02, rootRotY: P*2 } },
+    { t: 2.50, pose: { ...ZERO, rootRotY: P*2 } },
+  ],
+
+  // Stegserie 1 – sekvens: gång → arabesque → knähopp → pirouette
+  "beam:stegserie-1": [
+    // Stå
+    { t: 0,   pose: { ...ZERO } },
+    // Steg 1
+    { t: 0.55, pose: { ...ZERO,
+        lHipX: P*0.25, lKnX:-P*0.17, rHipX:-P*0.19,
+        lShX:-P*0.17, lShZ:-0.06, rShX: P*0.13, rShZ: 0.06 } },
+    // Steg 2
+    { t: 1.10, pose: { ...ZERO,
+        lHipX:-P*0.19, rHipX: P*0.25, rKnX:-P*0.17,
+        lShX: P*0.13, lShZ: 0.06, rShX:-P*0.17, rShZ:-0.06 } },
+    // Transition arabesque
+    { t: 1.65, pose: { ...ZERO } },
+    // Arabesque
+    { t: 2.30, pose: { ...ZERO,
+        lHipX:-P*0.50, lKnX:P*0.04, rHipX:P*0.04, rKnX:-P*0.03,
+        spineX:-P*0.08, lShX:P*0.65, lElX:P*0.10,
+        rShZ:P*0.42, rShX:-P*0.04, rootY:0.01 } },
+    { t: 3.80, pose: { ...ZERO,
+        lHipX:-P*0.52, lKnX:P*0.04, rHipX:P*0.04,
+        spineX:-P*0.07, lShX:P*0.67, lElX:P*0.10,
+        rShZ:P*0.40, rootY:0.01 } },
+    // Lägger ner ben
+    { t: 4.30, pose: { ...ZERO } },
+    // Knähopp – förberedelse
+    { t: 4.60, pose: { ...ZERO, lKnX:P*0.12, rKnX:P*0.12, lHipX:-P*0.08, rHipX:-P*0.08, rootY:-0.06 } },
+    // Luft
+    { t: 4.95, pose: { ...ZERO, lHipX:P*0.68, rHipX:P*0.68, lKnX:-P*0.52, rKnX:-P*0.52,
+                       spineX:P*0.06, rootY:0.34, lShZ:-0.24, rShZ:0.24 } },
+    // Landning
+    { t: 5.35, pose: { ...ZERO, lHipX:-P*0.07, rHipX:-P*0.07, lKnX:P*0.10, rKnX:P*0.10, rootY:-0.05 } },
+    { t: 5.80, pose: { ...ZERO } },
+    // Pirouette
+    { t: 6.20, pose: { ...ZERO, rootY:0.05, rootRotY:P*0.4, lShZ:-0.13, rShZ:0.13 } },
+    { t: 7.00, pose: { ...ZERO, rootY:0.06, rootRotY:P, lShZ:-0.09, rShZ:0.09 } },
+    { t: 7.70, pose: { ...ZERO, rootY:0.05, rootRotY:P*1.6 } },
+    { t: 8.20, pose: { ...ZERO, rootY:0.02, rootRotY:P*2 } },
+    // Avslut
+    { t: 8.60, pose: { ...ZERO, rootRotY:P*2 } },
+    { t: 9.00, pose: { ...ZERO, rootRotY:P*2 } },
+  ],
+
+  // Ringsving – pendel
+  "rings:swing": (() => {
+    const a = P * 0.26;
+    const fwd = { ...HANG_STRAIGHT, lShZ:-0.10, rShZ:0.10, rootRotX: a, lHipX: P*0.08, rHipX: P*0.08, ...pend( a) };
+    const bak = { ...HANG_STRAIGHT, lShZ:-0.10, rShZ:0.10, rootRotX:-a, lHipX:-P*0.06, rHipX:-P*0.06, ...pend(-a) };
+    return [
+      { t: 0.0, pose: fwd },
+      { t: 0.9, pose: bak },
+      { t: 1.8, pose: fwd },
+    ];
+  })(),
 
   // Kors (iron cross)
   "rings:cross": [
@@ -209,14 +314,17 @@ const EXERCISES: Record<string, KF[]> = {
     { t: 4.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.06 } },
   ],
 
-  // Handvåg
+  // Handvåg – kropp inverterad, händer mot golvet
   "floor:handstand": [
-    { t: 0,   pose: { ...ZERO, lShX:-P*0.97, rShX:-P*0.97, lHipX:-P*0.97, rHipX:-P*0.97,
-                      spineX:-P*0.04, rootY: H_UPPER + H_LOWER - 0.04 } },
-    { t: 1.5, pose: { ...ZERO, lShX:-P*0.97, rShX:-P*0.97, lHipX:-P*0.97, rHipX:-P*0.97,
-                      spineX: P*0.04, rootY: H_UPPER + H_LOWER + 0.01 } },
-    { t: 3.0, pose: { ...ZERO, lShX:-P*0.97, rShX:-P*0.97, lHipX:-P*0.97, rHipX:-P*0.97,
-                      spineX:-P*0.04, rootY: H_UPPER + H_LOWER - 0.04 } },
+    { t: 0,   pose: { ...ZERO,
+        lShX: -P, rShX: -P,
+        rootRotX: P, rootY: 0.17, spineX: -P*0.04 } },
+    { t: 1.5, pose: { ...ZERO,
+        lShX: -P, rShX: -P,
+        rootRotX: P, rootY: 0.19, spineX: P*0.04, headX: P*0.05 } },
+    { t: 3.0, pose: { ...ZERO,
+        lShX: -P, rShX: -P,
+        rootRotX: P, rootY: 0.17, spineX: -P*0.04 } },
   ],
 
   // Stå fristående
@@ -228,12 +336,15 @@ const EXERCISES: Record<string, KF[]> = {
 
   // Saxpendel bygelhäst
   "pommel-horse:scissors": [
-    { t: 0,   pose: { ...ZERO, lHipX: P*0.52, rHipX:-P*0.22, lKnX:-P*0.06,
-                      lShX:-P*0.08, rShX:-P*0.04, lElX:P*0.19, rElX:P*0.14, rootY:0.09 } },
-    { t: 0.7, pose: { ...ZERO, lHipX:-P*0.22, rHipX: P*0.52, rKnX:-P*0.06,
-                      lShX:-P*0.04, rShX:-P*0.08, lElX:P*0.14, rElX:P*0.19, rootY:0.09 } },
-    { t: 1.4, pose: { ...ZERO, lHipX: P*0.52, rHipX:-P*0.22, lKnX:-P*0.06,
-                      lShX:-P*0.08, rShX:-P*0.04, lElX:P*0.19, rElX:P*0.14, rootY:0.09 } },
+    { t: 0,   pose: { ...ZERO,
+        lHipX: P*0.52, rHipX:-P*0.22, lKnX:-P*0.06,
+        lShX:-P*0.08, rShX:-P*0.04, lElX:P*0.19, rElX:P*0.14, rootY:0.09 } },
+    { t: 0.7, pose: { ...ZERO,
+        lHipX:-P*0.22, rHipX: P*0.52, rKnX:-P*0.06,
+        lShX:-P*0.04, rShX:-P*0.08, lElX:P*0.14, rElX:P*0.19, rootY:0.09 } },
+    { t: 1.4, pose: { ...ZERO,
+        lHipX: P*0.52, rHipX:-P*0.22, lKnX:-P*0.06,
+        lShX:-P*0.08, rShX:-P*0.04, lElX:P*0.19, rElX:P*0.14, rootY:0.09 } },
   ],
 
   // Ansats hoppbord
@@ -279,11 +390,9 @@ function mountType(exerciseId: string): MountType {
   return "stand-surface";
 }
 
-// ─── Segment (capsule) ───────────────────────────────────────────────────────
-// up=true → segmentet sträcker sig uppåt från ledens origin
-function Seg({
-  len, r, color, up = false,
-}: { len: number; r: number; color: string; up?: boolean }) {
+// ─── Primitiver ───────────────────────────────────────────────────────────────
+// Segment: up=true → sträcker sig uppåt, annars nedåt
+function Seg({ len, r, color, up = false }: { len: number; r: number; color: string; up?: boolean }) {
   return (
     <mesh position={[0, up ? len / 2 : -len / 2, 0]} castShadow>
       <capsuleGeometry args={[r, Math.max(0.001, len - r * 2), 4, 8]} />
@@ -292,12 +401,30 @@ function Seg({
   );
 }
 
-function Head({ color }: { color: string }) {
+// Ledsfär: markerar svängleder
+function Joint({ r, color }: { r: number; color: string }) {
   return (
     <mesh castShadow>
-      <sphereGeometry args={[H_HEAD, 12, 8]} />
-      <meshPhysicalMaterial color={color} roughness={0.8} metalness={0} />
+      <sphereGeometry args={[r, 8, 6]} />
+      <meshPhysicalMaterial color={color} roughness={0.88} metalness={0} />
     </mesh>
+  );
+}
+
+function Head({ skinColor, hairColor }: { skinColor: string; hairColor: string }) {
+  return (
+    <>
+      {/* Ansikt */}
+      <mesh castShadow>
+        <sphereGeometry args={[H_HEAD, 12, 8]} />
+        <meshPhysicalMaterial color={skinColor} roughness={0.80} metalness={0} />
+      </mesh>
+      {/* Hår – mörk halvsfär på toppen */}
+      <mesh position={[0, H_HEAD * 0.15, 0]} castShadow>
+        <sphereGeometry args={[H_HEAD * 0.82, 10, 6]} />
+        <meshPhysicalMaterial color={hairColor} roughness={0.95} metalness={0} />
+      </mesh>
+    </>
   );
 }
 
@@ -310,25 +437,19 @@ type Props = {
 
 export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Props) {
   const SKIN = "#E8C99A";
+  const HAIR = "#2d1a08";
   const kfs  = EXERCISES[exerciseId] ?? EXERCISES["floor:stand"]!;
   const mt   = mountType(exerciseId);
   const pH   = equipmentType.physicalHeightM;
 
-  // Basposition: höfternas Y-koordinat i redskaps-lokal rymd
+  // ROOT (höfter) basposition i redskaps-lokal Y
   const baseY = (() => {
-    if (mt === "hang-bar") {
-      // Händerna vid stången → höfterna HANG_DIST under stången
-      return pH - HANG_DIST;
-    }
-    if (mt === "support-bar") {
-      // Armar sträckta neråt, händer vid stångkanten, kropp ovanför
-      return pH + H_UPPER + H_LOWER - H_TORSO * 0.85;
-    }
-    // Fötterna på ytan, höfterna en benlängd ovanför
+    if (mt === "hang-bar")     return pH - HANG_DIST;
+    if (mt === "support-bar")  return pH + H_UPPER + H_LOWER - H_TORSO * 0.85;
     return pH + H_THIGH + H_SHIN;
   })();
 
-  // Joint refs
+  // Leds-refs
   const rootRef  = useRef<THREE.Group>(null);
   const spineRef = useRef<THREE.Group>(null);
   const headRef  = useRef<THREE.Group>(null);
@@ -345,9 +466,9 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
     const p = evalKF(kfs, clock.getElapsedTime());
 
     if (rootRef.current) {
-      rootRef.current.position.y = baseY + p.rootY;
-      rootRef.current.position.x = p.rootX;
+      rootRef.current.position.set(p.rootX, baseY + p.rootY, p.rootZ);
       rootRef.current.rotation.x = p.rootRotX;
+      rootRef.current.rotation.y = p.rootRotY;
     }
     if (spineRef.current) spineRef.current.rotation.x = p.spineX;
     if (headRef.current)  headRef.current.rotation.x  = p.headX;
@@ -364,47 +485,99 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
   });
 
   return (
-    // ROOT = höfter
     <group ref={rootRef} position={[0, baseY, 0]}>
 
-      {/* ── Bål – sträcker sig UPPÅT från ROOT ────────────── */}
+      {/* Höft-sfär vid ROOT */}
+      <Joint r={0.065} color={color} />
+
+      {/* ── Bål (uppåt från höfter) ───────────────────────── */}
       <group ref={spineRef}>
         <Seg len={H_TORSO} r={R_BODY} color={color} up />
 
-        {/* Huvud – ovanpå bålen */}
-        <group ref={headRef} position={[0, H_TORSO + H_HEAD * 0.9, 0]}>
-          <Head color={SKIN} />
+        {/* Nacke */}
+        <group position={[0, H_TORSO - 0.01, 0]}>
+          <Seg len={H_NECK} r={0.030} color={SKIN} up />
         </group>
 
-        {/* Vänster axel → armbåge → hand */}
+        {/* Huvud */}
+        <group ref={headRef} position={[0, H_TORSO + H_NECK + H_HEAD * 0.85, 0]}>
+          <Head skinColor={SKIN} hairColor={HAIR} />
+        </group>
+
+        {/* Axelsfärer (statiska, markerar skulderleden) */}
+        <mesh position={[-W_SHLDR, H_TORSO * 0.85, 0]} castShadow>
+          <sphereGeometry args={[0.048, 8, 6]} />
+          <meshPhysicalMaterial color={color} roughness={0.88} metalness={0} />
+        </mesh>
+        <mesh position={[ W_SHLDR, H_TORSO * 0.85, 0]} castShadow>
+          <sphereGeometry args={[0.048, 8, 6]} />
+          <meshPhysicalMaterial color={color} roughness={0.88} metalness={0} />
+        </mesh>
+
+        {/* Vänster arm */}
         <group ref={lShRef} position={[-W_SHLDR, H_TORSO * 0.85, 0]}>
           <Seg len={H_UPPER} r={R_LIMB} color={color} />
+          {/* Armbåge */}
           <group ref={lElRef} position={[0, -H_UPPER, 0]}>
+            <Joint r={R_LIMB * 1.10} color={color} />
             <Seg len={H_LOWER} r={R_LIMB * 0.85} color={SKIN} />
+            {/* Hand */}
+            <mesh position={[0, -H_LOWER, 0]} castShadow>
+              <sphereGeometry args={[0.028, 8, 5]} />
+              <meshPhysicalMaterial color={SKIN} roughness={0.78} metalness={0} />
+            </mesh>
           </group>
         </group>
 
-        {/* Höger axel → armbåge → hand */}
-        <group ref={rShRef} position={[W_SHLDR, H_TORSO * 0.85, 0]}>
+        {/* Höger arm */}
+        <group ref={rShRef} position={[ W_SHLDR, H_TORSO * 0.85, 0]}>
           <Seg len={H_UPPER} r={R_LIMB} color={color} />
           <group ref={rElRef} position={[0, -H_UPPER, 0]}>
+            <Joint r={R_LIMB * 1.10} color={color} />
             <Seg len={H_LOWER} r={R_LIMB * 0.85} color={SKIN} />
+            <mesh position={[0, -H_LOWER, 0]} castShadow>
+              <sphereGeometry args={[0.028, 8, 5]} />
+              <meshPhysicalMaterial color={SKIN} roughness={0.78} metalness={0} />
+            </mesh>
           </group>
         </group>
       </group>
 
-      {/* ── Ben – sträcker sig NEDÅT från ROOT ────────────── */}
+      {/* ── Vänster ben (nedåt från höfter) ────────────────── */}
+      <mesh position={[-W_HIP, 0, 0]} castShadow>
+        <sphereGeometry args={[0.052, 8, 6]} />
+        <meshPhysicalMaterial color={color} roughness={0.90} metalness={0} />
+      </mesh>
       <group ref={lHipRef} position={[-W_HIP, 0, 0]}>
         <Seg len={H_THIGH} r={R_LEG} color={color} />
+        {/* Knä */}
         <group ref={lKnRef} position={[0, -H_THIGH, 0]}>
+          <Joint r={R_LEG * 1.05} color={color} />
           <Seg len={H_SHIN} r={R_LEG * 0.85} color={color} />
+          {/* Fot */}
+          <mesh position={[0, -H_SHIN - 0.015, 0.028]}
+                rotation={[-P * 0.20, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.022, 0.055, 3, 6]} />
+            <meshPhysicalMaterial color="#1c1c1c" roughness={0.96} metalness={0} />
+          </mesh>
         </group>
       </group>
 
+      {/* ── Höger ben ───────────────────────────────────────── */}
+      <mesh position={[W_HIP, 0, 0]} castShadow>
+        <sphereGeometry args={[0.052, 8, 6]} />
+        <meshPhysicalMaterial color={color} roughness={0.90} metalness={0} />
+      </mesh>
       <group ref={rHipRef} position={[W_HIP, 0, 0]}>
         <Seg len={H_THIGH} r={R_LEG} color={color} />
         <group ref={rKnRef} position={[0, -H_THIGH, 0]}>
+          <Joint r={R_LEG * 1.05} color={color} />
           <Seg len={H_SHIN} r={R_LEG * 0.85} color={color} />
+          <mesh position={[0, -H_SHIN - 0.015, 0.028]}
+                rotation={[-P * 0.20, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.022, 0.055, 3, 6]} />
+            <meshPhysicalMaterial color="#1c1c1c" roughness={0.96} metalness={0} />
+          </mesh>
         </group>
       </group>
 
