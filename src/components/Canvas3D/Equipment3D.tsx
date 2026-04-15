@@ -67,6 +67,12 @@ export function Equipment3D({ type, color, partColors, params }: Props) {
         return <Buck w={type.widthM} h={type.physicalHeightM} color={color} partColors={partColors} params={params} />;
       case "foam-pit":
         return <FoamPit w={type.widthM} d={type.heightM} color={color} />;
+      case "wall-bars":
+        return <WallBars h={type.physicalHeightM} partColors={partColors} params={params} />;
+      case "gym-bench":
+        return <GymBench w={type.widthM} partColors={partColors} params={params} />;
+      case "climbing-rope":
+        return <ClimbingRope h={params?.ropeH ?? type.physicalHeightM} partColors={partColors} />;
       default: {
       // Render custom parts if defined, otherwise fall back to a single box.
       const parts = type.customParts;
@@ -1141,6 +1147,152 @@ function FoamPit({ w, d, color }: { w: number; d: number; color?: string }) {
           );
         }),
       )}
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ribbstol – wall-mounted ladder with side uprights and horizontal rungs
+// ---------------------------------------------------------------------------
+
+function WallBars({
+  h, partColors, params,
+}: { h: number; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const w         = 0.85;
+  const depth     = 0.06;   // how far the bars stick out from wall
+  const nRungs    = Math.round(params?.rungs ?? 10);
+  const upW       = 0.045;  // upright diameter
+  const rungR     = 0.018;  // rung radius
+  const ramColor  = pc(partColors, "ram",       "#A06028");
+  const rungColor = pc(partColors, "pinnar",    "#C8904A");
+  const wallColor = pc(partColors, "montering", "#8C7060");
+
+  const rungSpacing = (h - 0.12) / (nRungs - 1);
+
+  return (
+    <group>
+      {/* Wall mounting rail */}
+      <mesh position={[0, h / 2, -(depth / 2 + 0.02)]} castShadow>
+        <boxGeometry args={[w + 0.04, h, 0.04]} />
+        <meshPhysicalMaterial color={wallColor} roughness={0.7} metalness={0} />
+      </mesh>
+
+      {/* Left and right uprights */}
+      {([-w / 2 + upW / 2, w / 2 - upW / 2] as number[]).map((x, i) => (
+        <mesh key={`up-${i}`} position={[x, h / 2, 0]} castShadow>
+          <boxGeometry args={[upW, h, depth]} />
+          <meshPhysicalMaterial color={ramColor} roughness={0.55} metalness={0} />
+        </mesh>
+      ))}
+
+      {/* Horizontal rungs — rotate cylinders to lie along X axis */}
+      {Array.from({ length: nRungs }).map((_, ri) => {
+        const y = 0.06 + ri * rungSpacing;
+        return (
+          <mesh key={`rung-${ri}`} position={[0, y, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[rungR, rungR, w - upW * 2, 10]} />
+            <meshPhysicalMaterial color={rungColor} roughness={0.5} metalness={0} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Gymnastiksätta (gym bench) – flat board on angled leg frames
+// ---------------------------------------------------------------------------
+
+function GymBench({
+  w, partColors, params,
+}: { w: number; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const tiltDeg   = params?.tilt ?? 0;
+  const tiltRad   = (tiltDeg * Math.PI) / 180;
+  const boardT    = 0.032;  // board thickness
+  const boardW    = 0.24;   // board width (narrow side = the seat)
+  const legH      = 0.28;   // leg height at floor level
+  const legT      = 0.028;
+  const nLegs     = Math.max(2, Math.round(w / 1.0));
+  const boardColor = pc(partColors, "bräda", "#D4A84B");
+  const legColor   = pc(partColors, "ben",   "#B8923A");
+
+  return (
+    <group rotation={[tiltRad, 0, 0]} position={[0, 0, tiltRad > 0 ? -(w / 2) * Math.sin(tiltRad) : 0]}>
+      {/* Main board */}
+      <mesh position={[0, legH + boardT / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[boardW, boardT, w]} />
+        <meshPhysicalMaterial color={boardColor} roughness={0.6} metalness={0} />
+      </mesh>
+
+      {/* Leg pairs */}
+      {Array.from({ length: nLegs }).map((_, li) => {
+        const pz = -w / 2 + (w / (nLegs - 1)) * li;
+        return (
+          <group key={`leg-${li}`} position={[0, legH / 2, pz]}>
+            {/* Two angled legs forming an A-frame */}
+            {([-boardW / 2 + legT, boardW / 2 - legT] as number[]).map((x, i) => (
+              <mesh key={i} position={[x, 0, 0]} castShadow>
+                <boxGeometry args={[legT, legH, legT]} />
+                <meshPhysicalMaterial color={legColor} roughness={0.6} metalness={0} />
+              </mesh>
+            ))}
+            {/* Cross-brace */}
+            <mesh position={[0, -legH * 0.2, 0]} castShadow>
+              <boxGeometry args={[boardW - legT * 2, legT, legT]} />
+              <meshPhysicalMaterial color={legColor} roughness={0.6} metalness={0} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Klätterrep – twisted rope hanging from ceiling
+// ---------------------------------------------------------------------------
+
+function ClimbingRope({
+  h, partColors,
+}: { h: number; partColors?: Record<string, string> }) {
+  const ropeR     = 0.030;  // rope radius
+  const repColor  = pc(partColors, "rep",    "#8B6A3A");
+  const fastColor = pc(partColors, "fäste",  "#3A3A3A");
+  const nSegments = Math.max(6, Math.round(h / 0.5));
+  const twist     = 0.35;   // radians of spiral per segment
+
+  return (
+    <group>
+      {/* Ceiling attachment shackle */}
+      <mesh position={[0, h + 0.04, 0]} castShadow>
+        <cylinderGeometry args={[0.05, 0.05, 0.08, 12]} />
+        <meshPhysicalMaterial color={fastColor} roughness={0.3} metalness={0.9} />
+      </mesh>
+      <mesh position={[0, h, 0]} castShadow>
+        <torusGeometry args={[0.045, 0.012, 8, 20]} />
+        <meshPhysicalMaterial color={fastColor} roughness={0.3} metalness={0.9} />
+      </mesh>
+
+      {/* Rope segments — slightly spiraling cylinders for twisted look */}
+      {Array.from({ length: nSegments }).map((_, si) => {
+        const segH = h / nSegments;
+        const y    = h - (si + 0.5) * segH;
+        const angle = si * twist;
+        const offX  = Math.sin(angle) * 0.008;
+        const offZ  = Math.cos(angle) * 0.008;
+        return (
+          <mesh key={si} position={[offX, y, offZ]} castShadow>
+            <cylinderGeometry args={[ropeR, ropeR, segH * 1.02, 8]} />
+            <meshPhysicalMaterial color={repColor} roughness={0.9} metalness={0} />
+          </mesh>
+        );
+      })}
+
+      {/* Rope end tassel */}
+      <mesh position={[0, 0.04, 0]} castShadow>
+        <coneGeometry args={[ropeR * 1.6, 0.08, 8]} />
+        <meshPhysicalMaterial color={repColor} roughness={0.9} metalness={0} />
+      </mesh>
     </group>
   );
 }

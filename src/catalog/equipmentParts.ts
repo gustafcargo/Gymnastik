@@ -65,4 +65,17 @@ export const EQUIPMENT_PARTS: Partial<Record<string, Record<string, string>>> = 
     stommar: "#CDD2DA",   // legs/stand
     sockel:  "#252D3A",   // base plates
   },
+  "wall-bars": {
+    ram:     "#A06028",   // side uprights
+    pinnar:  "#C8904A",   // rungs/pinnar
+    montering: "#8C7060", // wall attachment rail
+  },
+  "gym-bench": {
+    bräda:   "#D4A84B",   // top board
+    ben:     "#B8923A",   // leg frames
+  },
+  "climbing-rope": {
+    rep:     "#8B6A3A",   // rope body
+    fäste:   "#4A4A4A",   // ceiling attachment
+  },
 };

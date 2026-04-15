@@ -319,6 +319,30 @@ function HallScene({ W, H }: { W: number; H: number }) {
           ? draggingNoteRef.current!.offZ
           : (eq.noteOffset?.y ?? -(type.heightM / 2 + 0.6));
 
+        // Tilt transforms (inside equipment group, pre-rotation)
+        const physH = type.physicalHeightM;
+        const eqW   = type.widthM;
+        const eqD   = type.heightM;
+        let tiltRot: [number, number, number] = [0, 0, 0];
+        let tiltPos: [number, number, number] = [0, 0, 0];
+        switch (eq.orientation) {
+          case "upside-down":
+            tiltRot = [Math.PI, 0, 0];
+            tiltPos = [0, physH, 0];
+            break;
+          case "on-long-side":
+            // rotate -90° around Z: (x,y,z)→(y,-x,z); long edge stays along X
+            tiltRot = [0, 0, -Math.PI / 2];
+            tiltPos = [-physH / 2, eqW / 2, 0];
+            break;
+          case "on-short-side":
+            // rotate -90° around X: (x,y,z)→(x,z,-y); short edge stays along Z
+            tiltRot = [-Math.PI / 2, 0, 0];
+            tiltPos = [0, eqD / 2, physH / 2];
+            break;
+        }
+        const hasTilt = eq.orientation && eq.orientation !== "normal";
+
         return (
           <group
             key={eq.id}
@@ -327,12 +351,23 @@ function HallScene({ W, H }: { W: number; H: number }) {
             rotation={[0, -(eq.rotation * Math.PI) / 180, 0]}
             scale={[eq.scaleX, 1, eq.scaleY]}
           >
-            <Equipment3D
-              type={type}
-              color={eq.customColor}
-              partColors={eq.partColors}
-              params={eq.params}
-            />
+            {hasTilt ? (
+              <group position={tiltPos} rotation={tiltRot}>
+                <Equipment3D
+                  type={type}
+                  color={eq.customColor}
+                  partColors={eq.partColors}
+                  params={eq.params}
+                />
+              </group>
+            ) : (
+              <Equipment3D
+                type={type}
+                color={eq.customColor}
+                partColors={eq.partColors}
+                params={eq.params}
+              />
+            )}
             {/* Floating label */}
             {showThisLabel && (
               <Html

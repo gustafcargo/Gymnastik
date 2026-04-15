@@ -204,6 +204,41 @@ export function EquipmentEditor() {
               />
             </Section>
 
+            {/* Orientation */}
+            <Section label="Orientering">
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                {(
+                  [
+                    { value: "normal",       label: "Upprätt" },
+                    { value: "upside-down",  label: "Upp-och-ned" },
+                    { value: "on-long-side", label: "På lång sida" },
+                    { value: "on-short-side",label: "På kortsida" },
+                  ] as const
+                ).map(({ value, label }) => {
+                  const current = selected.orientation ?? "normal";
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() =>
+                        updateEquipment(selected.id, {
+                          orientation: value === "normal" ? undefined : value,
+                        })
+                      }
+                      className={
+                        "rounded-lg border px-2 py-1.5 text-xs font-medium transition " +
+                        (current === value
+                          ? "border-blue-500 bg-blue-900/50 text-blue-300"
+                          : "border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-500 hover:text-slate-200")
+                      }
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+
             {/* Z-height for stacking */}
             <Section label="Höjd från golvet (m)">
               <div className="flex items-center gap-3">
