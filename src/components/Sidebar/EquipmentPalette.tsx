@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { BookmarkMinus, Pencil, Plus, Trash2, Search } from "lucide-react";
 import {
   CATEGORY_LABELS,
@@ -244,8 +245,9 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
         )}
       </div>
 
-      {showNewModal && (
-        <CustomEquipmentModal onClose={() => setShowNewModal(false)} />
+      {showNewModal && createPortal(
+        <CustomEquipmentModal onClose={() => setShowNewModal(false)} />,
+        document.body,
       )}
     </div>
   );

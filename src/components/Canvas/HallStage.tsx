@@ -46,6 +46,7 @@ export function HallStage({ className, onStageReady }: Props) {
 
   type EditingNote = { id: string; x: number; y: number; text: string };
   const [editingNote, setEditingNote] = useState<EditingNote | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Observera storleksändringar
   useEffect(() => {
@@ -130,9 +131,17 @@ export function HallStage({ className, onStageReady }: Props) {
   const handleDragOver = (e: React.DragEvent) => {
     if (e.dataTransfer.types.includes("application/x-gymnastik-equipment")) {
       e.preventDefault();
+      setIsDragOver(true);
+    }
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear when leaving the container itself, not child elements
+    if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
     }
   };
   const handleDrop = (e: React.DragEvent) => {
+    setIsDragOver(false);
     const typeId = e.dataTransfer.getData("application/x-gymnastik-equipment");
     if (!typeId || !containerRef.current) return;
     e.preventDefault();
@@ -159,6 +168,7 @@ export function HallStage({ className, onStageReady }: Props) {
       ref={containerRef}
       className="h-full w-full relative"
       onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       style={{ touchAction: "none" }}
     >
@@ -201,6 +211,9 @@ export function HallStage({ className, onStageReady }: Props) {
         </div>
       )}
 
+      {isDragOver && (
+        <div className="pointer-events-none absolute inset-0 z-20 rounded-sm border-4 border-dashed border-accent/70 bg-accent/5" />
+      )}
       {isEmpty && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/85 px-5 py-4 text-center shadow-xs backdrop-blur">

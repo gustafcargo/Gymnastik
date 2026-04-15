@@ -110,32 +110,6 @@ export function PropertyPanel({ onClose }: Props) {
 
       <div className="flex-1 space-y-4 overflow-y-auto scrollbar-thin px-4 py-4">
 
-        <Field label="Position (m)">
-          <div className="grid grid-cols-2 gap-2">
-            <NumberInput
-              label="X"
-              value={selected.x}
-              step={0.25}
-              onChange={(v) => transformEquipment(selected.id, { x: v })}
-            />
-            <NumberInput
-              label="Y"
-              value={selected.y}
-              step={0.25}
-              onChange={(v) => transformEquipment(selected.id, { y: v })}
-            />
-          </div>
-          <div className="mt-2">
-            <NumberInput
-              label="Höjd (stapel, m)"
-              value={selected.z ?? 0}
-              step={0.05}
-              min={0}
-              onChange={(v) => updateEquipment(selected.id, { z: Math.max(0, v) })}
-            />
-          </div>
-        </Field>
-
         <Field label="Storlek (m)">
           <div className="grid grid-cols-2 gap-2">
             <NumberInput
@@ -216,6 +190,33 @@ export function PropertyPanel({ onClose }: Props) {
             >
               <RotateCw size={16} />
             </button>
+          </div>
+        </Field>
+
+        <Field label="Höjd (över golv, m)">
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={3}
+              step={0.05}
+              value={selected.z ?? 0}
+              onChange={(e) =>
+                updateEquipment(selected.id, { z: Number(e.target.value) })
+              }
+              className="flex-1"
+            />
+            <input
+              type="number"
+              min={0}
+              max={3}
+              step={0.05}
+              value={Number((selected.z ?? 0).toFixed(2))}
+              onChange={(e) =>
+                updateEquipment(selected.id, { z: Math.max(0, Number(e.target.value)) })
+              }
+              className="w-16 rounded-md border border-surface-3 bg-surface-2 px-2 py-1 text-right text-sm"
+            />
           </div>
         </Field>
 

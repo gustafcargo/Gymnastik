@@ -1,14 +1,13 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type Konva from "konva";
-import { Settings2, X } from "lucide-react";
+import { Plus, Settings2, X } from "lucide-react";
 import { Toolbar } from "./components/Toolbar";
 import { EquipmentPalette } from "./components/Sidebar/EquipmentPalette";
 import { PropertyPanel } from "./components/Sidebar/PropertyPanel";
 import { HallStage } from "./components/Canvas/HallStage";
 import { StationTimeline } from "./components/Timeline/StationTimeline";
 import { CommandPalette } from "./components/CommandPalette";
-import { FabButton } from "./components/Mobile/FabButton";
 import { BottomSheet } from "./components/Mobile/BottomSheet";
 import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
@@ -146,12 +145,7 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <Toolbar
-        stageRef={stageRef}
-        onToggleSidebar={
-          !isDesktop ? () => setPaletteOpen((o) => !o) : undefined
-        }
-      />
+      <Toolbar stageRef={stageRef} />
 
       {/* ── Desktop layout: always-visible sidebars ── */}
       {isDesktop && (
@@ -192,6 +186,16 @@ export default function App() {
             </aside>
           )}
           <main className="relative flex min-w-0 flex-1 flex-col">
+            {!paletteOpen && (
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                aria-label="Visa redskap"
+                className="absolute left-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full border border-surface-3 bg-white/90 text-slate-600 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-accent"
+              >
+                <Plus size={20} />
+              </button>
+            )}
             {canvasArea}
             <StationTimeline />
           </main>
@@ -203,10 +207,18 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Mobile layout: FAB + bottom sheets ── */}
+      {/* ── Mobile layout: top-left open button + bottom sheets ── */}
       {isMobile && (
         <div className="flex min-h-0 flex-1 flex-col">
           <main className="relative flex min-w-0 flex-1 flex-col">
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Visa redskap"
+              className="absolute left-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full border border-surface-3 bg-white/90 text-slate-600 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-accent"
+            >
+              <Plus size={20} />
+            </button>
             {canvasArea}
             <StationTimeline />
           </main>
@@ -216,14 +228,12 @@ export default function App() {
       <CommandPalette />
       <EquipmentEditor />
 
-      {/* Mobile-only: FAB, selection bar, bottom sheets */}
+      {/* Mobile-only: selection bar, bottom sheets */}
       {isMobile && (
         <>
-          <FabButton onClick={() => setPaletteOpen(true)} />
-
           {selectedId && !propertyOpen && (
             <div
-              className="fixed bottom-24 left-4 right-20 z-30 flex items-center gap-2 rounded-2xl border border-surface-3 bg-white px-4 py-2.5 shadow-lg"
+              className="fixed bottom-6 left-4 right-4 z-30 flex items-center gap-2 rounded-2xl border border-surface-3 bg-white px-4 py-2.5 shadow-lg"
               style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
             >
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">

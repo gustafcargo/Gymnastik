@@ -24,6 +24,8 @@ export function renderEquipment({ type, w, h, selected, colorOverride }: Props) 
   switch (kind) {
     case "parallel-bars":
       return <Bars w={w} h={h} selected={selected} color={c} />;
+    case "uneven-bars":
+      return <UnevenBars w={w} h={h} selected={selected} color={c} />;
     case "high-bar":
       return <HighBar w={w} h={h} selected={selected} color={c} />;
     case "beam":
@@ -161,6 +163,98 @@ function Bars({ w, h, selected, color }: { w: number; h: number; selected: boole
           />
         </Group>
       ))}
+    </Group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ojämna barr – top-view: two bars at different depths (high behind, low front)
+// ---------------------------------------------------------------------------
+function UnevenBars({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
+  const r = Math.min(8, Math.min(w, h) * 0.08);
+  const barH = Math.max(3, h * 0.09);
+  // High bar appears further back in plan view (higher Y)
+  const hiY = h * 0.30 - barH / 2;
+  // Low bar is closer (lower Y)
+  const loY = h * 0.65 - barH / 2;
+  const postR = Math.min(w, h) * 0.04;
+
+  return (
+    <Group>
+      {/* Frame background */}
+      <Rect
+        width={w}
+        height={h}
+        cornerRadius={r}
+        fill={color ?? "#E4E8EE"}
+        stroke={sel(selected)}
+        strokeWidth={selected ? 2 : 0.8}
+        {...SHADOW(selected)}
+      />
+      {/* Floor-anchor cable stays (dashed diagonals) */}
+      {[0.08, 0.92].flatMap((fx) => [
+        <Line key={`h1-${fx}`} points={[w * fx, hiY, w * fx, h * 0.06]} stroke="#6B7280" strokeWidth={0.7} dash={[3, 3]} opacity={0.45} />,
+        <Line key={`h2-${fx}`} points={[w * fx, hiY + barH, w * fx, h * 0.94]} stroke="#6B7280" strokeWidth={0.7} dash={[3, 3]} opacity={0.35} />,
+        <Line key={`l1-${fx}`} points={[w * fx, loY, w * fx, h * 0.06]} stroke="#6B7280" strokeWidth={0.7} dash={[3, 3]} opacity={0.3} />,
+        <Line key={`l2-${fx}`} points={[w * fx, loY + barH, w * fx, h * 0.94]} stroke="#6B7280" strokeWidth={0.7} dash={[3, 3]} opacity={0.4} />,
+      ])}
+      {/* High bar (metal – same color as 3D model) */}
+      <Rect
+        x={w * 0.06}
+        y={hiY + barH * 0.55}
+        width={w * 0.88}
+        height={barH * 0.7}
+        cornerRadius={barH * 0.35}
+        fill="#000"
+        opacity={0.22}
+      />
+      <Rect
+        x={w * 0.06}
+        y={hiY}
+        width={w * 0.88}
+        height={barH}
+        cornerRadius={barH * 0.5}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: 0, y: barH }}
+        fillLinearGradientColorStops={[0, "#E0E5EC", 0.45, "#B0B8C4", 1, "#6A7585"]}
+        stroke="#3F4757"
+        strokeWidth={0.6}
+      />
+      {/* Low bar (wood-colored) */}
+      <Rect
+        x={w * 0.06}
+        y={loY + barH * 0.55}
+        width={w * 0.88}
+        height={barH * 0.7}
+        cornerRadius={barH * 0.35}
+        fill="#000"
+        opacity={0.22}
+      />
+      <Rect
+        x={w * 0.06}
+        y={loY}
+        width={w * 0.88}
+        height={barH}
+        cornerRadius={barH * 0.5}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: 0, y: barH }}
+        fillLinearGradientColorStops={[0, "#D4AA7A", 0.45, "#A07840", 1, "#6A4C20"]}
+        stroke="#3A2614"
+        strokeWidth={0.6}
+      />
+      {/* 4 post circles at corners */}
+      {[0.08, 0.92].flatMap((fx) =>
+        [0.10, 0.90].map((fy) => (
+          <Circle
+            key={`${fx}-${fy}`}
+            x={w * fx}
+            y={h * fy}
+            radius={postR}
+            fill="#3E4A58"
+            opacity={0.5}
+          />
+        )),
+      )}
     </Group>
   );
 }
