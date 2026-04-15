@@ -25,6 +25,17 @@ export default function App() {
   const viewMode = usePlanStore((s) => s.viewMode);
   const is3D = viewMode === "3D";
 
+  // Once 3D has been requested we keep the Canvas mounted forever.
+  // Unmounting a Three.js/WebGL Canvas tears down the GL context which
+  // occasionally throws and crashes the whole app. Hiding it with CSS
+  // is the safe alternative.
+  const [has3DLoaded, setHas3DLoaded] = useState(
+    () => usePlanStore.getState().viewMode === "3D",
+  );
+  useEffect(() => {
+    if (is3D) setHas3DLoaded(true);
+  }, [is3D]);
+
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [propertyOpen, setPropertyOpen] = useState(false);
 
@@ -49,17 +60,27 @@ export default function App() {
         )}
 
         <main className="relative flex min-w-0 flex-1 flex-col">
-          {is3D ? (
-            <Suspense
-              fallback={
-                <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
-                  Laddar 3D-vy…
-                </div>
-              }
+          {/* Three.js canvas – keep mounted once loaded to avoid WebGL
+              context-loss crashes on unmount. Hidden via CSS in 2D mode. */}
+          {has3DLoaded && (
+            <div
+              className="flex-1 flex-col"
+              style={{ display: is3D ? "flex" : "none" }}
             >
-              <Hall3D className="flex-1" />
-            </Suspense>
-          ) : (
+              <Suspense
+                fallback={
+                  <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
+                    Laddar 3D-vy…
+                  </div>
+                }
+              >
+                <Hall3D className="flex-1" />
+              </Suspense>
+            </div>
+          )}
+
+          {/* 2D Konva canvas – only mounted in 2D mode */}
+          {!is3D && (
             <HallStage
               className="flex-1"
               onStageReady={(s) => (stageRef.current = s)}

@@ -31,6 +31,7 @@ export function Hall3D({ className }: Props) {
     <div className={className}>
       <Canvas
         shadows
+        frameloop="demand"
         dpr={[1, 2]}
         camera={{
           position: [cx + camDist * 0.55, camDist * 0.55, cz + camDist * 0.85],
