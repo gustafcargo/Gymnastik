@@ -1,4 +1,4 @@
-import { Suspense, useRef, useEffect, useCallback } from "react";
+import { Suspense, useRef, useEffect, useCallback, useMemo } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import {
   Environment,
@@ -9,8 +9,9 @@ import {
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { usePlanStore } from "../../store/usePlanStore";
-import { EQUIPMENT_BY_ID } from "../../catalog/equipment";
+import { getEquipmentById } from "../../catalog/equipment";
 import { Equipment3D } from "./Equipment3D";
+import { computeStackInfo } from "../../lib/stackGroups";
 import type { Station } from "../../types";
 
 type Props = { className?: string };
@@ -30,6 +31,11 @@ function HallScene({ W, H }: { W: number; H: number }) {
 
   const cx = W / 2;
   const cz = H / 2;
+
+  const stackInfo = useMemo(
+    () => computeStackInfo(station?.equipment ?? []),
+    [station?.equipment],
+  );
 
   const { camera, gl, scene } = useThree();
   const orbitRef = useRef<OrbitControlsImpl>(null);
@@ -237,9 +243,20 @@ function HallScene({ W, H }: { W: number; H: number }) {
 
       {/* Redskap */}
       {station?.equipment.map((eq) => {
-        const type = EQUIPMENT_BY_ID[eq.typeId];
+        const type = getEquipmentById(eq.typeId);
         if (!type) return null;
         const isSelected = eq.id === selectedId;
+        const sInfo = stackInfo.get(eq.id);
+        // For stacked mats: only the leader shows label/note
+        const showThisLabel = showLabels && (sInfo === undefined || sInfo.isLeader);
+        const baseLabel = eq.label ?? type.name;
+        const labelText =
+          showThisLabel && sInfo && sInfo.count > 1
+            ? `${baseLabel} ×${sInfo.count}`
+            : baseLabel;
+        // Note bubble offset (default: right side, above)
+        const noteOffX = eq.noteOffset?.x ?? type.widthM / 2 + 0.6;
+        const noteOffZ = eq.noteOffset?.y ?? -(type.heightM / 2 + 0.6);
 
         return (
           <group
@@ -256,7 +273,7 @@ function HallScene({ W, H }: { W: number; H: number }) {
               params={eq.params}
             />
             {/* Floating label */}
-            {showLabels && (
+            {showThisLabel && (
               <Html
                 position={[0, type.physicalHeightM + 0.28, 0]}
                 center
@@ -279,7 +296,36 @@ function HallScene({ W, H }: { W: number; H: number }) {
                     transform: `scale(${1 / Math.max(eq.scaleX, eq.scaleY, 0.5)})`,
                   }}
                 >
-                  {eq.label ?? type.name}
+                  {labelText}
+                </div>
+              </Html>
+            )}
+            {/* Note bubble */}
+            {showLabels && eq.notes && (showThisLabel || !sInfo) && (
+              <Html
+                position={[noteOffX, type.physicalHeightM + 0.5, noteOffZ]}
+                center
+                style={{ pointerEvents: "none" }}
+                zIndexRange={[15, 25]}
+              >
+                <div
+                  style={{
+                    background: "rgba(255,251,210,0.96)",
+                    border: "1px solid #D4A820",
+                    borderRadius: "6px",
+                    padding: "4px 8px",
+                    fontSize: "11px",
+                    fontWeight: 500,
+                    color: "#374151",
+                    maxWidth: "140px",
+                    fontFamily: "system-ui, sans-serif",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    transform: `scale(${1 / Math.max(eq.scaleX, eq.scaleY, 0.5)})`,
+                  }}
+                >
+                  {eq.notes}
                 </div>
               </Html>
             )}

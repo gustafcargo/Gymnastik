@@ -58,6 +58,8 @@ export type PlacedEquipment = {
   params?: Record<string, number>;
   /** Höjd från golvet i meter (för mattstack mm.). Standard: 0. */
   z?: number;
+  /** Förskjutning (meter) av anteckningsbubblan relativt redskapets centrum. */
+  noteOffset?: { x: number; y: number };
 };
 
 export type HallTemplate = {

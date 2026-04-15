@@ -10,7 +10,7 @@ import type {
   ViewMode,
 } from "../types";
 import { DEFAULT_HALL } from "../catalog/halls";
-import { EQUIPMENT_BY_ID } from "../catalog/equipment";
+import { getEquipmentById } from "../catalog/equipment";
 import { clampToHall } from "../lib/geometry";
 
 // ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ function getMatStackZ(
   let maxTop = 0;
   for (const eq of station.equipment) {
     if (eq.id === excludeId) continue;
-    const eqType = EQUIPMENT_BY_ID[eq.typeId];
+    const eqType = getEquipmentById(eq.typeId);
     if (!eqType || !MAT_KINDS.has(eqType.detail?.kind ?? "")) continue;
     // Require >50 % center-to-center overlap on each axis
     const threshW = Math.min(type.widthM, eqType.widthM) * 0.5;
@@ -87,6 +87,7 @@ type PlanActions = {
   deleteEquipment: (id: string) => void;
   duplicateEquipment: (id: string) => string | undefined;
   rotateEquipment: (id: string, deltaDeg: number) => void;
+  setEquipmentNoteOffset: (id: string, offset: { x: number; y: number }) => void;
 
   // selection & settings
   selectEquipment: (id: string | null) => void;
@@ -338,6 +339,16 @@ export const usePlanStore = create<PlanStore>()(
               eq.id === id
                 ? { ...eq, rotation: (eq.rotation + deltaDeg) % 360 }
                 : eq,
+            ),
+          })),
+        })),
+
+      setEquipmentNoteOffset: (id, offset) =>
+        set((s) => ({
+          plan: withActiveStation(s.plan, (st) => ({
+            ...st,
+            equipment: st.equipment.map((eq) =>
+              eq.id === id ? { ...eq, noteOffset: offset } : eq,
             ),
           })),
         })),

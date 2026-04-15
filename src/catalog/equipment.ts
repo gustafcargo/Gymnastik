@@ -203,9 +203,26 @@ export const EQUIPMENT_CATALOG: EquipmentType[] = [
 export const EQUIPMENT_BY_ID: Record<string, EquipmentType> =
   Object.fromEntries(EQUIPMENT_CATALOG.map((e) => [e.id, e]));
 
+/** Extra registry for custom/user-defined equipment types (populated at runtime). */
+const _customRegistry: Record<string, EquipmentType> = {};
+
+export function registerEquipmentType(t: EquipmentType): void {
+  _customRegistry[t.id] = t;
+}
+
+export function unregisterEquipmentType(id: string): void {
+  delete _customRegistry[id];
+}
+
+/** Look up a type from both the built-in catalog and the custom registry. */
+export function getEquipmentById(id: string): EquipmentType | undefined {
+  return EQUIPMENT_BY_ID[id] ?? _customRegistry[id];
+}
+
 export const CATEGORY_LABELS: Record<string, string> = {
   redskap: "Redskap",
   matta: "Mattor",
   hopp: "Hopp",
   tillbehor: "Tillbehör",
+  eget: "Egna redskap",
 };

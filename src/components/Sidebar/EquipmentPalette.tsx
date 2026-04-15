@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
-import { BookmarkMinus, Search } from "lucide-react";
+import { BookmarkMinus, Plus, Trash2, Search } from "lucide-react";
 import {
   CATEGORY_LABELS,
-  EQUIPMENT_BY_ID,
   EQUIPMENT_CATALOG,
+  getEquipmentById,
 } from "../../catalog/equipment";
 import type { EquipmentType, SavedEquipmentTemplate } from "../../types";
 import { EquipmentIcon } from "./EquipmentIcon";
 import { usePlanStore } from "../../store/usePlanStore";
 import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
+import { useCustomEquipmentStore } from "../../store/useCustomEquipmentStore";
+import { CustomEquipmentModal } from "../CustomEquipmentModal";
 import { formatMeters } from "../../lib/geometry";
 
 type Props = {
@@ -21,10 +23,13 @@ const CATEGORY_ORDER = ["redskap", "matta", "hopp", "tillbehor"];
 export function EquipmentPalette({ onItemActivate, compact }: Props) {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [showNewModal, setShowNewModal] = useState(false);
   const addEquipmentCenter = usePlanStore((s) => s.addEquipmentCenter);
   const updateEquipment = usePlanStore((s) => s.updateEquipment);
   const templates = useSavedEquipmentStore((s) => s.templates);
   const removeTemplate = useSavedEquipmentStore((s) => s.removeTemplate);
+  const customTypes = useCustomEquipmentStore((s) => s.customTypes);
+  const removeCustomType = useCustomEquipmentStore((s) => s.removeCustomType);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -38,6 +43,16 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
       );
     });
   }, [query, activeCategory]);
+
+  const filteredCustom = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (activeCategory && activeCategory !== "eget") return [];
+    return customTypes.filter((t) =>
+      !q ||
+      t.name.toLowerCase().includes(q) ||
+      (t.description ?? "").toLowerCase().includes(q),
+    );
+  }, [query, activeCategory, customTypes]);
 
   const grouped = useMemo(() => {
     const g: Record<string, EquipmentType[]> = {};
@@ -67,12 +82,25 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
     if (onItemActivate) onItemActivate(tpl.baseTypeId);
   };
 
+  const hasAnyResults =
+    filtered.length > 0 || filteredCustom.length > 0 || templates.length > 0;
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-surface-3 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-          Redskap
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
+            Redskap
+          </h2>
+          <button
+            type="button"
+            onClick={() => setShowNewModal(true)}
+            className="flex items-center gap-1 rounded-md bg-accent-soft px-2 py-1 text-xs font-semibold text-accent-ink hover:bg-accent hover:text-white transition"
+            title="Skapa nytt eget redskap"
+          >
+            <Plus size={12} /> Nytt
+          </button>
+        </div>
         <div className="relative mt-2">
           <Search
             size={16}
@@ -102,22 +130,32 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
               {CATEGORY_LABELS[cat]}
             </CategoryChip>
           ))}
+          {customTypes.length > 0 && (
+            <CategoryChip
+              active={activeCategory === "eget"}
+              onClick={() => setActiveCategory("eget")}
+            >
+              {CATEGORY_LABELS["eget"]}
+            </CategoryChip>
+          )}
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {/* ── Sparade mallar ── */}
-        {templates.length > 0 && (
+        {templates.length > 0 && (!activeCategory || activeCategory === null) && (
           <section className="border-b border-surface-3 py-2">
             <h3 className="px-4 pb-1 text-xs font-semibold uppercase tracking-wider text-accent">
               Sparade mallar
             </h3>
             <ul className={compact ? "grid grid-cols-2 gap-2 px-3" : "space-y-1 px-2"}>
               {templates.map((tpl) => {
-                const baseType = EQUIPMENT_BY_ID[tpl.baseTypeId];
+                const baseType = getEquipmentById(tpl.baseTypeId);
                 if (!baseType) return null;
-                // Build a display type that reflects the template's custom color
-                const displayType: EquipmentType = { ...baseType, color: tpl.customColor ?? baseType.color };
+                const displayType: EquipmentType = {
+                  ...baseType,
+                  color: tpl.customColor ?? baseType.color,
+                };
                 return (
                   <li key={tpl.id}>
                     <TemplateItem
@@ -134,7 +172,30 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
           </section>
         )}
 
+        {/* ── Egna redskap ── */}
+        {filteredCustom.length > 0 && (
+          <section className="border-b border-surface-3 py-2">
+            <h3 className="px-4 pb-1 text-xs font-semibold uppercase tracking-wider text-purple-500">
+              {CATEGORY_LABELS["eget"]}
+            </h3>
+            <ul className={compact ? "grid grid-cols-2 gap-2 px-3" : "space-y-1 px-2"}>
+              {filteredCustom.map((item) => (
+                <li key={item.id}>
+                  <PaletteItem
+                    type={item}
+                    compact={compact}
+                    onActivate={() => handleActivate(item.id)}
+                    onDelete={() => removeCustomType(item.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* ── Standardkatalog ── */}
         {CATEGORY_ORDER.map((cat) => {
+          if (activeCategory === "eget") return null;
           const items = grouped[cat];
           if (!items || items.length === 0) return null;
           return (
@@ -156,12 +217,17 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
             </section>
           );
         })}
-        {filtered.length === 0 && (
+
+        {!hasAnyResults && (
           <p className="px-4 py-8 text-center text-sm text-slate-400">
             Inga redskap matchar sökningen.
           </p>
         )}
       </div>
+
+      {showNewModal && (
+        <CustomEquipmentModal onClose={() => setShowNewModal(false)} />
+      )}
     </div>
   );
 }
@@ -229,15 +295,20 @@ function TemplateItem({
           <EquipmentIcon type={baseType} size={compact ? 36 : 28} />
         </div>
         <div className={compact ? "w-full" : "min-w-0 flex-1"}>
-          <div className="truncate text-sm font-semibold text-accent-ink">{tpl.name}</div>
+          <div className="truncate text-sm font-semibold text-accent-ink">
+            {tpl.name}
+          </div>
           <div className="truncate text-xs text-slate-500">{baseType.name}</div>
         </div>
       </button>
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
         title="Ta bort mall"
-        className="shrink-0 grid h-7 w-7 place-items-center rounded-md text-slate-400 opacity-0 transition hover:bg-red-100 hover:text-red-600 group-hover:opacity-100"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 opacity-0 transition hover:bg-red-100 hover:text-red-600 group-hover:opacity-100"
       >
         <BookmarkMinus size={14} />
       </button>
@@ -248,45 +319,67 @@ function TemplateItem({
 function PaletteItem({
   type,
   onActivate,
+  onDelete,
   compact,
 }: {
   type: EquipmentType;
   onActivate: () => void;
+  onDelete?: () => void;
   compact?: boolean;
 }) {
-  const handleDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
+  const handleDragStart = (e: React.DragEvent<HTMLElement>) => {
     e.dataTransfer.setData("application/x-gymnastik-equipment", type.id);
     e.dataTransfer.effectAllowed = "copy";
   };
 
   return (
-    <button
-      type="button"
-      draggable
-      onDragStart={handleDragStart}
-      onClick={onActivate}
+    <div
       className={
         "group flex w-full cursor-grab items-center gap-3 rounded-lg border border-transparent bg-white p-2 text-left shadow-xs transition hover:border-accent/40 hover:bg-accent-soft active:cursor-grabbing " +
         (compact ? "flex-col text-center" : "")
       }
+      draggable
+      onDragStart={handleDragStart}
       title={`Dra eller klicka för att lägga till ${type.name}`}
     >
-      <div
+      <button
+        type="button"
+        onClick={onActivate}
         className={
-          "flex shrink-0 items-center justify-center rounded-md bg-surface-2 " +
-          (compact ? "h-14 w-14" : "h-12 w-12")
+          "flex min-w-0 flex-1 items-center gap-3 text-left " +
+          (compact ? "flex-col" : "")
         }
       >
-        <EquipmentIcon type={type} size={compact ? 40 : 36} />
-      </div>
-      <div className={compact ? "w-full" : "min-w-0 flex-1"}>
-        <div className="truncate text-sm font-semibold text-slate-800">
-          {type.name}
+        <div
+          className={
+            "flex shrink-0 items-center justify-center rounded-md bg-surface-2 " +
+            (compact ? "h-14 w-14" : "h-12 w-12")
+          }
+        >
+          <EquipmentIcon type={type} size={compact ? 40 : 36} />
         </div>
-        <div className="truncate text-xs text-slate-500">
-          {formatMeters(type.widthM)} × {formatMeters(type.heightM)}
+        <div className={compact ? "w-full" : "min-w-0 flex-1"}>
+          <div className="truncate text-sm font-semibold text-slate-800">
+            {type.name}
+          </div>
+          <div className="truncate text-xs text-slate-500">
+            {formatMeters(type.widthM)} × {formatMeters(type.heightM)}
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Ta bort "${type.name}"?`)) onDelete();
+          }}
+          title="Ta bort eget redskap"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 opacity-0 transition hover:bg-red-100 hover:text-red-600 group-hover:opacity-100"
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
+    </div>
   );
 }
