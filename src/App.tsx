@@ -9,6 +9,7 @@ import { StationTimeline } from "./components/Timeline/StationTimeline";
 import { CommandPalette } from "./components/CommandPalette";
 import { FabButton } from "./components/Mobile/FabButton";
 import { BottomSheet } from "./components/Mobile/BottomSheet";
+import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { usePlanStore } from "./store/usePlanStore";
@@ -140,6 +141,7 @@ export default function App() {
       </div>
 
       <CommandPalette />
+      <EquipmentEditor />
 
       {!isDesktop && (
         <>

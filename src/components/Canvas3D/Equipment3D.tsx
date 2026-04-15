@@ -5,6 +5,7 @@ type Props = {
   type: EquipmentType;
   color?: string;
   partColors?: Record<string, string>;
+  params?: Record<string, number>;
 };
 
 /** Returns a quaternion that aligns a cylinder's Y-axis with the given direction. */
@@ -13,7 +14,7 @@ function alignY(dx: number, dy: number, dz: number): THREE.Quaternion {
   return new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
 }
 
-/** Look up a part color: partColors override, then global color (for main part), then default. */
+/** Look up a part color: partColors override, then default. */
 function pc(
   partColors: Record<string, string> | undefined,
   key: string,
@@ -22,20 +23,20 @@ function pc(
   return partColors?.[key] ?? fallback;
 }
 
-export function Equipment3D({ type, color, partColors }: Props) {
+export function Equipment3D({ type, color, partColors, params }: Props) {
   switch (type.detail?.kind) {
     case "parallel-bars":
-      return <ParallelBars w={type.widthM} d={type.heightM} color={color} partColors={partColors} />;
+      return <ParallelBars w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
     case "high-bar":
-      return <HighBar w={type.widthM} d={type.heightM} color={color} partColors={partColors} />;
+      return <HighBar w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
     case "beam":
-      return <Beam w={type.widthM} color={color} partColors={partColors} />;
+      return <Beam w={type.widthM} color={color} partColors={partColors} params={params} />;
     case "pommel-horse":
-      return <PommelHorse w={type.widthM} color={color} partColors={partColors} />;
+      return <PommelHorse w={type.widthM} color={color} partColors={partColors} params={params} />;
     case "rings":
       return <Rings w={type.widthM} d={type.heightM} h={type.physicalHeightM} partColors={partColors} />;
     case "vault":
-      return <Vault w={type.widthM} d={type.heightM} color={color} partColors={partColors} />;
+      return <Vault w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
     case "trampette":
     case "mini-tramp":
       return <Trampette w={type.widthM} d={type.heightM} color={color} partColors={partColors} />;
@@ -50,9 +51,9 @@ export function Equipment3D({ type, color, partColors }: Props) {
     case "landing-mat":
       return <Mat w={type.widthM} d={type.heightM} h={type.physicalHeightM} color={color ?? "#CC7020"} />;
     case "plinth":
-      return <Plinth w={type.widthM} d={type.heightM} h={type.physicalHeightM} color={color} />;
+      return <Plinth w={type.widthM} d={type.heightM} h={type.physicalHeightM} color={color} params={params} />;
     case "buck":
-      return <Buck w={type.widthM} h={type.physicalHeightM} color={color} partColors={partColors} />;
+      return <Buck w={type.widthM} h={type.physicalHeightM} color={color} partColors={partColors} params={params} />;
     case "foam-pit":
       return <FoamPit w={type.widthM} d={type.heightM} color={color} />;
     default:
@@ -70,10 +71,10 @@ export function Equipment3D({ type, color, partColors }: Props) {
 // ---------------------------------------------------------------------------
 
 function ParallelBars({
-  w, d, color, partColors,
-}: { w: number; d: number; color?: string; partColors?: Record<string, string> }) {
-  const railH1 = 1.7;
-  const railH2 = 1.95;
+  w, d, color, partColors, params,
+}: { w: number; d: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const railH1 = params?.railH1 ?? 1.7;
+  const railH2 = params?.railH2 ?? 1.95;
   const railR = 0.025;
   const postR = 0.04;
   const baseH = 0.04;
@@ -86,7 +87,6 @@ function ParallelBars({
         <boxGeometry args={[w, baseH, d]} />
         <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
       </mesh>
-
       {([
         { zOff: -d * 0.4, h: railH1 },
         { zOff:  d * 0.4, h: railH2 },
@@ -98,7 +98,6 @@ function ParallelBars({
           </mesh>
         )),
       )}
-
       {[{ z: -d * 0.4, h: railH1 + baseH }, { z: d * 0.4, h: railH2 + baseH }].map(({ z, h }, i) => (
         <mesh key={i} position={[0, h, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <capsuleGeometry args={[railR, w - railR * 2, 6, 18]} />
@@ -114,9 +113,9 @@ function ParallelBars({
 // ---------------------------------------------------------------------------
 
 function HighBar({
-  w, d, color, partColors,
-}: { w: number; d: number; color?: string; partColors?: Record<string, string> }) {
-  const barH = 2.75;
+  w, d, color, partColors, params,
+}: { w: number; d: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const barH = params?.barH ?? 2.75;
   const barR = 0.014;
   const postR = 0.048;
   const baseH = 0.05;
@@ -131,14 +130,12 @@ function HighBar({
         <boxGeometry args={[w, baseH, d]} />
         <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
       </mesh>
-
       {([-xPost, xPost] as number[]).map((x, i) => (
         <mesh key={i} position={[x, barH / 2 + baseH, 0]} castShadow>
           <cylinderGeometry args={[postR, postR * 1.15, barH, 18]} />
           <meshPhysicalMaterial color={postColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
         </mesh>
       ))}
-
       {([-1, 1] as number[]).flatMap((sx) =>
         ([-1, 1] as number[]).map((sz) => {
           const from: [number, number, number] = [xPost * sx, barH + baseH, 0];
@@ -152,21 +149,14 @@ function HighBar({
             (from[1] + to[1]) / 2,
             (from[2] + to[2]) / 2,
           ];
-          const q = alignY(dx, dy, dz);
           return (
-            <mesh
-              key={`${sx}-${sz}`}
-              position={mid}
-              quaternion={q}
-              castShadow
-            >
+            <mesh key={`${sx}-${sz}`} position={mid} quaternion={alignY(dx, dy, dz)} castShadow>
               <cylinderGeometry args={[0.006, 0.006, len, 6]} />
               <meshPhysicalMaterial color={wireColor} roughness={0.4} metalness={0.88} />
             </mesh>
           );
         }),
       )}
-
       <mesh position={[0, barH + baseH, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
         <capsuleGeometry args={[barR, w - barR * 2, 6, 16]} />
         <meshPhysicalMaterial
@@ -186,9 +176,9 @@ function HighBar({
 // ---------------------------------------------------------------------------
 
 function Beam({
-  w, color, partColors,
-}: { w: number; color?: string; partColors?: Record<string, string> }) {
-  const beamH = 1.25;
+  w, color, partColors, params,
+}: { w: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const beamH = params?.beamH ?? 1.25;
   const baseH = 0.03;
   const supportColor = pc(partColors, "stöd", color ?? "#CC2020");
   const beamColor = pc(partColors, "bom", "#8C6240");
@@ -207,7 +197,6 @@ function Beam({
           </mesh>
         </group>
       ))}
-
       <group position={[0, beamH + 0.055, 0]}>
         <mesh castShadow>
           <boxGeometry args={[w, 0.1, 0.1]} />
@@ -227,9 +216,9 @@ function Beam({
 // ---------------------------------------------------------------------------
 
 function PommelHorse({
-  w, color, partColors,
-}: { w: number; color?: string; partColors?: Record<string, string> }) {
-  const standH = 0.78;
+  w, color, partColors, params,
+}: { w: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const standH = params?.standH ?? 0.78;
   const bodyH = 0.38;
   const bodyD = 0.42;
   const bodyColor = pc(partColors, "kropp", color ?? "#8C6240");
@@ -246,14 +235,13 @@ function PommelHorse({
           </mesh>
         )),
       )}
-
       <mesh position={[0, standH + bodyH / 2, 0]} castShadow>
         <boxGeometry args={[w * 0.95, bodyH, bodyD]} />
         <meshPhysicalMaterial color={bodyColor} roughness={0.7} metalness={0.0} />
       </mesh>
-
+      {/* Byglar – stående (rotation=0 ger lodrät halvcirkel i XY-planet) */}
       {([-w * 0.2, w * 0.2] as number[]).map((x, i) => (
-        <mesh key={i} position={[x, standH + bodyH + 0.1, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <mesh key={i} position={[x, standH + bodyH + 0.06, 0]} rotation={[0, 0, 0]} castShadow>
           <torusGeometry args={[0.09, 0.018, 14, 24, Math.PI]} />
           <meshPhysicalMaterial color={handleColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
         </mesh>
@@ -282,14 +270,14 @@ function Rings({
         <ringGeometry args={[Math.max(w, d) * 0.42, Math.max(w, d) * 0.48, 32]} />
         <meshPhysicalMaterial color="#8A9BAE" roughness={0.9} transparent opacity={0.3} metalness={0} />
       </mesh>
-
       {([-0.28, 0.28] as number[]).map((dx, i) => (
         <group key={i} position={[dx, 0, 0]}>
           <mesh position={[0, ringY + strapH / 2 + ringR, 0]} castShadow>
             <boxGeometry args={[0.032, strapH, 0.012]} />
             <meshPhysicalMaterial color={strapColor} roughness={0.7} metalness={0.0} />
           </mesh>
-          <mesh position={[0, ringY, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          {/* Ringar – stående (rotation=0 ger lodrät cirkel i XY-planet) */}
+          <mesh position={[0, ringY, 0]} rotation={[0, 0, 0]} castShadow>
             <torusGeometry args={[ringR, ringT, 14, 32]} />
             <meshPhysicalMaterial color={ringColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
           </mesh>
@@ -304,10 +292,10 @@ function Rings({
 // ---------------------------------------------------------------------------
 
 function Vault({
-  w, d, color, partColors,
-}: { w: number; d: number; color?: string; partColors?: Record<string, string> }) {
-  const standH = 0.98;
-  const padH = 0.38;
+  w, d, color, partColors, params,
+}: { w: number; d: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const standH = params?.standH ?? 0.98;
+  const padH = params?.padH ?? 0.38;
   const bodyColor = pc(partColors, "kropp", color ?? "#8C6240");
   const postColor = pc(partColors, "sockel", "#CDD2DA");
 
@@ -445,8 +433,10 @@ function Mat({ w, d, h, color }: { w: number; d: number; h: number; color: strin
 // Plint
 // ---------------------------------------------------------------------------
 
-function Plinth({ w, d, h, color }: { w: number; d: number; h: number; color?: string }) {
-  const layers = 4;
+function Plinth({
+  w, d, h, color, params,
+}: { w: number; d: number; h: number; color?: string; params?: Record<string, number> }) {
+  const layers = Math.round(Math.max(1, Math.min(8, params?.layers ?? 4)));
   const layerH = h / layers;
   const topColor = color ?? "#8C6240";
   const bodyColor = color ?? "#7A5330";
@@ -477,9 +467,10 @@ function Plinth({ w, d, h, color }: { w: number; d: number; h: number; color?: s
 // ---------------------------------------------------------------------------
 
 function Buck({
-  w, h, color, partColors,
-}: { w: number; h: number; color?: string; partColors?: Record<string, string> }) {
-  const bodyH = Math.max(0.1, h - 0.18);
+  w, h, color, partColors, params,
+}: { w: number; h: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const totalH = params?.bodyH ?? h;
+  const bodyH = Math.max(0.1, totalH - 0.18);
   const bodyColor = pc(partColors, "kropp", color ?? "#8C6240");
   const postColor = pc(partColors, "sockel", "#CDD2DA");
 
@@ -493,7 +484,7 @@ function Buck({
         <boxGeometry args={[w * 0.55, 0.02, 0.3]} />
         <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
       </mesh>
-      <mesh position={[0, h - 0.08, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+      <mesh position={[0, totalH - 0.08, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
         <capsuleGeometry args={[0.14, Math.max(0.3, w * 0.65), 8, 18]} />
         <meshPhysicalMaterial color={bodyColor} roughness={0.7} metalness={0.0} />
       </mesh>

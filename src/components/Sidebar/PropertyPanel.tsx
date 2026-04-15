@@ -1,4 +1,4 @@
-import { Copy, RotateCw, Trash2, X } from "lucide-react";
+import { Copy, RotateCw, Settings2, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
 import { EQUIPMENT_BY_ID } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
@@ -17,6 +17,7 @@ export function PropertyPanel({ onClose }: Props) {
   const deleteEquipment = usePlanStore((s) => s.deleteEquipment);
   const duplicateEquipment = usePlanStore((s) => s.duplicateEquipment);
   const rotateEquipment = usePlanStore((s) => s.rotateEquipment);
+  const openEquipmentEditor = usePlanStore((s) => s.openEquipmentEditor);
 
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
   const selected = station?.equipment.find((e) => e.id === selectedId) ?? null;
@@ -76,6 +77,15 @@ export function PropertyPanel({ onClose }: Props) {
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto scrollbar-thin px-4 py-4">
+        {/* Open full editor */}
+        <button
+          type="button"
+          onClick={openEquipmentEditor}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-accent/40 bg-accent/10 py-2 text-sm font-medium text-accent transition hover:bg-accent/20"
+        >
+          <Settings2 size={15} /> Redigera detaljer i 3D
+        </button>
+
         <Field label="Position (m)">
           <div className="grid grid-cols-2 gap-2">
             <NumberInput
@@ -89,6 +99,15 @@ export function PropertyPanel({ onClose }: Props) {
               value={selected.y}
               step={0.25}
               onChange={(v) => transformEquipment(selected.id, { y: v })}
+            />
+          </div>
+          <div className="mt-2">
+            <NumberInput
+              label="Höjd (stapel, m)"
+              value={selected.z ?? 0}
+              step={0.05}
+              min={0}
+              onChange={(v) => updateEquipment(selected.id, { z: Math.max(0, v) })}
             />
           </div>
         </Field>
