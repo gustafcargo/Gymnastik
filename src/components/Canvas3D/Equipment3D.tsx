@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import * as THREE from "three";
 import type { EquipmentType } from "../../types";
 
@@ -35,6 +36,8 @@ export function Equipment3D({ type, color, partColors, params }: Props) {
       return <PommelHorse w={type.widthM} color={color} partColors={partColors} params={params} />;
     case "rings":
       return <Rings w={type.widthM} d={type.heightM} h={type.physicalHeightM} partColors={partColors} params={params} />;
+    case "uneven-bars":
+      return <UnevenBars w={type.widthM} d={type.heightM} partColors={partColors} params={params} />;
     case "vault":
       return <Vault w={type.widthM} d={type.heightM} color={color} partColors={partColors} params={params} />;
     case "trampette":
@@ -68,32 +71,22 @@ export function Equipment3D({ type, color, partColors, params }: Props) {
                 position={[p.offsetX, p.offsetY + p.h / 2, p.offsetZ]}
                 rotation={[0, ((p.rotationY ?? 0) * Math.PI) / 180, 0]}
               >
-                {p.shape === "cylinder" ? (
-                  <mesh castShadow receiveShadow>
+                <mesh castShadow receiveShadow>
+                  {p.shape === "cylinder" ? (
                     <cylinderGeometry args={[p.w / 2, p.w / 2, p.h, 24]} />
-                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
-                  </mesh>
-                ) : p.shape === "sphere" ? (
-                  <mesh castShadow receiveShadow>
+                  ) : p.shape === "sphere" ? (
                     <sphereGeometry args={[p.w / 2, 24, 16]} />
-                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
-                  </mesh>
-                ) : p.shape === "cone" ? (
-                  <mesh castShadow receiveShadow>
+                  ) : p.shape === "cone" ? (
                     <coneGeometry args={[p.w / 2, p.h, 24]} />
-                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
-                  </mesh>
-                ) : p.shape === "torus" ? (
-                  <mesh castShadow receiveShadow>
+                  ) : p.shape === "torus" ? (
                     <torusGeometry args={[p.w / 2, Math.max(0.01, p.d / 4), 16, 48]} />
-                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
-                  </mesh>
-                ) : (
-                  <mesh castShadow receiveShadow>
+                  ) : p.shape === "wedge" ? (
+                    <WedgeGeom w={p.w} h={p.h} d={p.d} />
+                  ) : (
                     <boxGeometry args={[p.w, p.h, p.d]} />
-                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
-                  </mesh>
-                )}
+                  )}
+                  <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
+                </mesh>
               </group>
             ))}
           </>
@@ -110,43 +103,63 @@ export function Equipment3D({ type, color, partColors, params }: Props) {
 }
 
 // ---------------------------------------------------------------------------
-// Barr (Parallel bars)
+// Barr (Parallel bars) – FIG: 2.4 m bars, 1.75 m height, 42–52 cm spacing
 // ---------------------------------------------------------------------------
 
 function ParallelBars({
-  w, d, color, partColors, params,
+  w, color, partColors, params,
 }: { w: number; d: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
-  const railH1 = params?.railH1 ?? 1.7;
-  const railH2 = params?.railH2 ?? 1.95;
-  // railSpacing: explicit param or legacy d*0.8 to avoid breaking existing placements
-  const railSpacing = params?.railSpacing ?? d * 0.8;
-  const railR = 0.025;
-  const postR = 0.04;
+  const railH1 = params?.railH1 ?? 1.75;
+  const railH2 = params?.railH2 ?? 1.75;
+  const railSpacing = params?.railSpacing ?? 0.42;
+  const railR = 0.022;
+  const postR = 0.038;
   const baseH = 0.04;
+  // Bar length: w ≈ 3.2m (footprint includes end overhang); actual bar = ~2.4 m
+  const barLen = Math.min(w * 0.76, 2.4);
   const railColor = pc(partColors, "räcken", color ?? "#B8824A");
   const frameColor = pc(partColors, "ram", "#CDD2DA");
 
+  const postXs = [-barLen / 2 + 0.06, barLen / 2 - 0.06] as number[];
+
   return (
     <group>
-      <mesh position={[0, baseH / 2, 0]} receiveShadow castShadow>
-        <boxGeometry args={[w, baseH, d]} />
-        <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
-      </mesh>
+      {/* Base plates for each side */}
+      {([-railSpacing / 2, railSpacing / 2] as number[]).map((z, si) => (
+        postXs.map((x, pi) => (
+          <mesh key={`base-${si}-${pi}`} position={[x, baseH / 2, z]} receiveShadow castShadow>
+            <boxGeometry args={[0.35, baseH, 0.42]} />
+            <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
+          </mesh>
+        ))
+      )).flat()}
+      {/* Posts (4 total – 2 per bar) */}
       {([
-        { zOff: -(railSpacing / 2), h: railH1 },
-        { zOff:  (railSpacing / 2), h: railH2 },
-      ] as { zOff: number; h: number }[]).flatMap(({ zOff, h }) =>
-        ([-w * 0.42, w * 0.42] as number[]).map((xOff, i) => (
-          <mesh key={`${zOff}-${i}`} position={[xOff, h / 2 + baseH, zOff]} castShadow>
-            <cylinderGeometry args={[postR, postR * 1.1, h, 20]} />
+        { z: -railSpacing / 2, h: railH1 },
+        { z:  railSpacing / 2, h: railH2 },
+      ] as { z: number; h: number }[]).flatMap(({ z, h }) =>
+        postXs.map((x, i) => (
+          <mesh key={`post-${z}-${i}`} position={[x, h / 2 + baseH, z]} castShadow>
+            <cylinderGeometry args={[postR, postR * 1.12, h, 14]} />
             <meshPhysicalMaterial color={frameColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
           </mesh>
-        )),
+        ))
       )}
-      {[{ z: -(railSpacing / 2), h: railH1 + baseH }, { z: (railSpacing / 2), h: railH2 + baseH }].map(({ z, h }, i) => (
-        <mesh key={i} position={[0, h, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <capsuleGeometry args={[railR, w - railR * 2, 6, 18]} />
-          <meshPhysicalMaterial color={railColor} roughness={0.38} metalness={0.0} clearcoat={0.45} clearcoatRoughness={0.28} />
+      {/* Connecting braces between the two posts of each bar */}
+      {([-railSpacing / 2, railSpacing / 2] as number[]).map((z, si) => (
+        <mesh key={`brace-${si}`} position={[0, 0.32, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[0.016, 0.016, barLen - 0.2, 8]} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.15} metalness={0.95} />
+        </mesh>
+      ))}
+      {/* Rails */}
+      {[
+        { z: -railSpacing / 2, h: railH1 + baseH },
+        { z:  railSpacing / 2, h: railH2 + baseH },
+      ].map(({ z, h }, i) => (
+        <mesh key={`rail-${i}`} position={[0, h, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <capsuleGeometry args={[railR, barLen - railR * 2, 6, 18]} />
+          <meshPhysicalMaterial color={railColor} roughness={0.3} metalness={0.05} clearcoat={0.5} clearcoatRoughness={0.25} />
         </mesh>
       ))}
     </group>
@@ -299,36 +312,91 @@ function PommelHorse({
 }
 
 // ---------------------------------------------------------------------------
-// Ringar (Rings)
+// Ringar (Rings) – standalone frame with competition-style A-posts + cables
 // ---------------------------------------------------------------------------
 
 function Rings({
-  w, d, h, partColors, params,
+  w, h, partColors, params,
 }: { w: number; d: number; h: number; partColors?: Record<string, string>; params?: Record<string, number> }) {
   const ringH = params?.ringH ?? h;
-  const ringR = 0.085;
-  const ringT = 0.018;
-  const strapH = Math.max(0.1, ringH - 0.55);
-  const ringY = Math.max(0.1, ringH - 0.65);
+  // Competition frame: 6.05 m tall; training standalone ≈ ringH + 2.8 m
+  const frameH = Math.max(ringH + 2.8, 5.5);
+  const ringR = 0.09;          // 18 cm inner diameter → 9 cm inner radius
+  const ringT = 0.014;         // 2.8 cm profile → ~1.4 cm radius
+  const ringSpacing = 0.25;    // 50 cm center-to-center → ±25 cm
+  const strapH = Math.max(0.1, ringH - 0.2);
+  const ringY = Math.max(0.1, ringH - 0.09);
+  const xPost = 0.34;
+  const postR = 0.036;
+
   const ringColor = pc(partColors, "ringar", "#CDD2DA");
-  const strapColor = pc(partColors, "remmar", "#8C6240");
+  const strapColor = pc(partColors, "remmar", "#6B4A2A");
+  const frameColor = pc(partColors, "ram", "#8B3030");
+
+  // Helper: axis-aligned cable from (x1,y1,z1) to (x2,y2,z2)
+  const cable = (key: string, from: [number,number,number], to: [number,number,number]) => {
+    const dx = to[0]-from[0], dy = to[1]-from[1], dz = to[2]-from[2];
+    const len = Math.hypot(dx, dy, dz);
+    const mid: [number,number,number] = [(from[0]+to[0])/2,(from[1]+to[1])/2,(from[2]+to[2])/2];
+    return (
+      <mesh key={key} position={mid} quaternion={alignY(dx, dy, dz)} castShadow>
+        <cylinderGeometry args={[0.006, 0.006, len, 4]} />
+        <meshPhysicalMaterial color="#607880" roughness={0.4} metalness={0.88} />
+      </mesh>
+    );
+  };
 
   return (
     <group>
-      <mesh position={[0, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <ringGeometry args={[Math.max(w, d) * 0.42, Math.max(w, d) * 0.48, 32]} />
-        <meshPhysicalMaterial color="#8A9BAE" roughness={0.9} transparent opacity={0.3} metalness={0} />
+      {/* Floor base cross piece */}
+      <mesh position={[0, 0.025, 0]} receiveShadow castShadow>
+        <boxGeometry args={[xPost * 2 + 0.3, 0.05, 0.55]} />
+        <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
       </mesh>
-      {([-0.28, 0.28] as number[]).map((dx, i) => (
+
+      {/* Two vertical posts */}
+      {([-xPost, xPost] as number[]).map((x, i) => (
+        <mesh key={i} position={[x, frameH / 2, 0]} castShadow>
+          <cylinderGeometry args={[postR, postR * 1.15, frameH, 14]} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.25} metalness={0.75} clearcoat={0.4} />
+        </mesh>
+      ))}
+
+      {/* Top crossbeam */}
+      <mesh position={[0, frameH, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <capsuleGeometry args={[0.022, xPost * 2 - 0.04, 6, 12]} />
+        <meshPhysicalMaterial color={frameColor} roughness={0.25} metalness={0.75} clearcoat={0.4} />
+      </mesh>
+
+      {/* Small suspension block at crossbeam center */}
+      <mesh position={[0, frameH - 0.08, 0]} castShadow>
+        <boxGeometry args={[0.12, 0.06, 0.06]} />
+        <meshPhysicalMaterial color="#444" roughness={0.3} metalness={0.9} />
+      </mesh>
+
+      {/* Cable stays: from each post top to 4 floor anchors */}
+      {([-xPost, xPost] as number[]).flatMap((x) => [
+        cable(`c1-${x}`, [x, frameH, 0], [x * 2.0, 0, -w * 0.45]),
+        cable(`c2-${x}`, [x, frameH, 0], [x * 2.0, 0,  w * 0.45]),
+      ])}
+
+      {/* Two rings with straps hanging from crossbeam center */}
+      {([-ringSpacing, ringSpacing] as number[]).map((dx, i) => (
         <group key={i} position={[dx, 0, 0]}>
-          <mesh position={[0, ringY + strapH / 2 + ringR, 0]} castShadow>
-            <boxGeometry args={[0.032, strapH, 0.012]} />
-            <meshPhysicalMaterial color={strapColor} roughness={0.7} metalness={0.0} />
+          {/* Suspension cable from beam to strap top */}
+          <mesh position={[0, frameH - strapH / 2 - ringR - 0.1, 0]} castShadow>
+            <boxGeometry args={[0.008, frameH - ringH - 0.1, 0.008]} />
+            <meshPhysicalMaterial color={strapColor} roughness={0.7} metalness={0} />
           </mesh>
-          {/* Ringar – stående (rotation=0 ger lodrät cirkel i XY-planet) */}
-          <mesh position={[0, ringY, 0]} rotation={[0, 0, 0]} castShadow>
-            <torusGeometry args={[ringR, ringT, 14, 32]} />
-            <meshPhysicalMaterial color={ringColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
+          {/* Leather strap */}
+          <mesh position={[0, ringY + strapH / 2 + ringR, 0]} castShadow>
+            <boxGeometry args={[0.030, strapH, 0.014]} />
+            <meshPhysicalMaterial color={strapColor} roughness={0.75} metalness={0} />
+          </mesh>
+          {/* Ring */}
+          <mesh position={[0, ringY, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <torusGeometry args={[ringR, ringT, 16, 36]} />
+            <meshPhysicalMaterial color={ringColor} roughness={0.08} metalness={1.0} clearcoat={0.7} clearcoatRoughness={0.06} />
           </mesh>
         </group>
       ))}
@@ -337,35 +405,65 @@ function Rings({
 }
 
 // ---------------------------------------------------------------------------
-// Hoppbord (Vault)
+// Hoppbord (Vault table) – modern FIG vault table (95×120 cm, 135 cm tall)
 // ---------------------------------------------------------------------------
 
 function Vault({
   w, d, color, partColors, params,
 }: { w: number; d: number; color?: string; partColors?: Record<string, string>; params?: Record<string, number> }) {
-  const standH = params?.standH ?? 0.98;
-  const padH = params?.padH ?? 0.38;
-  const bodyColor = pc(partColors, "kropp", color ?? "#8C6240");
-  const postColor = pc(partColors, "sockel", "#CDD2DA");
+  // w=0.95m (width), d=1.2m (depth/run-up axis), total height = standH + padH
+  const standH = params?.standH ?? 1.12;   // pedestal height
+  const padH = params?.padH ?? 0.22;        // top pad thickness
+  const totalH = standH + padH;
+  const bodyColor = pc(partColors, "kropp", color ?? "#4A2810");
+  const topColor = pc(partColors, "yta", "#C8A878");
+  const baseColor = "#252D3A";
 
   return (
     <group>
-      <mesh position={[0, 0.02, 0]} receiveShadow castShadow>
-        <boxGeometry args={[w * 0.7, 0.04, d * 0.7]} />
-        <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
+      {/* Base frame – four legs */}
+      {([[-w * 0.34, -d * 0.38], [w * 0.34, -d * 0.38], [-w * 0.34, d * 0.38], [w * 0.34, d * 0.38]] as [number,number][]).map(([x, z], i) => (
+        <mesh key={i} position={[x, standH * 0.22, z]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.028, 0.034, standH * 0.44, 10]} />
+          <meshPhysicalMaterial color={baseColor} roughness={0.25} metalness={0.9} />
+        </mesh>
+      ))}
+      {/* Horizontal base cross-members */}
+      {([0, Math.PI / 2] as number[]).map((ry, i) => (
+        <mesh key={i} position={[0, 0.025, 0]} rotation={[0, ry, 0]} receiveShadow>
+          <boxGeometry args={[w * 0.75, 0.04, 0.045]} />
+          <meshPhysicalMaterial color={baseColor} roughness={0.4} metalness={0.85} />
+        </mesh>
+      ))}
+      {/* Upper cross-members */}
+      {([0, Math.PI / 2] as number[]).map((ry, i) => (
+        <mesh key={i+2} position={[0, standH * 0.45, 0]} rotation={[0, ry, 0]}>
+          <boxGeometry args={[w * 0.72, 0.03, 0.04]} />
+          <meshPhysicalMaterial color={baseColor} roughness={0.3} metalness={0.9} />
+        </mesh>
+      ))}
+      {/* Padded body – tapers slightly inward */}
+      <mesh position={[0, standH * 0.7 + standH * 0.15, 0]} castShadow>
+        <boxGeometry args={[w * 0.78, standH * 0.3, d * 0.78]} />
+        <meshPhysicalMaterial color={bodyColor} roughness={0.65} metalness={0} />
       </mesh>
-      <mesh position={[0, standH / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.055, 0.075, standH, 14]} />
-        <meshPhysicalMaterial color={postColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
-      </mesh>
+      {/* Top padding block – full width (slightly wider than body) */}
       <mesh position={[0, standH + padH / 2, 0]} castShadow>
-        <boxGeometry args={[w, padH, d]} />
-        <meshPhysicalMaterial color={bodyColor} roughness={0.7} metalness={0.0} />
+        <boxGeometry args={[w + 0.02, padH, d + 0.02]} />
+        <meshPhysicalMaterial color={bodyColor} roughness={0.65} metalness={0} />
       </mesh>
-      <mesh position={[0, standH + padH + 0.003, 0]} castShadow>
-        <boxGeometry args={[w - 0.04, 0.005, d - 0.04]} />
-        <meshPhysicalMaterial color="#D4B07A" roughness={1.0} metalness={0.0} />
+      {/* Leather top surface */}
+      <mesh position={[0, totalH + 0.004, 0]} castShadow>
+        <boxGeometry args={[w - 0.02, 0.008, d - 0.02]} />
+        <meshPhysicalMaterial color={topColor} roughness={0.88} metalness={0} />
       </mesh>
+      {/* Contrast piping / seam lines on top */}
+      {([0, Math.PI / 2] as number[]).map((ry, i) => (
+        <mesh key={i} position={[0, totalH + 0.009, 0]} rotation={[0, ry, 0]}>
+          <boxGeometry args={[w - 0.06, 0.003, 0.018]} />
+          <meshPhysicalMaterial color="#8B7055" roughness={0.7} metalness={0} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -445,23 +543,179 @@ function AirTrack({ w, d, h, color }: { w: number; d: number; h: number; color?:
 }
 
 // ---------------------------------------------------------------------------
-// Fristående-matta (Floor)
+// Fristående-matta (Floor) – competition-style with red/blue zones + lines
 // ---------------------------------------------------------------------------
 
 function Floor({ w, d, color }: { w: number; d: number; color?: string }) {
-  const h = 0.08;
+  const h = 0.1;
+  // Competition floor: 12×12 m mat; FIG border ~1 m each side → 10×10 inner area
+  const border = Math.min(w, d) * 0.083; // ~1 m for 12 m mat
+  const innerW = w - border * 2;
+  const innerD = d - border * 2;
+  const useCustomColor = !!color;
+  const matColor   = color ?? "#1A50C0";   // blue outer mat
+  const innerColor = color ? lightenHex(color, 0.25) : "#CC2828"; // red inner (competition color)
+
   return (
     <group>
+      {/* Full mat – acts as blue border */}
       <mesh position={[0, h / 2, 0]} receiveShadow castShadow>
         <boxGeometry args={[w, h, d]} />
-        <meshPhysicalMaterial color={color ?? "#7AAE7E"} roughness={0.9} metalness={0} />
+        <meshPhysicalMaterial color={matColor} roughness={0.85} metalness={0} />
       </mesh>
-      <mesh position={[0, h + 0.004, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <ringGeometry args={[Math.min(w, d) * 0.44, Math.min(w, d) * 0.47, 4, 1]} />
-        <meshPhysicalMaterial color="#FFFFFF" roughness={0.4} metalness={0} />
-      </mesh>
+      {/* Red/competition inner area */}
+      {!useCustomColor && (
+        <mesh position={[0, h + 0.003, 0]} receiveShadow>
+          <boxGeometry args={[innerW, 0.006, innerD]} />
+          <meshPhysicalMaterial color={innerColor} roughness={0.8} metalness={0} />
+        </mesh>
+      )}
+      {/* White boundary lines on inner edge */}
+      {[-innerW / 2, innerW / 2].map((x, i) => (
+        <mesh key={`vl${i}`} position={[x, h + 0.009, 0]} receiveShadow>
+          <boxGeometry args={[0.05, 0.004, innerD + 0.05]} />
+          <meshPhysicalMaterial color="#FFFFFF" roughness={0.4} metalness={0} />
+        </mesh>
+      ))}
+      {[-innerD / 2, innerD / 2].map((z, i) => (
+        <mesh key={`hl${i}`} position={[0, h + 0.009, z]} receiveShadow>
+          <boxGeometry args={[innerW + 0.05, 0.004, 0.05]} />
+          <meshPhysicalMaterial color="#FFFFFF" roughness={0.4} metalness={0} />
+        </mesh>
+      ))}
+      {/* Center cross mark */}
+      {[0, Math.PI / 2].map((ry, i) => (
+        <mesh key={`cc${i}`} position={[0, h + 0.009, 0]} rotation={[0, ry, 0]} receiveShadow>
+          <boxGeometry args={[1.0, 0.004, 0.05]} />
+          <meshPhysicalMaterial color="#FFFFFF" roughness={0.4} metalness={0} />
+        </mesh>
+      ))}
     </group>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Ojämna barr (Uneven bars) – FIG: high 2.55 m, low 1.75 m, sep 1.40–1.95 m
+// ---------------------------------------------------------------------------
+
+function UnevenBars({
+  w, d, partColors, params,
+}: { w: number; d: number; partColors?: Record<string, string>; params?: Record<string, number> }) {
+  const highBarH  = params?.highBarH ?? 2.55;
+  const lowBarH   = params?.lowBarH  ?? 1.75;
+  const barSep    = params?.barSep   ?? 1.40;
+  const barR      = 0.014;
+  const postR     = 0.036;
+  const baseH     = 0.04;
+  const barLen    = Math.min(w * 0.88, 2.4);
+  const barColor  = pc(partColors, "räcken",  "#CDD2DA");
+  const frameColor = pc(partColors, "ram",    "#CDD2DA");
+  const postXs    = [-barLen / 2 + 0.06, barLen / 2 - 0.06] as number[];
+
+  const cable = (key: string, from: [number,number,number], to: [number,number,number]) => {
+    const dx = to[0]-from[0], dy = to[1]-from[1], dz = to[2]-from[2];
+    const len = Math.hypot(dx, dy, dz);
+    const mid: [number,number,number] = [(from[0]+to[0])/2,(from[1]+to[1])/2,(from[2]+to[2])/2];
+    return (
+      <mesh key={key} position={mid} quaternion={alignY(dx, dy, dz)} castShadow>
+        <cylinderGeometry args={[0.006, 0.006, len, 4]} />
+        <meshPhysicalMaterial color="#607880" roughness={0.4} metalness={0.88} />
+      </mesh>
+    );
+  };
+
+  return (
+    <group>
+      {/* Base plates – one per post (4 total) */}
+      {([-barSep / 2, barSep / 2] as number[]).flatMap((z, si) =>
+        postXs.map((x, pi) => (
+          <mesh key={`base-${si}-${pi}`} position={[x, baseH / 2, z]} receiveShadow castShadow>
+            <boxGeometry args={[0.32, baseH, 0.55]} />
+            <meshPhysicalMaterial color="#252D3A" roughness={0.5} metalness={0.75} />
+          </mesh>
+        ))
+      )}
+
+      {/* Posts – high bar (z = -barSep/2) */}
+      {postXs.map((x, i) => (
+        <mesh key={`hp-${i}`} position={[x, highBarH / 2 + baseH, -barSep / 2]} castShadow>
+          <cylinderGeometry args={[postR, postR * 1.12, highBarH, 14]} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
+        </mesh>
+      ))}
+
+      {/* Posts – low bar (z = +barSep/2) */}
+      {postXs.map((x, i) => (
+        <mesh key={`lp-${i}`} position={[x, lowBarH / 2 + baseH, barSep / 2]} castShadow>
+          <cylinderGeometry args={[postR, postR * 1.12, lowBarH, 14]} />
+          <meshPhysicalMaterial color={frameColor} roughness={0.08} metalness={1.0} clearcoat={0.6} clearcoatRoughness={0.08} />
+        </mesh>
+      ))}
+
+      {/* High bar rail */}
+      <mesh position={[0, highBarH + baseH, -barSep / 2]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <capsuleGeometry args={[barR, barLen - barR * 2, 6, 18]} />
+        <meshPhysicalMaterial color={barColor} roughness={0.15} metalness={0.95} clearcoat={0.6} clearcoatRoughness={0.08} />
+      </mesh>
+
+      {/* Low bar rail */}
+      <mesh position={[0, lowBarH + baseH, barSep / 2]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <capsuleGeometry args={[barR, barLen - barR * 2, 6, 18]} />
+        <meshPhysicalMaterial color={barColor} roughness={0.15} metalness={0.95} clearcoat={0.6} clearcoatRoughness={0.08} />
+      </mesh>
+
+      {/* Cable stays: each post top → two floor anchors */}
+      {postXs.flatMap((x) => [
+        cable(`chf-${x}`, [x, highBarH + baseH, -barSep / 2], [x * 1.3, baseH, -(d / 2 - 0.08)]),
+        cable(`chi-${x}`, [x, highBarH + baseH, -barSep / 2], [x * 1.2, baseH,  barSep / 2 + 0.12]),
+        cable(`clf-${x}`, [x, lowBarH  + baseH,  barSep / 2], [x * 1.3, baseH,   d / 2 - 0.08]),
+        cable(`cli-${x}`, [x, lowBarH  + baseH,  barSep / 2], [x * 1.2, baseH, -barSep / 2 - 0.12]),
+      ])}
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WedgeGeom – right-triangular prism (kil). Slope: front-low → back-high.
+// Geometry is centered at bounding-box center so the group can use offsetY+h/2.
+// ---------------------------------------------------------------------------
+
+function WedgeGeom({ w, h, d }: { w: number; h: number; d: number }) {
+  const geom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    // 6 vertices; Y centered at origin (−h/2 … +h/2)
+    const v = new Float32Array([
+      -w/2, -h/2,  d/2,  // 0 front-bottom-left  (thin end)
+       w/2, -h/2,  d/2,  // 1 front-bottom-right
+      -w/2, -h/2, -d/2,  // 2 back-bottom-left
+       w/2, -h/2, -d/2,  // 3 back-bottom-right
+      -w/2,  h/2, -d/2,  // 4 back-top-left      (thick end)
+       w/2,  h/2, -d/2,  // 5 back-top-right
+    ]);
+    const idx = new Uint16Array([
+      0,3,1, 0,2,3,  // bottom
+      2,4,5, 2,5,3,  // back vertical face
+      0,1,5, 0,5,4,  // slope face
+      0,4,2,         // left triangle
+      1,3,5,         // right triangle
+    ]);
+    g.setAttribute("position", new THREE.BufferAttribute(v, 3));
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+    g.computeVertexNormals();
+    return g;
+  }, [w, h, d]);
+  return <primitive object={geom} />;
+}
+
+/** Lighten a hex color by mixing with white by `amount` (0–1). */
+function lightenHex(hex: string, amount: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const lr = Math.round(r + (255 - r) * amount);
+  const lg = Math.round(g + (255 - g) * amount);
+  const lb = Math.round(b + (255 - b) * amount);
+  return `#${lr.toString(16).padStart(2, "0")}${lg.toString(16).padStart(2, "0")}${lb.toString(16).padStart(2, "0")}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { Copy, RotateCw, Settings2, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../../store/usePlanStore";
-import { EQUIPMENT_BY_ID } from "../../catalog/equipment";
+import { getEquipmentById } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
 import { formatMeters } from "../../lib/geometry";
 import { EquipmentIcon } from "./EquipmentIcon";
@@ -21,7 +21,7 @@ export function PropertyPanel({ onClose }: Props) {
 
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
   const selected = station?.equipment.find((e) => e.id === selectedId) ?? null;
-  const type = selected ? EQUIPMENT_BY_ID[selected.typeId] : null;
+  const type = selected ? (getEquipmentById(selected.typeId) ?? null) : null;
 
   if (!selected || !type) {
     return (

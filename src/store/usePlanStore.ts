@@ -17,10 +17,33 @@ import { clampToHall } from "../lib/geometry";
 // Mat auto-stacking
 // ---------------------------------------------------------------------------
 
+/** Kinds that can be placed ON another surface (auto-stack on placement/move). */
 const MAT_KINDS = new Set(["thick-mat", "landing-mat"]);
 
 /**
- * Compute the z-offset for a mat so it stacks on top of any overlapping mats.
+ * Kinds that act as stackable surfaces — other mats can land on top of them.
+ * Includes mats themselves (for stacking multiple layers) plus flat tracks/floor.
+ */
+const STACKABLE_SURFACE_KINDS = new Set([
+  "thick-mat", "landing-mat",
+  "tumbling-track", "air-track", "floor",
+]);
+
+/** Return the physical top surface height for any stackable piece. */
+function surfaceHeight(eq: PlacedEquipment, eqType: EquipmentType): number {
+  const kind = eqType.detail?.kind ?? "";
+  if (kind === "tumbling-track" || kind === "air-track") {
+    return (eq.z ?? 0) + (eq.params?.trackH ?? eqType.physicalHeightM);
+  }
+  if (kind === "thick-mat" || kind === "landing-mat") {
+    return (eq.z ?? 0) + (eq.params?.matH ?? eqType.physicalHeightM);
+  }
+  // floor and any other surface: use physicalHeightM
+  return (eq.z ?? 0) + eqType.physicalHeightM;
+}
+
+/**
+ * Compute the z-offset for a mat so it stacks on top of any overlapping surface.
  * Returns 0 when there's nothing underneath.
  */
 function getMatStackZ(
@@ -34,13 +57,12 @@ function getMatStackZ(
   for (const eq of station.equipment) {
     if (eq.id === excludeId) continue;
     const eqType = getEquipmentById(eq.typeId);
-    if (!eqType || !MAT_KINDS.has(eqType.detail?.kind ?? "")) continue;
+    if (!eqType || !STACKABLE_SURFACE_KINDS.has(eqType.detail?.kind ?? "")) continue;
     // Require >50 % center-to-center overlap on each axis
     const threshW = Math.min(type.widthM, eqType.widthM) * 0.5;
     const threshD = Math.min(type.heightM, eqType.heightM) * 0.5;
     if (Math.abs(eq.x - x) < threshW && Math.abs(eq.y - y) < threshD) {
-      const eqH = eq.params?.matH ?? eqType.physicalHeightM;
-      maxTop = Math.max(maxTop, (eq.z ?? 0) + eqH);
+      maxTop = Math.max(maxTop, surfaceHeight(eq, eqType));
     }
   }
   return maxTop;

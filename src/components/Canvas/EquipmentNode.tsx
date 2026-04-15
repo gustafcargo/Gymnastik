@@ -124,7 +124,9 @@ export function EquipmentNode({
           colorOverride={equipment.customColor}
         />
 
-        {/* Label – visas om showLabels är på och (icke-matta eller stackledare) */}
+        {/* Label – visas om showLabels är på och (icke-matta eller stackledare).
+            listening={true} (default) means the label area also acts as a click/drag
+            target, extending the selectable zone beyond the visual shape. */}
         {showLabel && (
           <Text
             ref={textRef}
@@ -143,7 +145,6 @@ export function EquipmentNode({
             shadowOpacity={0.7}
             scaleX={1 / (equipment.scaleX || 1)}
             scaleY={1 / (equipment.scaleY || 1)}
-            listening={false}
           />
         )}
       </Group>

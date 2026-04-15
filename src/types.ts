@@ -40,7 +40,8 @@ export type EquipmentDetail =
   | { kind: "landing-mat" }
   | { kind: "plinth" }
   | { kind: "buck" }
-  | { kind: "foam-pit" };
+  | { kind: "foam-pit" }
+  | { kind: "uneven-bars" };
 
 export type PlacedEquipment = {
   id: string;
@@ -98,7 +99,7 @@ export type Plan = {
  */
 export type CustomEquipmentPart = {
   id: string;
-  shape: "box" | "cylinder" | "sphere" | "cone" | "torus";
+  shape: "box" | "cylinder" | "sphere" | "cone" | "torus" | "wedge";
   offsetX: number; // m från centrum (X-axel)
   offsetY: number; // m från golv (Y-axel) = underkant av delen
   offsetZ: number; // m från centrum (Z-axel = djup i 2D)

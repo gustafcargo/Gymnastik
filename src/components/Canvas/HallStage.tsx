@@ -269,6 +269,7 @@ export function HallStage({ className, onStageReady }: Props) {
                     onOffsetChange={(offset) =>
                       setEquipmentNoteOffset(eq.id, offset)
                     }
+                    onSelect={() => selectEquipment(eq.id)}
                     onStartEdit={() => {
                       const offset = eq.noteOffset ?? {
                         x: type.widthM / 2 + 0.6,
