@@ -6,7 +6,6 @@ import { Toolbar } from "./components/Toolbar";
 import { EquipmentPalette } from "./components/Sidebar/EquipmentPalette";
 import { PropertyPanel } from "./components/Sidebar/PropertyPanel";
 import { HallStage } from "./components/Canvas/HallStage";
-import { StationTimeline } from "./components/Timeline/StationTimeline";
 import { CommandPalette } from "./components/CommandPalette";
 import { BottomSheet } from "./components/Mobile/BottomSheet";
 import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
@@ -158,7 +157,6 @@ export default function App() {
           </aside>
           <main className="relative flex min-w-0 flex-1 flex-col">
             {canvasArea}
-            <StationTimeline />
           </main>
           <aside className="w-80 shrink-0 border-l border-surface-3 bg-surface-1">
             <PropertyPanel />
@@ -200,7 +198,6 @@ export default function App() {
               </button>
             )}
             {canvasArea}
-            <StationTimeline />
           </main>
           {propertyOpen && (
             <aside className="w-80 shrink-0 border-l border-surface-3 bg-surface-1">
@@ -225,7 +222,7 @@ export default function App() {
             {canvasArea}
           </main>
 
-          {/* Selection bar – in normal flow, above timeline */}
+          {/* Selection bar */}
           {selectedId && !propertyOpen && (
             <div className="safe-bottom flex items-center gap-2 border-t border-surface-3 bg-white px-3 py-2">
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
@@ -249,7 +246,6 @@ export default function App() {
             </div>
           )}
 
-          <StationTimeline />
         </div>
       )}
 
