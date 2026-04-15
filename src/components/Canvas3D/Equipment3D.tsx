@@ -56,13 +56,46 @@ export function Equipment3D({ type, color, partColors, params }: Props) {
       return <Buck w={type.widthM} h={type.physicalHeightM} color={color} partColors={partColors} params={params} />;
     case "foam-pit":
       return <FoamPit w={type.widthM} d={type.heightM} color={color} />;
-    default:
+    default: {
+      // Render custom parts if defined, otherwise fall back to a single box.
+      const parts = type.customParts;
+      if (parts && parts.length > 0) {
+        return (
+          <>
+            {parts.map((p) => (
+              <group
+                key={p.id}
+                position={[p.offsetX, p.offsetY + p.h / 2, p.offsetZ]}
+                rotation={[0, ((p.rotationY ?? 0) * Math.PI) / 180, 0]}
+              >
+                {p.shape === "cylinder" ? (
+                  <mesh castShadow receiveShadow>
+                    <cylinderGeometry args={[p.w / 2, p.w / 2, p.h, 24]} />
+                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
+                  </mesh>
+                ) : p.shape === "sphere" ? (
+                  <mesh castShadow receiveShadow>
+                    <sphereGeometry args={[p.w / 2, 24, 16]} />
+                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
+                  </mesh>
+                ) : (
+                  <mesh castShadow receiveShadow>
+                    <boxGeometry args={[p.w, p.h, p.d]} />
+                    <meshPhysicalMaterial color={p.color ?? color ?? type.color} roughness={0.45} metalness={0.05} />
+                  </mesh>
+                )}
+              </group>
+            ))}
+          </>
+        );
+      }
       return (
         <mesh position={[0, type.physicalHeightM / 2, 0]} castShadow receiveShadow>
           <boxGeometry args={[type.widthM, Math.max(0.1, type.physicalHeightM), type.heightM]} />
           <meshPhysicalMaterial color={color ?? type.color} roughness={0.7} metalness={0} />
         </mesh>
       );
+    }
   }
 }
 

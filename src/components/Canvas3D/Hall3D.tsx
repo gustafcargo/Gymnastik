@@ -1,8 +1,9 @@
-import { Suspense, useRef, useEffect, useCallback, useMemo } from "react";
+import { Suspense, useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import {
   Environment,
   Html,
+  Line,
   OrbitControls,
   Grid,
 } from "@react-three/drei";
@@ -28,6 +29,8 @@ function HallScene({ W, H }: { W: number; H: number }) {
   const moveEquipment = usePlanStore((s) => s.moveEquipment);
   const openEquipmentEditor = usePlanStore((s) => s.openEquipmentEditor);
   const showLabels = usePlanStore((s) => s.showLabels);
+  const snapToGrid = usePlanStore((s) => s.snapToGrid);
+  const setEquipmentNoteOffset = usePlanStore((s) => s.setEquipmentNoteOffset);
 
   const cx = W / 2;
   const cz = H / 2;
@@ -49,6 +52,19 @@ function HallScene({ W, H }: { W: number; H: number }) {
   const stationRef = useRef<Station | undefined>(station);
   useEffect(() => { stationRef.current = station; }, [station]);
 
+  // ── Note bubble drag state ────────────────────────────────────────────────
+  type Notedrag = {
+    id: string;
+    eqX: number;
+    eqZ: number; // eq.y in 2D space = Z in 3D space
+    plane: THREE.Plane;
+    offX: number; // live local offset from eq center
+    offZ: number;
+  };
+  const draggingNoteRef = useRef<Notedrag | null>(null);
+  // We force re-renders during note drag so the line + bubble position updates live
+  const [, setNoteDragTick] = useState(0);
+
   const startDrag = useCallback(
     (eqId: string, point: THREE.Vector3, eqX: number, eqY: number) => {
       draggingId.current = eqId;
@@ -57,6 +73,37 @@ function HallScene({ W, H }: { W: number; H: number }) {
     },
     [],
   );
+
+  // ── Note bubble drag (document-level, separate from equipment drag) ───────
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const nd = draggingNoteRef.current;
+      if (!nd) return;
+      const rect = gl.domElement.getBoundingClientRect();
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.current.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      const hit = new THREE.Vector3();
+      if (raycaster.current.ray.intersectPlane(nd.plane, hit)) {
+        nd.offX = hit.x - nd.eqX;
+        nd.offZ = hit.z - nd.eqZ;
+        setNoteDragTick((t) => t + 1);
+      }
+    };
+    const onUp = () => {
+      const nd = draggingNoteRef.current;
+      if (!nd) return;
+      setEquipmentNoteOffset(nd.id, { x: nd.offX, y: nd.offZ });
+      draggingNoteRef.current = null;
+      setNoteDragTick((t) => t + 1);
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    return () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    };
+  }, [camera, gl, setEquipmentNoteOffset]);
 
   // ── Capture-phase selection ──────────────────────────────────────────────
   // Fires BEFORE OrbitControls can intercept, so left-click reliably selects.
@@ -226,20 +273,22 @@ function HallScene({ W, H }: { W: number; H: number }) {
         />
       </mesh>
 
-      <Grid
-        position={[cx, 0.005, cz]}
-        args={[W, H]}
-        cellSize={1}
-        cellThickness={0.3}
-        cellColor="#637585"
-        sectionSize={5}
-        sectionThickness={0.7}
-        sectionColor="#4E5F6E"
-        fadeDistance={Math.max(W, H) * 1.6}
-        fadeStrength={1}
-        followCamera={false}
-        infiniteGrid={false}
-      />
+      {snapToGrid && (
+        <Grid
+          position={[cx, 0.005, cz]}
+          args={[W, H]}
+          cellSize={1}
+          cellThickness={0.3}
+          cellColor="#637585"
+          sectionSize={5}
+          sectionThickness={0.7}
+          sectionColor="#4E5F6E"
+          fadeDistance={Math.max(W, H) * 1.6}
+          fadeStrength={1}
+          followCamera={false}
+          infiniteGrid={false}
+        />
+      )}
 
       {/* Redskap */}
       {station?.equipment.map((eq) => {
@@ -254,9 +303,14 @@ function HallScene({ W, H }: { W: number; H: number }) {
           showThisLabel && sInfo && sInfo.count > 1
             ? `${baseLabel} ×${sInfo.count}`
             : baseLabel;
-        // Note bubble offset (default: right side, above)
-        const noteOffX = eq.noteOffset?.x ?? type.widthM / 2 + 0.6;
-        const noteOffZ = eq.noteOffset?.y ?? -(type.heightM / 2 + 0.6);
+        // Note bubble offset — live during drag, persisted otherwise
+        const isDraggingNote = draggingNoteRef.current?.id === eq.id;
+        const noteOffX = isDraggingNote
+          ? draggingNoteRef.current!.offX
+          : (eq.noteOffset?.x ?? type.widthM / 2 + 0.6);
+        const noteOffZ = isDraggingNote
+          ? draggingNoteRef.current!.offZ
+          : (eq.noteOffset?.y ?? -(type.heightM / 2 + 0.6));
 
         return (
           <group
@@ -302,32 +356,64 @@ function HallScene({ W, H }: { W: number; H: number }) {
             )}
             {/* Note bubble */}
             {showLabels && eq.notes && (showThisLabel || !sInfo) && (
-              <Html
-                position={[noteOffX, type.physicalHeightM + 0.5, noteOffZ]}
-                center
-                style={{ pointerEvents: "none" }}
-                zIndexRange={[15, 25]}
-              >
-                <div
-                  style={{
-                    background: "rgba(255,251,210,0.96)",
-                    border: "1px solid #D4A820",
-                    borderRadius: "6px",
-                    padding: "4px 8px",
-                    fontSize: "11px",
-                    fontWeight: 500,
-                    color: "#374151",
-                    maxWidth: "140px",
-                    fontFamily: "system-ui, sans-serif",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    transform: `scale(${1 / Math.max(eq.scaleX, eq.scaleY, 0.5)})`,
-                  }}
+              <>
+                {/* Dashed connector line from equipment top-center to bubble */}
+                <Line
+                  points={[
+                    [0, type.physicalHeightM * 0.7, 0],
+                    [noteOffX, type.physicalHeightM + 0.45, noteOffZ],
+                  ]}
+                  color="#94A3B8"
+                  lineWidth={1.5}
+                  dashed
+                  dashScale={6}
+                />
+                <Html
+                  position={[noteOffX, type.physicalHeightM + 0.5, noteOffZ]}
+                  center
+                  style={{ pointerEvents: "all" }}
+                  zIndexRange={[15, 25]}
                 >
-                  {eq.notes}
-                </div>
-              </Html>
+                  <div
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      (e.target as Element).setPointerCapture(e.pointerId);
+                      const yPlane = (eq.z ?? 0) + type.physicalHeightM + 0.5;
+                      draggingNoteRef.current = {
+                        id: eq.id,
+                        eqX: eq.x,
+                        eqZ: eq.y,
+                        plane: new THREE.Plane(
+                          new THREE.Vector3(0, 1, 0),
+                          -yPlane,
+                        ),
+                        offX: noteOffX,
+                        offZ: noteOffZ,
+                      };
+                    }}
+                    style={{
+                      background: "rgba(255,255,255,0.92)",
+                      border: "1.5px solid rgba(100,116,139,0.45)",
+                      borderRadius: "8px",
+                      padding: "5px 10px",
+                      fontSize: "12px",
+                      fontWeight: 450,
+                      color: "#1e293b",
+                      width: "160px",
+                      fontFamily: "system-ui, sans-serif",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.14)",
+                      wordBreak: "break-word",
+                      whiteSpace: "normal",
+                      lineHeight: "1.45",
+                      cursor: "grab",
+                      userSelect: "none",
+                      backdropFilter: "blur(4px)",
+                    }}
+                  >
+                    {eq.notes}
+                  </div>
+                </Html>
+              </>
             )}
             {/* Selection highlight */}
             {isSelected && (

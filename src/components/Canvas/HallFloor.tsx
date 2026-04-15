@@ -1,5 +1,6 @@
 import { Group, Line, Rect, Text } from "react-konva";
 import type { HallTemplate } from "../../types";
+import { usePlanStore } from "../../store/usePlanStore";
 
 type Props = {
   hall: HallTemplate;
@@ -10,6 +11,7 @@ type Props = {
  * Ritar hallgolvet med rutnät (1 m minor, 5 m major) och måttlabels.
  */
 export function HallFloor({ hall, pxPerM }: Props) {
+  const showGrid = usePlanStore((s) => s.snapToGrid);
   const wPx = hall.widthM * pxPerM;
   const hPx = hall.heightM * pxPerM;
 
@@ -86,8 +88,8 @@ export function HallFloor({ hall, pxPerM }: Props) {
         shadowOffsetY={6}
       />
       {/* Rutnät */}
-      {minorLines}
-      {majorLines}
+      {showGrid && minorLines}
+      {showGrid && majorLines}
       {/* Kanter */}
       <Rect
         x={0}

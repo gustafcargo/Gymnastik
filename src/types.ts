@@ -18,6 +18,8 @@ export type EquipmentType = {
   /** SVG-detaljer som ritas ovanpå grundformen (koordinater 0..1 relativa). */
   detail?: EquipmentDetail;
   description?: string;
+  /** Anpassade 3D-byggstenar (för egna redskap). */
+  customParts?: CustomEquipmentPart[];
 };
 
 export type ViewMode = "2D" | "3D";
@@ -86,6 +88,23 @@ export type Plan = {
   activeStationId: string;
   createdAt: number;
   updatedAt: number;
+};
+
+/**
+ * En byggsten i ett eget redskap.
+ * Koordinater är relativt redskapets fotpunktens mitt; Y=0 är golvet.
+ */
+export type CustomEquipmentPart = {
+  id: string;
+  shape: "box" | "cylinder" | "sphere";
+  offsetX: number; // m från centrum (X-axel)
+  offsetY: number; // m från golv (Y-axel) = underkant av delen
+  offsetZ: number; // m från centrum (Z-axel = djup i 2D)
+  w: number;       // bredd (X); för cylinder/sfär = diameter
+  h: number;       // höjd (Y)
+  d: number;       // djup (Z); bara för box
+  color?: string;
+  rotationY?: number; // grader
 };
 
 /** Sparad redskaps-mall – baseras på en befintlig typ men med anpassade färger/params. */
