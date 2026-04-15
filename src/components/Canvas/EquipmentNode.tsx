@@ -109,6 +109,7 @@ export function EquipmentNode({
           pxPerM={pxPerM}
           isSelected={isSelected}
           is3D={is3D}
+          colorOverride={equipment.customColor}
         />
 
         {/* Label med invers skala så texten aldrig växer/krymper */}

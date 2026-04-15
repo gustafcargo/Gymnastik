@@ -102,7 +102,7 @@ export function Hall3D({ className }: Props) {
               rotation={[0, -(eq.rotation * Math.PI) / 180, 0]}
               scale={[eq.scaleX, 1, eq.scaleY]}
             >
-              <Equipment3D type={type} />
+              <Equipment3D type={type} color={eq.customColor} />
             </group>
           );
         })}
