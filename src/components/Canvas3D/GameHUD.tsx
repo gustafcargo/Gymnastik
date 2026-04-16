@@ -5,15 +5,17 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import type { MountedExerciseInfo } from "./GameGymnast3D";
 
 type Props = {
   nearEquipment: string | null;
+  mountedExerciseInfo: MountedExerciseInfo | null;
   joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
   mountTriggerRef: React.MutableRefObject<boolean>;
   onExit: () => void;
 };
 
-export function GameHUD({ nearEquipment, joystickRef, mountTriggerRef, onExit }: Props) {
+export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, onExit }: Props) {
   const [isTouch, setIsTouch] = useState(false);
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
@@ -73,6 +75,48 @@ export function GameHUD({ nearEquipment, joystickRef, mountTriggerRef, onExit }:
       >
         <X size={14} /> Avsluta spelläge
       </button>
+
+      {/* Övningsmeny – visas när gymnast är monterad på redskap */}
+      {mountedExerciseInfo && (
+        <div style={{
+          position: "absolute", top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          background: "rgba(10,18,32,0.88)", backdropFilter: "blur(8px)",
+          border: "1px solid rgba(255,255,255,0.15)", borderRadius: 14,
+          padding: "14px 16px", pointerEvents: "all",
+          minWidth: 200, maxWidth: 260,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+            Välj övning
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {mountedExerciseInfo.exercises.map((ex) => {
+              const active = ex.id === mountedExerciseInfo.exerciseId;
+              return (
+                <button
+                  key={ex.id}
+                  type="button"
+                  onClick={() => mountedExerciseInfo.onChange(ex.id)}
+                  style={{
+                    background: active ? "rgba(59,130,246,0.85)" : "rgba(255,255,255,0.07)",
+                    border: `1px solid ${active ? "rgba(59,130,246,0.6)" : "rgba(255,255,255,0.12)"}`,
+                    borderRadius: 8, color: active ? "#fff" : "#cbd5e1",
+                    fontSize: 12, fontWeight: active ? 700 : 400,
+                    padding: "7px 12px", cursor: "pointer", textAlign: "left",
+                    transition: "background 0.15s",
+                  }}
+                >
+                  {ex.label}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 10, color: "#475569", textAlign: "center" }}>
+            Space / knapp för att kliva ned
+          </div>
+        </div>
+      )}
 
       {/* Kontroll-hint / proximity-prompt – nedre mitt */}
       <div style={{
