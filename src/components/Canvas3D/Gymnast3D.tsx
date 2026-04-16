@@ -199,11 +199,16 @@ const EXERCISES: Record<string, ExerciseDef> = {
     { t: 3.0, pose: { ...ZERO, lElX:P*0.10, rElX:P*0.10, spineX:-P*0.04 } },
   ] },
 
-  // Ojämna barr – pendel
+  // Ojämna barr – pendel vid övre barren (Z = -0.70 i utrustningens lokal-rymd)
   "uneven-bars:swing": { kfs: (() => {
     const a = P * 0.28;
-    const fwd: Pose = { ...HANG_STRAIGHT, rootRotX:  a, lHipX:  P*0.10, rHipX:  P*0.10, ...pend( a) };
-    const bak: Pose = { ...HANG_STRAIGHT, rootRotX: -a, lHipX: -P*0.07, rHipX: -P*0.07, ...pend(-a) };
+    const barZ = -0.70; // övre barren i unevenBars: Z = -barSep/2
+    const fwd: Pose = { ...HANG_STRAIGHT, rootRotX:  a, lHipX:  P*0.10, rHipX:  P*0.10,
+        rootZ: -HANG_DIST * Math.sin(a) + barZ,
+        rootY:  HANG_DIST * (1 - Math.cos(a)) };
+    const bak: Pose = { ...HANG_STRAIGHT, rootRotX: -a, lHipX: -P*0.07, rHipX: -P*0.07,
+        rootZ: -HANG_DIST * Math.sin(-a) + barZ,
+        rootY:  HANG_DIST * (1 - Math.cos(-a)) };
     return [
       { t: 0.0, pose: fwd },
       { t: 0.9, pose: bak },
@@ -336,18 +341,22 @@ const EXERCISES: Record<string, ExerciseDef> = {
   //   björngång → stå (händer bak) → gång tå → avhopp
   "beam:stegserie-1": { baseRotY: P / 2, kfs: [
 
-    // ── Fas 1: Stå vid bommen ───────────────────────────────────────────
-    { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
+    // ── Fas 1: Stå på golvet bredvid bommen ──────────────────────────────
+    { t: 0,    pose: { ...ZERO, ...ARMS_SIDE, rootY: -1.25, rootZ: 0.55 } },
 
     // ── Fas 2: Hopp till jämvägande sittande ────────────────────────────
+    // Hoppförberedelse på golvet
     { t: 0.40, pose: { ...ZERO,
-        lHipX: -P*0.08, rHipX: -P*0.08, lKnX: P*0.12, rKnX: P*0.12,
-        rootY: -0.05, lShZ: -P*0.18, rShZ: P*0.18 } },
-    { t: 0.70, pose: { ...ZERO,
-        rootY: 0.12,
+        lHipX: -P*0.08, rHipX: -P*0.08, lKnX: P*0.15, rKnX: P*0.15,
+        rootY: -1.30, rootZ: 0.55,
+        lShZ: -P*0.18, rShZ: P*0.18 } },
+    // I luften – hoppar upp mot bommen
+    { t: 0.75, pose: { ...ZERO,
+        rootY: 0.10, rootZ: 0.15,
         lShX: -P*0.30, rShX: -P*0.30,
         lShZ: -P*0.10, rShZ: P*0.10 } },
-    { t: 1.10, pose: { ...ZERO,
+    // Landning sittande på bommen
+    { t: 1.20, pose: { ...ZERO,
         lHipX: -P*0.50, rHipX: -P*0.50,
         lKnX: P*0.45, rKnX: P*0.45,
         spineX: -P*0.05, rootY: -0.55, ...ARMS_SIDE } },
@@ -393,18 +402,22 @@ const EXERCISES: Record<string, ExerciseDef> = {
         ...ARMS_SIDE } },
 
     // ── Fas 7: Händer på bom, gå med fötter och händer ──────────────────
+    // (positiv lShX = armar bakåt relativt böjd bål → pekar NER mot bommen)
     { t: 6.30, pose: { ...ZERO,
         spineX: -P*0.55,
-        lShX: -P*0.50, rShX: -P*0.50,
+        lShX: P*0.50, rShX: P*0.50,
+        lElX: P*0.10, rElX: P*0.10,
         rootY: -0.08, rootX: 0.60 } },
     { t: 6.90, pose: { ...ZERO,
         spineX: -P*0.55,
-        lShX: -P*0.55, rShX: -P*0.42,
+        lShX: P*0.55, rShX: P*0.42,
+        lElX: P*0.10, rElX: P*0.10,
         lHipX: P*0.06, rHipX: -P*0.10, rKnX: P*0.10,
         rootY: -0.08, rootX: 0.80 } },
     { t: 7.50, pose: { ...ZERO,
         spineX: -P*0.55,
-        lShX: -P*0.42, rShX: -P*0.55,
+        lShX: P*0.42, rShX: P*0.55,
+        lElX: P*0.10, rElX: P*0.10,
         lHipX: -P*0.10, rHipX: P*0.06, lKnX: P*0.10,
         rootY: -0.08, rootX: 1.00 } },
 
@@ -663,8 +676,15 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
   const pH   = equipmentType.physicalHeightM;
 
   // ROOT (höfter) basposition i redskaps-lokal Y
+  const kind = equipmentType.detail?.kind ?? "";
   const baseY = (() => {
-    if (mt === "hang-bar")     return pH - HANG_DIST;
+    if (mt === "hang-bar") {
+      // Ringar: greppet är vid ringens underkant = physicalHeightM - 0.18
+      if (kind === "rings" || kind === "rings-free")
+        return pH - 0.18 - HANG_DIST;
+      // Barr-baserade: Equipment3D lägger till 0.04 m basplatta som inte ingår i pH
+      return pH + 0.04 - HANG_DIST;
+    }
     if (mt === "support-bar")  return pH + H_UPPER + H_LOWER - H_TORSO * 0.85;
     return pH + H_THIGH + H_SHIN;
   })();
