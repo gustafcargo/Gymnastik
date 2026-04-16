@@ -92,6 +92,11 @@ function pend(a: number) {
   return { rootZ:-HANG_DIST*Math.sin(a), rootY:HANG_DIST*(1-Math.cos(a)) };
 }
 
+// R3F:s ref-prop förväntar sig Ref<T> (utan null); denna cast löser det.
+function r3f<T>(ref: React.RefObject<T | null>): React.Ref<T> {
+  return ref as React.Ref<T>;
+}
+
 // ─── GymnastBody – den utbytbara renderingskomponenten ───────────────────────
 function LeotardSeg({ len,r,color,up=false }:{len:number;r:number;color:string;up?:boolean}) {
   return (
@@ -142,12 +147,12 @@ function GymnastBody({ color, skin, hair, refs }: {
   return (
     <>
       <Joint r={0.065} color={color} leotard />
-      <group ref={refs.spineRef}>
+      <group ref={r3f(refs.spineRef)}>
         <LeotardSeg len={H_TORSO} r={R_BODY} color={color} up />
         <group position={[0,H_TORSO-0.01,0]}>
           <SkinSeg len={H_NECK} r={0.030} color={skin} up />
         </group>
-        <group ref={refs.headRef} position={[0,H_TORSO+H_NECK+H_HEAD*0.85,0]}>
+        <group ref={r3f(refs.headRef)} position={[0,H_TORSO+H_NECK+H_HEAD*0.85,0]}>
           <mesh castShadow>
             <sphereGeometry args={[H_HEAD,14,10]} />
             <meshPhysicalMaterial color={skin} roughness={0.68} metalness={0} />
@@ -167,9 +172,9 @@ function GymnastBody({ color, skin, hair, refs }: {
             <meshPhysicalMaterial color={color} roughness={0.55} metalness={0.02} clearcoat={0.25} clearcoatRoughness={0.35} />
           </mesh>
         ))}
-        <group ref={refs.lShRef} position={[-W_SHLDR,H_TORSO*0.85,0]}>
+        <group ref={r3f(refs.lShRef)} position={[-W_SHLDR,H_TORSO*0.85,0]}>
           <LeotardSeg len={H_UPPER} r={R_LIMB} color={color} />
-          <group ref={refs.lElRef} position={[0,-H_UPPER,0]}>
+          <group ref={r3f(refs.lElRef)} position={[0,-H_UPPER,0]}>
             <Joint r={R_LIMB*1.10} color={skin} />
             <SkinSeg len={H_LOWER} r={R_LIMB*0.85} color={skin} />
             <mesh position={[0,-H_LOWER,0]} castShadow>
@@ -178,9 +183,9 @@ function GymnastBody({ color, skin, hair, refs }: {
             </mesh>
           </group>
         </group>
-        <group ref={refs.rShRef} position={[W_SHLDR,H_TORSO*0.85,0]}>
+        <group ref={r3f(refs.rShRef)} position={[W_SHLDR,H_TORSO*0.85,0]}>
           <LeotardSeg len={H_UPPER} r={R_LIMB} color={color} />
-          <group ref={refs.rElRef} position={[0,-H_UPPER,0]}>
+          <group ref={r3f(refs.rElRef)} position={[0,-H_UPPER,0]}>
             <Joint r={R_LIMB*1.10} color={skin} />
             <SkinSeg len={H_LOWER} r={R_LIMB*0.85} color={skin} />
             <mesh position={[0,-H_LOWER,0]} castShadow>
@@ -191,9 +196,9 @@ function GymnastBody({ color, skin, hair, refs }: {
         </group>
       </group>
       <Joint r={0.052} color={color} leotard />
-      <group ref={refs.lHipRef} position={[-W_HIP,0,0]}>
+      <group ref={r3f(refs.lHipRef)} position={[-W_HIP,0,0]}>
         <LeotardSeg len={H_THIGH} r={R_LEG} color={color} />
-        <group ref={refs.lKnRef} position={[0,-H_THIGH,0]}>
+        <group ref={r3f(refs.lKnRef)} position={[0,-H_THIGH,0]}>
           <Joint r={R_LEG*1.05} color={skin} />
           <SkinSeg len={H_SHIN} r={R_LEG*0.85} color={skin} />
           <mesh position={[0,-H_SHIN-0.015,0.028]} rotation={[-P*0.20,0,0]} castShadow>
@@ -202,9 +207,9 @@ function GymnastBody({ color, skin, hair, refs }: {
           </mesh>
         </group>
       </group>
-      <group ref={refs.rHipRef} position={[W_HIP,0,0]}>
+      <group ref={r3f(refs.rHipRef)} position={[W_HIP,0,0]}>
         <LeotardSeg len={H_THIGH} r={R_LEG} color={color} />
-        <group ref={refs.rKnRef} position={[0,-H_THIGH,0]}>
+        <group ref={r3f(refs.rKnRef)} position={[0,-H_THIGH,0]}>
           <Joint r={R_LEG*1.05} color={skin} />
           <SkinSeg len={H_SHIN} r={R_LEG*0.85} color={skin} />
           <mesh position={[0,-H_SHIN-0.015,0.028]} rotation={[-P*0.20,0,0]} castShadow>
