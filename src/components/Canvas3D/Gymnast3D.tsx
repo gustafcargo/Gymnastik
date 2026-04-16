@@ -54,6 +54,7 @@ type ExerciseDef = {
   kfs: KF[];
   advance?: number;   // meter framåt per cykel
   range?: number;     // ping-pong-avstånd i meter
+  baseRotY?: number;  // basrotation kring Y – vrider gymnasten mot redskapets längdriktning
 };
 
 // Armar sträckta uppåt (−π vrider neråt-segmentet till uppåt)
@@ -92,10 +93,11 @@ function evalKF(kfs: KF[], t: number): Pose {
 }
 
 // Pendel-förskjutning: håller händerna vid stången vid vinkel a
+// rootZ måste vara NEGATIV sin(a) för att kompensera rotationens förskjutning
 function pend(a: number) {
   return {
-    rootZ: HANG_DIST * Math.sin(a),
-    rootY: HANG_DIST * (1 - Math.cos(a)),
+    rootZ: -HANG_DIST * Math.sin(a),
+    rootY:  HANG_DIST * (1 - Math.cos(a)),
   };
 }
 
@@ -123,8 +125,8 @@ const EXERCISES: Record<string, ExerciseDef> = {
           lHipX: -Math.abs(Math.sin(a)) * 0.09,
           rHipX: -Math.abs(Math.sin(a)) * 0.09,
           rootRotX: a,
-          rootZ: HANG_DIST * Math.sin(a),
-          rootY: HANG_DIST * (1 - Math.cos(a)),
+          rootZ: -HANG_DIST * Math.sin(a),
+          rootY:  HANG_DIST * (1 - Math.cos(a)),
         } satisfies Pose,
       };
     });
@@ -196,9 +198,10 @@ const EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Bom ────────────────────────────────────────────────────────────────────
 
-  // Gång bom – FÖRBÄTTRAD: gymnasten rör sig framåt, realistisk gångcykel
+  // Gång bom – gymnasten rör sig framåt längs bommen
   "beam:walk": {
-    advance: 0.65,   // 0.65 m per 2 s cykel ≈ 0.33 m/s
+    baseRotY: -P / 2,  // vänd gymnasten så den tittar längs bommen (+X)
+    advance: 0.65,     // 0.65 m per 2 s cykel ≈ 0.33 m/s
     range: 3.5,
     kfs: [
       // Höger fot stegar framåt
@@ -239,8 +242,8 @@ const EXERCISES: Record<string, ExerciseDef> = {
     ],
   },
 
-  // Hopp bom – förbättrad med armar uppåt i luften
-  "beam:jump": { kfs: [
+  // Hopp bom
+  "beam:jump": { baseRotY: -P / 2, kfs: [
     { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 0.25, pose: { ...ZERO, lHipX:-P*0.10, rHipX:-P*0.10, lKnX:P*0.14, rKnX:P*0.14,
                        rootY:-0.06, lShZ:-P*0.20, rShZ:P*0.20 } },
@@ -255,14 +258,14 @@ const EXERCISES: Record<string, ExerciseDef> = {
   ] },
 
   // Stå (bom) – armar ut åt sidan, subtil andning
-  "beam:stand": { kfs: [
+  "beam:stand": { baseRotY: -P / 2, kfs: [
     { t: 0,   pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 2.0, pose: { ...ZERO, ...ARMS_SIDE, spineX:P*0.015, rootY:0.008, spineZ:0.01 } },
     { t: 4.0, pose: { ...ZERO, ...ARMS_SIDE } },
   ] },
 
   // Arabesque – vänster ben bak, armar i balansposition
-  "beam:arabesque": { kfs: [
+  "beam:arabesque": { baseRotY: -P / 2, kfs: [
     { t: 0,   pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 0.70, pose: { ...ZERO,
         lHipX: -P*0.50, lKnX: P*0.03,
@@ -284,7 +287,7 @@ const EXERCISES: Record<string, ExerciseDef> = {
   ] },
 
   // Knähopp (tuck jump) – armar driver uppåt, tuck med händer mot knän
-  "beam:tuck-jump": { kfs: [
+  "beam:tuck-jump": { baseRotY: -P / 2, kfs: [
     { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 0.22, pose: { ...ZERO, lKnX:P*0.14, rKnX:P*0.14, lHipX:-P*0.08, rHipX:-P*0.08,
                        rootY:-0.07, lShZ:-P*0.18, rShZ:P*0.18 } },
@@ -302,7 +305,7 @@ const EXERCISES: Record<string, ExerciseDef> = {
   ] },
 
   // Pirouette – relevé, armar in under vridning
-  "beam:pirouette": { kfs: [
+  "beam:pirouette": { baseRotY: -P / 2, kfs: [
     { t: 0,    pose: { ...ZERO, ...ARMS_SIDE, rootRotY: 0 } },
     { t: 0.25, pose: { ...ZERO, rootY:0.06, rootRotY: P*0.3,
                        lShZ:-P*0.12, rShZ:P*0.12, lElX:P*0.15, rElX:P*0.15,
@@ -319,7 +322,7 @@ const EXERCISES: Record<string, ExerciseDef> = {
   ] },
 
   // Stegserie 1 – gång → arabesque → knähopp → pirouette (med framåtrörelse)
-  "beam:stegserie-1": { kfs: [
+  "beam:stegserie-1": { baseRotY: -P / 2, kfs: [
     // Stå
     { t: 0,   pose: { ...ZERO, ...ARMS_SIDE } },
     // Steg 1 (framåt)
@@ -433,10 +436,7 @@ const EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Hopp ───────────────────────────────────────────────────────────────────
 
-  "vault:approach": {
-    advance: 0.60,
-    range: 2.0,
-    kfs: [
+  "vault:approach": { kfs: [
       { t: 0,   pose: { ...ZERO, lHipX: P*0.38, lKnX:-P*0.22, rHipX:-P*0.16,
                         lShX:-P*0.22, rShX: P*0.16, spineX:P*0.14 } },
       { t: 1.0, pose: { ...ZERO, lHipX:-P*0.16, rHipX: P*0.38, rKnX:-P*0.22,
@@ -563,6 +563,9 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
   useFrame(({ clock }) => {
     const raw = clock.getElapsedTime();
     const p = evalKF(kfs, raw);
+
+    // Basrotation – vrider gymnasten mot redskapets längdriktning
+    if (def.baseRotY) p.rootRotY += def.baseRotY;
 
     // Framåtrörelse (ping-pong) för gång-övningar
     if (def.advance && def.advance > 0) {
