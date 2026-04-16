@@ -25,12 +25,16 @@ type Props = { className?: string };
 // Inner scene – lives inside Canvas so it can call useThree
 // ---------------------------------------------------------------------------
 
-function HallScene({ W, H, joystickRef, mountTriggerRef, onNearEquipment, onMountedExercises }: {
+function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamEnabled, onNearEquipment, onMountedExercises, onFreeCamChange }: {
   W: number; H: number;
   joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
   mountTriggerRef: React.MutableRefObject<boolean>;
+  speedRef: React.MutableRefObject<number>;
+  cameraResetRef: React.MutableRefObject<boolean>;
+  freeCamEnabled: boolean;
   onNearEquipment: (name: string | null) => void;
   onMountedExercises: (info: MountedExerciseInfo | null) => void;
+  onFreeCamChange: (on: boolean) => void;
 }) {
   const plan = usePlanStore((s) => s.plan);
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
@@ -623,7 +627,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, onNearEquipment, onMoun
         minDistance={3}
         maxDistance={Math.max(W, H) * 3}
         maxPolarAngle={Math.PI / 2 - 0.05}
-        enabled={!gameMode}
+        enabled={!gameMode || freeCamEnabled}
       />
 
       {gameMode && station && (
@@ -633,8 +637,11 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, onNearEquipment, onMoun
           hallH={H}
           joystickRef={joystickRef}
           mountTriggerRef={mountTriggerRef}
+          speedRef={speedRef}
+          cameraResetRef={cameraResetRef}
           onNearEquipment={onNearEquipment}
           onMountedExercises={onMountedExercises}
+          onFreeCamChange={onFreeCamChange}
           onExit={() => setGameMode(false)}
         />
       )}
@@ -660,8 +667,11 @@ export function Hall3D({ className }: Props) {
   // Refs delas mellan HallScene (Canvas) och GameHUD (DOM overlay)
   const joystickRef    = useRef<{ dx: number; dz: number }>({ dx: 0, dz: 0 });
   const mountTriggerRef = useRef(false);
+  const speedRef       = useRef(2.2);
+  const cameraResetRef = useRef(false);
   const [nearEquipment, setNearEquipment] = useState<string | null>(null);
   const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
+  const [freeCamEnabled, setFreeCamEnabled] = useState(false);
 
   return (
     <div className={className} style={{ position: "relative" }}>
@@ -691,8 +701,12 @@ export function Hall3D({ className }: Props) {
           W={W} H={H}
           joystickRef={joystickRef}
           mountTriggerRef={mountTriggerRef}
+          speedRef={speedRef}
+          cameraResetRef={cameraResetRef}
+          freeCamEnabled={freeCamEnabled}
           onNearEquipment={setNearEquipment}
           onMountedExercises={setMountedExerciseInfo}
+          onFreeCamChange={setFreeCamEnabled}
         />
       </Canvas>
 
@@ -702,7 +716,10 @@ export function Hall3D({ className }: Props) {
           mountedExerciseInfo={mountedExerciseInfo}
           joystickRef={joystickRef}
           mountTriggerRef={mountTriggerRef}
-          onExit={() => { setGameMode(false); setMountedExerciseInfo(null); }}
+          speedRef={speedRef}
+          cameraResetRef={cameraResetRef}
+          freeCamActive={freeCamEnabled}
+          onExit={() => { setGameMode(false); setMountedExerciseInfo(null); setFreeCamEnabled(false); }}
         />
       )}
     </div>

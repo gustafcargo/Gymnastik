@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { BookmarkPlus, Copy, Plus, RotateCw, Trash2, X } from "lucide-react";
+import { BookmarkPlus, Copy, Pencil, Plus, RotateCw, Trash2, X } from "lucide-react";
+import { nanoid } from "nanoid";
 import { usePlanStore } from "../../store/usePlanStore";
 import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { getEquipmentById } from "../../catalog/equipment";
@@ -8,7 +9,8 @@ import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
 import { exercisesForKind } from "../../catalog/exercises";
 import type { Exercise } from "../../catalog/exercises";
 import { formatMeters } from "../../lib/geometry";
-import type { GymnastConfig } from "../../types";
+import type { CustomEquipmentPart, GymnastConfig, EquipmentType } from "../../types";
+import { CustomEquipmentModal } from "../CustomEquipmentModal";
 
 type Props = {
   onClose?: () => void;
@@ -31,6 +33,7 @@ export function PropertyPanel({ onClose }: Props) {
   const updateTemplateFn = useSavedEquipmentStore((s) => s.updateTemplate);
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [updatedFeedback, setUpdatedFeedback] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
   const selected = station?.equipment.find((e) => e.id === selectedId) ?? null;
@@ -372,6 +375,13 @@ export function PropertyPanel({ onClose }: Props) {
             {savedFeedback ? "Sparad som mall!" : "Spara som mall"}
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setBuilderOpen(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-purple-300 bg-purple-50 py-2 text-sm font-medium text-purple-700 transition hover:bg-purple-100"
+        >
+          <Pencil size={15} /> Öppna i redskapsbyggaren
+        </button>
         <div className="flex gap-2">
           <button
             type="button"
@@ -389,8 +399,28 @@ export function PropertyPanel({ onClose }: Props) {
           </button>
         </div>
       </div>
+      {builderOpen && (
+        <CustomEquipmentModal
+          onClose={() => setBuilderOpen(false)}
+          initialParts={equipmentTypeToCustomParts(type)}
+          initialName={selected.label ?? type.name}
+        />
+      )}
     </div>
   );
+}
+
+/** Konverterar katalog-utrustningstyp till enkel CustomEquipmentPart[]-approximation. */
+function equipmentTypeToCustomParts(type: EquipmentType): CustomEquipmentPart[] {
+  // Om redan custom med delar, återanvänd dem
+  if (type.customParts?.length) return type.customParts.map(p => ({ ...p, id: nanoid(6) }));
+  // Annars: skapa grundform baserat på dimensioner
+  return [{
+    id: nanoid(6), shape: "box" as const,
+    offsetX: 0, offsetY: 0, offsetZ: 0,
+    w: type.widthM, h: type.physicalHeightM, d: type.heightM,
+    color: type.color,
+  }];
 }
 
 function PartColorsSection({

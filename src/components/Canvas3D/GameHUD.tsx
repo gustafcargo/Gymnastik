@@ -4,7 +4,7 @@
  * Touch: virtuell joystick (vänster) + hoppa-upp-knapp (höger).
  */
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Camera, X } from "lucide-react";
 import type { MountedExerciseInfo } from "./GameGymnast3D";
 
 type Props = {
@@ -12,11 +12,15 @@ type Props = {
   mountedExerciseInfo: MountedExerciseInfo | null;
   joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
   mountTriggerRef: React.MutableRefObject<boolean>;
+  speedRef: React.MutableRefObject<number>;
+  cameraResetRef: React.MutableRefObject<boolean>;
+  freeCamActive: boolean;
   onExit: () => void;
 };
 
-export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, onExit }: Props) {
+export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamActive, onExit }: Props) {
   const [isTouch, setIsTouch] = useState(false);
+  const [speedDisplay, setSpeedDisplay] = useState(speedRef.current);
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
   const joyKnobRef = useRef<HTMLDivElement>(null);
@@ -76,11 +80,58 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
         <X size={14} /> Avsluta spelläge
       </button>
 
-      {/* Övningsmeny – visas när gymnast är monterad på redskap */}
+      {/* Kamera-reset + fri kamera-indikator – övre höger under avsluta */}
+      <div style={{
+        position: "absolute", top: 52, right: 14,
+        display: "flex", flexDirection: "column", gap: 6, pointerEvents: "all",
+      }}>
+        <button
+          type="button"
+          onClick={() => { cameraResetRef.current = true; }}
+          style={{
+            display: "flex", alignItems: "center", gap: 5,
+            background: "rgba(10,18,32,0.78)", backdropFilter: "blur(6px)",
+            border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
+            color: "#f1f5f9", fontSize: 11, fontWeight: 600, padding: "5px 10px",
+            cursor: "pointer",
+          }}
+        >
+          <Camera size={13} /> Återställ kamera
+        </button>
+        {freeCamActive && (
+          <div style={{
+            background: "rgba(59,130,246,0.85)", borderRadius: 8,
+            padding: "4px 10px", color: "#fff", fontSize: 10, fontWeight: 600,
+            textAlign: "center",
+          }}>
+            Fri kamera aktiv (F)
+          </div>
+        )}
+      </div>
+
+      {/* Hastighetsreglage – övre höger under kameraknappar */}
+      <div style={{
+        position: "absolute", top: freeCamActive ? 128 : 92, right: 14,
+        background: "rgba(10,18,32,0.78)", backdropFilter: "blur(6px)",
+        border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
+        padding: "6px 10px", pointerEvents: "all", width: 140,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8", fontWeight: 600, marginBottom: 3 }}>
+          <span>Hastighet</span>
+          <span>{speedDisplay.toFixed(1)} m/s</span>
+        </div>
+        <input
+          type="range" min={1.5} max={5} step={0.1}
+          value={speedDisplay}
+          onChange={(e) => { const v = Number(e.target.value); setSpeedDisplay(v); speedRef.current = v; }}
+          style={{ width: "100%", accentColor: "#3B82F6", height: 4 }}
+        />
+      </div>
+
+      {/* Övningsmeny – visas när gymnast är monterad på redskap (uppe till vänster) */}
       {mountedExerciseInfo && (
         <div style={{
-          position: "absolute", top: "50%", left: "50%",
-          transform: "translate(-50%, -50%)",
+          position: "absolute", top: 14, left: 14,
           background: "rgba(10,18,32,0.88)", backdropFilter: "blur(8px)",
           border: "1px solid rgba(255,255,255,0.15)", borderRadius: 14,
           padding: "14px 16px", pointerEvents: "all",
@@ -113,7 +164,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
             })}
           </div>
           <div style={{ marginTop: 10, fontSize: 10, color: "#475569", textAlign: "center" }}>
-            Space / knapp för att kliva ned
+            E = Nästa övning · Space = Kliv ned
           </div>
         </div>
       )}
@@ -141,7 +192,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
               borderRadius: 16, padding: "5px 14px",
               color: "rgba(255,255,255,0.7)", fontSize: 11,
             }}>
-              WASD / Piltangenter – Flytta &nbsp;·&nbsp; Space – Hoppa upp
+              WASD – Flytta &nbsp;·&nbsp; Space – Hoppa upp &nbsp;·&nbsp; F – Fri kamera
             </div>
           )
         )}
