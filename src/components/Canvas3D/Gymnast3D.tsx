@@ -59,9 +59,6 @@ type ExerciseDef = {
 // Armar sträckta uppåt (−π vrider neråt-segmentet till uppåt)
 const HANG_STRAIGHT: Pose = { ...ZERO, lShX: -Math.PI, rShX: -Math.PI };
 
-// Armar ut åt sidan för balans (bom-stil)
-const ARMS_SIDE: Partial<Pose> = { lShZ: -P * 0.28, rShZ: P * 0.28, lElX: P * 0.05, rElX: P * 0.05 };
-
 // ─── Keyframe-hjälpare ────────────────────────────────────────────────────────
 type KF = { t: number; pose: Pose };
 
@@ -104,6 +101,9 @@ function pend(a: number) {
 
 // ─── Animationer ──────────────────────────────────────────────────────────────
 const P = Math.PI;
+
+// Armar ut åt sidan för balans (bom-stil)
+const ARMS_SIDE: Partial<Pose> = { lShZ: -P * 0.28, rShZ: P * 0.28, lElX: P * 0.05, rElX: P * 0.05 };
 
 const EXERCISES: Record<string, ExerciseDef> = {
 
