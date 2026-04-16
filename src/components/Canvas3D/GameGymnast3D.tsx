@@ -285,14 +285,14 @@ function GymnastBody({ color, skin, hair, refs }: {
         <group ref={r3f(refs.lKnRef)} position={[0, -H_THIGH, 0]}>
           <Joint r={R_LEG * 1.08} color={skin} />
           <SkinSeg len={H_SHIN} r={R_LEG * 0.88} color={skin} />
-          {/* Sko – oval med sula */}
+          {/* Sko – tåspetsen pekar i −Z (framåt, i gångriktningen) */}
           <group position={[0, -H_SHIN - 0.01, 0]}>
-            <mesh position={[0, -0.018, 0.025]} rotation={[-P * 0.18, 0, 0]} castShadow>
+            <mesh position={[0, -0.018, -0.025]} rotation={[P * 0.18, 0, 0]} castShadow>
               <capsuleGeometry args={[0.026, 0.07, 5, 8]} />
               <meshPhysicalMaterial color="#2a2a3a" roughness={0.65} metalness={0.05} />
             </mesh>
             {/* Sula */}
-            <mesh position={[0, -0.036, 0.018]} rotation={[-P * 0.18, 0, 0]} castShadow>
+            <mesh position={[0, -0.036, -0.018]} rotation={[P * 0.18, 0, 0]} castShadow>
               <capsuleGeometry args={[0.027, 0.075, 4, 8]} />
               <meshPhysicalMaterial color="#111" roughness={0.9} metalness={0} />
             </mesh>
@@ -308,11 +308,11 @@ function GymnastBody({ color, skin, hair, refs }: {
           <SkinSeg len={H_SHIN} r={R_LEG * 0.88} color={skin} />
           {/* Sko */}
           <group position={[0, -H_SHIN - 0.01, 0]}>
-            <mesh position={[0, -0.018, 0.025]} rotation={[-P * 0.18, 0, 0]} castShadow>
+            <mesh position={[0, -0.018, -0.025]} rotation={[P * 0.18, 0, 0]} castShadow>
               <capsuleGeometry args={[0.026, 0.07, 5, 8]} />
               <meshPhysicalMaterial color="#2a2a3a" roughness={0.65} metalness={0.05} />
             </mesh>
-            <mesh position={[0, -0.036, 0.018]} rotation={[-P * 0.18, 0, 0]} castShadow>
+            <mesh position={[0, -0.036, -0.018]} rotation={[P * 0.18, 0, 0]} castShadow>
               <capsuleGeometry args={[0.027, 0.075, 4, 8]} />
               <meshPhysicalMaterial color="#111" roughness={0.9} metalness={0} />
             </mesh>
@@ -330,8 +330,6 @@ export type MountedExerciseInfo = {
   onChange: (id: string) => void;
 };
 
-type CycleEvent = { equipmentId: string; equipmentName: string; exerciseId: string };
-
 type Props = {
   station: Station;
   hallW: number;
@@ -343,7 +341,6 @@ type Props = {
   onNearEquipment: (name: string | null) => void;
   onMountedExercises: (info: MountedExerciseInfo | null) => void;
   onFreeCamChange: (on: boolean) => void;
-  onExerciseCycle?: (ev: CycleEvent) => void;
   onExit: () => void;
   color?: string;
 };
@@ -355,7 +352,7 @@ const CAM_HEIGHT = 2.2;   // m ovanför höfterna
 
 export function GameGymnast3D({
   station, hallW, hallH, joystickRef, mountTriggerRef, speedRef, cameraResetRef,
-  onNearEquipment, onMountedExercises, onFreeCamChange, onExerciseCycle, onExit, color = "#C2185B",
+  onNearEquipment, onMountedExercises, onFreeCamChange, onExit, color = "#C2185B",
 }: Props) {
   const SKIN = "#E8C99A";
   const HAIR = "#2d1a08";
@@ -374,12 +371,6 @@ export function GameGymnast3D({
   onExitRef.current = onExit;
   const onFreeCamChangeRef = useRef(onFreeCamChange);
   onFreeCamChangeRef.current = onFreeCamChange;
-  const onExerciseCycleRef = useRef(onExerciseCycle);
-  onExerciseCycleRef.current = onExerciseCycle;
-
-  // Cycle-detektering: spåra senaste animationsfas per övning
-  const lastCyclePhase = useRef(-1);
-  const lastTrackedExerciseId = useRef("");
 
   // Kamera-mål
   const camPos  = useRef(new THREE.Vector3());
@@ -485,8 +476,6 @@ export function GameGymnast3D({
     if (triggerMount) {
       if (mounted.current) {
         mounted.current = null;
-        lastCyclePhase.current = -1;
-        lastTrackedExerciseId.current = "";
         onMountedExercisesRef.current(null);
         // Rensa proximity-state så etiketten försvinner
         nearEq.current = null;
@@ -544,27 +533,12 @@ export function GameGymnast3D({
       const type = eq ? getEquipmentById(eq.typeId) : null;
       const def = EXERCISES[exerciseId];
       pose = def ? evalKF(def.kfs, t) : evalKF(IDLE_KFS, t);
-      if (def?.baseRotY) pose.rootRotY += def.baseRotY;
-
-      // Detektera avslutat animationsvarv (fas-wraparound)
-      if (def && def.kfs.length > 1) {
-        const dur = def.kfs[def.kfs.length - 1].t;
-        const phase = t % dur;
-        if (exerciseId !== lastTrackedExerciseId.current) {
-          // Ny övning – nollställ tracking
-          lastTrackedExerciseId.current = exerciseId;
-          lastCyclePhase.current = phase;
-        } else if (lastCyclePhase.current > 0 && phase < lastCyclePhase.current) {
-          // Fas-wraparound = ett varv klart
-          const eq = station.equipment.find(e => e.id === eqId);
-          const eqType = eq ? getEquipmentById(eq.typeId) : null;
-          onExerciseCycleRef.current?.({
-            equipmentId: eqId,
-            equipmentName: eq?.label ?? eqType?.name ?? "",
-            exerciseId,
-          });
-        }
-        lastCyclePhase.current = phase;
+      if (def?.baseRotY) {
+        pose.rootRotY += def.baseRotY;
+        // baseRotY-övningar designades för ansikte åt +Z; spelläget
+        // använder ansikte åt −Z → vänd 180° så ansikte och fötter
+        // alltid pekar i rörelsens riktning.
+        pose.rootRotY += P;
       }
 
       // Advance-logik (ping-pong gång, t.ex. bom)

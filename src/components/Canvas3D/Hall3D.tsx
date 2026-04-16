@@ -9,46 +9,15 @@ import {
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
-import { usePlanStore, type AgeGroup } from "../../store/usePlanStore";
+import { usePlanStore } from "../../store/usePlanStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { Equipment3D } from "./Equipment3D";
 import { Gymnast3D } from "./Gymnast3D";
 import { GameGymnast3D, type MountedExerciseInfo } from "./GameGymnast3D";
-import { GameHUD, type Mission } from "./GameHUD";
+import { GameHUD } from "./GameHUD";
 import { exercisesForKind } from "../../catalog/exercises";
 import { computeStackInfo } from "../../lib/stackGroups";
 import type { Station } from "../../types";
-
-// ─── Mission-system ───────────────────────────────────────────────────────────
-
-type MissionDef = Omit<Mission, "progress" | "done">;
-
-const MISSION_DEFS: (MissionDef & { ageGroup: AgeGroup | "all" })[] = [
-  // 5-8
-  { id: "m-mount1",  text: "Kliv upp på ett redskap",  target: 1,  type: "mount",               ageGroup: "5-8"   },
-  { id: "m-diff1",   text: "Prova 2 olika redskap",     target: 2,  type: "different-equipment", ageGroup: "5-8"   },
-  { id: "m-score1",  text: "Samla 10 poäng ⭐",         target: 10, type: "score",               ageGroup: "5-8"   },
-  // 9-12
-  { id: "m-cycle1",  text: "Gör 5 övningscykler",      target: 5,  type: "cycle",               ageGroup: "9-12"  },
-  { id: "m-diff2",   text: "Prova 3 olika redskap",     target: 3,  type: "different-equipment", ageGroup: "9-12"  },
-  { id: "m-score2",  text: "Samla 50 poäng 🏅",         target: 50, type: "score",               ageGroup: "9-12"  },
-  // 13-16
-  { id: "m-cycle2",  text: "Gör 15 övningscykler",     target: 15, type: "cycle",               ageGroup: "13-16" },
-  { id: "m-diff3",   text: "Prova 5 olika redskap",     target: 5,  type: "different-equipment", ageGroup: "13-16" },
-  { id: "m-score3",  text: "Samla 150 poäng 🏆",        target: 150, type: "score",              ageGroup: "13-16" },
-];
-
-function generateMissions(ageGroup: AgeGroup): Mission[] {
-  return MISSION_DEFS
-    .filter((d) => d.ageGroup === ageGroup)
-    .map(({ ageGroup: _ag, ...d }) => ({ ...d, progress: 0, done: false }));
-}
-
-// ─── Celebration-bubbla ───────────────────────────────────────────────────────
-
-type Celebration = { id: number; text: string; left: number };
-
-let celebIdCounter = 0;
 
 type Props = { className?: string };
 
@@ -56,18 +25,18 @@ type Props = { className?: string };
 // Inner scene – lives inside Canvas so it can call useThree
 // ---------------------------------------------------------------------------
 
-function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamEnabled, gymnasistColor, onNearEquipment, onMountedExercises, onFreeCamChange, onExerciseCycle }: {
+const GYMNAST_COLOR = "#c026d3";
+
+function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamEnabled, onNearEquipment, onMountedExercises, onFreeCamChange }: {
   W: number; H: number;
   joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
   mountTriggerRef: React.MutableRefObject<boolean>;
   speedRef: React.MutableRefObject<number>;
   cameraResetRef: React.MutableRefObject<boolean>;
   freeCamEnabled: boolean;
-  gymnasistColor: string;
   onNearEquipment: (name: string | null) => void;
   onMountedExercises: (info: MountedExerciseInfo | null) => void;
   onFreeCamChange: (on: boolean) => void;
-  onExerciseCycle: (ev: { equipmentId: string; equipmentName: string; exerciseId: string }) => void;
 }) {
   const plan = usePlanStore((s) => s.plan);
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
@@ -672,11 +641,10 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
           mountTriggerRef={mountTriggerRef}
           speedRef={speedRef}
           cameraResetRef={cameraResetRef}
-          color={gymnasistColor}
+          color={GYMNAST_COLOR}
           onNearEquipment={onNearEquipment}
           onMountedExercises={onMountedExercises}
           onFreeCamChange={onFreeCamChange}
-          onExerciseCycle={onExerciseCycle}
           onExit={() => setGameMode(false)}
         />
       )}
@@ -689,11 +657,9 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
 // ---------------------------------------------------------------------------
 
 export function Hall3D({ className }: Props) {
-  const plan           = usePlanStore((s) => s.plan);
-  const gameMode       = usePlanStore((s) => s.gameMode);
-  const setGameMode    = usePlanStore((s) => s.setGameMode);
-  const ageGroup       = usePlanStore((s) => s.ageGroup);
-  const gymnasistColor = usePlanStore((s) => s.gymnasistColor);
+  const plan        = usePlanStore((s) => s.plan);
+  const gameMode    = usePlanStore((s) => s.gameMode);
+  const setGameMode = usePlanStore((s) => s.setGameMode);
 
   const W = plan.hall.widthM;
   const H = plan.hall.heightM;
@@ -709,75 +675,6 @@ export function Hall3D({ className }: Props) {
   const [nearEquipment, setNearEquipment] = useState<string | null>(null);
   const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);
-
-  // ── Spelsession-state ────────────────────────────────────────────────────
-  const [score, setScore]   = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [celebrations, setCelebrations] = useState<Celebration[]>([]);
-  const visitedEquipRef = useRef(new Set<string>());
-  const totalCyclesRef  = useRef(0);
-  const streakRef       = useRef(0);  // ref-kopia för att undvika stale closure
-
-  // Återstarta session när gameMode aktiveras
-  useEffect(() => {
-    if (gameMode) {
-      setScore(0);
-      setStreak(0);
-      streakRef.current = 0;
-      setMissions(generateMissions(ageGroup));
-      setCelebrations([]);
-      visitedEquipRef.current = new Set();
-      totalCyclesRef.current = 0;
-    }
-  }, [gameMode, ageGroup]);
-
-  const triggerCelebration = useCallback((text: string) => {
-    const id = celebIdCounter++;
-    const left = 35 + Math.random() * 30;
-    setCelebrations((c) => [...c, { id, text, left }]);
-    setTimeout(() => setCelebrations((c) => c.filter((x) => x.id !== id)), 1400);
-  }, []);
-
-  const handleExerciseCycle = useCallback((ev: { equipmentId: string; equipmentName: string }) => {
-    streakRef.current += 1;
-    totalCyclesRef.current += 1;
-    setStreak(streakRef.current);
-
-    const multiplier = streakRef.current >= 5 ? 3 : streakRef.current >= 3 ? 2 : 1;
-    const pts = 10 * multiplier;
-    triggerCelebration(multiplier > 1 ? `+${pts} 🔥` : `+${pts} ⭐`);
-
-    visitedEquipRef.current.add(ev.equipmentId);
-    const visited = visitedEquipRef.current.size;
-    const cycles  = totalCyclesRef.current;
-
-    setScore((prev) => {
-      const next = prev + pts;
-      setMissions((ms) =>
-        ms.map((m) => {
-          if (m.done) return m;
-          if (m.type === "score") {
-            const progress = Math.min(next, m.target);
-            return { ...m, progress, done: progress >= m.target };
-          }
-          if (m.type === "cycle") {
-            const progress = Math.min(cycles, m.target);
-            return { ...m, progress, done: progress >= m.target };
-          }
-          if (m.type === "different-equipment") {
-            const progress = Math.min(visited, m.target);
-            return { ...m, progress, done: progress >= m.target };
-          }
-          if (m.type === "mount") {
-            return { ...m, progress: Math.min(cycles, m.target), done: cycles >= m.target };
-          }
-          return m;
-        }),
-      );
-      return next;
-    });
-  }, [triggerCelebration]);
 
   return (
     <div className={className} style={{ position: "relative" }}>
@@ -810,11 +707,9 @@ export function Hall3D({ className }: Props) {
           speedRef={speedRef}
           cameraResetRef={cameraResetRef}
           freeCamEnabled={freeCamEnabled}
-          gymnasistColor={gymnasistColor}
           onNearEquipment={setNearEquipment}
           onMountedExercises={setMountedExerciseInfo}
           onFreeCamChange={setFreeCamEnabled}
-          onExerciseCycle={handleExerciseCycle}
         />
       </Canvas>
 
@@ -828,41 +723,9 @@ export function Hall3D({ className }: Props) {
             speedRef={speedRef}
             cameraResetRef={cameraResetRef}
             freeCamActive={freeCamEnabled}
-            score={score}
-            streak={streak}
-            missions={missions}
             onExit={() => { setGameMode(false); setMountedExerciseInfo(null); setFreeCamEnabled(false); }}
           />
 
-          {/* Celebration-bubblor */}
-          <style>{`
-            @keyframes floatUp {
-              0%   { opacity: 1; transform: translateY(0)    scale(1.3); }
-              60%  { opacity: 1; transform: translateY(-50px) scale(1.0); }
-              100% { opacity: 0; transform: translateY(-90px) scale(0.8); }
-            }
-          `}</style>
-          {celebrations.map((c) => (
-            <div
-              key={c.id}
-              style={{
-                position: "absolute",
-                left: `${c.left}%`,
-                top: "42%",
-                transform: "translateX(-50%)",
-                pointerEvents: "none",
-                zIndex: 60,
-                color: "#FFD700",
-                fontSize: 28,
-                fontWeight: 900,
-                fontFamily: "system-ui, sans-serif",
-                textShadow: "0 2px 8px rgba(0,0,0,0.6)",
-                animation: "floatUp 1.4s ease-out forwards",
-              }}
-            >
-              {c.text}
-            </div>
-          ))}
         </>
       )}
     </div>

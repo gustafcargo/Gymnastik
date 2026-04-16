@@ -127,8 +127,6 @@ type PlanState = {
   showLabels: boolean;
   showNotes: boolean;
   gameMode: boolean;
-  ageGroup: AgeGroup;
-  gymnasistColor: string;
 };
 
 type PlanActions = {
@@ -172,8 +170,6 @@ type PlanActions = {
   toggleNotes: () => void;
   toggleGameMode: () => void;
   setGameMode: (on: boolean) => void;
-  setAgeGroup: (g: AgeGroup) => void;
-  setGymnasistColor: (c: string) => void;
 
   // stations
   addStation: (name?: string) => string;
@@ -246,8 +242,6 @@ export const usePlanStore = create<PlanStore>()(
       showLabels: true,
       showNotes: true,
       gameMode: false,
-      ageGroup: "9-12" as AgeGroup,
-      gymnasistColor: "#C2185B",
 
       newPlan: (name) =>
         set(() => {
@@ -507,8 +501,6 @@ export const usePlanStore = create<PlanStore>()(
       toggleNotes: () => set((s) => ({ showNotes: !s.showNotes })),
       toggleGameMode: () => set((s) => ({ gameMode: !s.gameMode })),
       setGameMode: (on) => set({ gameMode: on }),
-      setAgeGroup: (g) => set({ ageGroup: g }),
-      setGymnasistColor: (c) => set({ gymnasistColor: c }),
 
       addStation: (name) => {
         const state = get();
@@ -627,11 +619,9 @@ export const usePlanStore = create<PlanStore>()(
           showLabels: _sl,
           showNotes: _sn,
           gameMode: _gm,
-          ageGroup: _ag,
-          gymnasistColor: _gc,
           ...rest
         } = state;
-        void _sel; void _s; void _ss; void _vm; void _eo; void _sl; void _sn; void _gm; void _ag; void _gc;
+        void _sel; void _s; void _ss; void _vm; void _eo; void _sl; void _sn; void _gm;
         return rest;
       },
       limit: 100,
