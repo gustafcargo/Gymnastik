@@ -24,7 +24,6 @@ import type Konva from "konva";
 import { exportStageAsPng } from "../lib/exportPng";
 import { exportStageAsPdf } from "../lib/exportPdf";
 import { PlansModal } from "./PlansModal";
-import { StartGameModal } from "./Canvas3D/StartGameModal";
 
 type Props = {
   stageRef: React.MutableRefObject<Konva.Stage | null>;
@@ -59,7 +58,6 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
-  const [startGameOpen, setStartGameOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -198,7 +196,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
         {viewMode === "3D" && (
           <button
             type="button"
-            onClick={() => gameMode ? toggleGameMode() : setStartGameOpen(true)}
+            onClick={toggleGameMode}
             className={
               "flex h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold transition " +
               (gameMode
@@ -291,7 +289,6 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
         </div>
       </div>
       {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
-      {startGameOpen && <StartGameModal onClose={() => setStartGameOpen(false)} />}
     </>
   );
 }
