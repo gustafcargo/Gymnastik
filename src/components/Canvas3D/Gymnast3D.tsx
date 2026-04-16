@@ -46,8 +46,9 @@ type ExerciseDef = {
   baseRotY?: number;  // basrotation kring Y – vrider gymnasten mot redskapets längdriktning
 };
 
-// Armar sträckta uppåt (−π vrider neråt-segmentet till uppåt)
-const HANG_STRAIGHT: Pose = { ...ZERO, lShX: -Math.PI, rShX: -Math.PI };
+// Armar sträckta uppåt (+π vrider neråt-segmentet upp via framsidan,
+// så att nedgång till stöd/häng rör sig framför kroppen – inte bakåt).
+const HANG_STRAIGHT: Pose = { ...ZERO, lShX: Math.PI, rShX: Math.PI };
 
 // ─── Keyframe-hjälpare ────────────────────────────────────────────────────────
 type KF = { t: number; pose: Pose };

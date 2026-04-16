@@ -14,16 +14,20 @@ type Props = {
   mountTriggerRef: React.MutableRefObject<boolean>;
   speedRef: React.MutableRefObject<number>;
   cameraResetRef: React.MutableRefObject<boolean>;
+  cameraOrbitRef: React.MutableRefObject<{ yaw: number; pitch: number; distScale: number }>;
   freeCamActive: boolean;
   onExit: () => void;
 };
 
-export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamActive, onExit }: Props) {
+export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, speedRef, cameraResetRef, cameraOrbitRef, freeCamActive, onExit }: Props) {
   const [isTouch, setIsTouch] = useState(false);
   const [speedDisplay, setSpeedDisplay] = useState(speedRef.current);
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
   const joyKnobRef = useRef<HTMLDivElement>(null);
+  // Kamera-drag + pinch (touch)
+  const camPointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchDistRef = useRef<number | null>(null);
 
   useEffect(() => {
     const check = () => setIsTouch(window.matchMedia("(pointer: coarse)").matches);
@@ -61,8 +65,63 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
     if (joyKnobRef.current) joyKnobRef.current.style.transform = "translate(0,0)";
   };
 
+  // ── Kameradrag + pinch-zoom (touch, överallt utanför joystick/knappar) ────
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+  const onCamDown = (e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    camPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (camPointers.current.size === 2) {
+      const [a, b] = Array.from(camPointers.current.values());
+      pinchDistRef.current = Math.hypot(a.x - b.x, a.y - b.y);
+    }
+  };
+
+  const onCamMove = (e: React.PointerEvent) => {
+    const prev = camPointers.current.get(e.pointerId);
+    if (!prev) return;
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    camPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (camPointers.current.size === 1) {
+      // Enhandsdragning → rotera kamera (yaw + pitch)
+      cameraOrbitRef.current.yaw   -= dx * 0.006;
+      cameraOrbitRef.current.pitch  = clamp(cameraOrbitRef.current.pitch - dy * 0.004, -0.5, 0.9);
+    } else if (camPointers.current.size === 2) {
+      // Tvåfingers-pinch → zoom
+      const [a, b] = Array.from(camPointers.current.values());
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinchDistRef.current != null && pinchDistRef.current > 0) {
+        const ratio = pinchDistRef.current / d; // större avstånd = mindre distScale
+        cameraOrbitRef.current.distScale = clamp(cameraOrbitRef.current.distScale * ratio, 0.4, 3.5);
+      }
+      pinchDistRef.current = d;
+    }
+  };
+
+  const onCamUp = (e: React.PointerEvent) => {
+    camPointers.current.delete(e.pointerId);
+    if (camPointers.current.size < 2) pinchDistRef.current = null;
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 50, fontFamily: "system-ui, sans-serif" }}>
+
+      {/* Touch-kamera-lager – ligger bakom alla knappar/joystick, fångar drag + pinch */}
+      {isTouch && (
+        <div
+          onPointerDown={onCamDown}
+          onPointerMove={onCamMove}
+          onPointerUp={onCamUp}
+          onPointerCancel={onCamUp}
+          style={{
+            position: "absolute", inset: 0,
+            pointerEvents: "all", touchAction: "none",
+            background: "transparent",
+          }}
+        />
+      )}
 
       {/* Avsluta-knapp – övre höger */}
       <button

@@ -102,6 +102,7 @@ type Props = {
   mountTriggerRef: React.MutableRefObject<boolean>;
   speedRef: React.MutableRefObject<number>;
   cameraResetRef: React.MutableRefObject<boolean>;
+  cameraOrbitRef: React.MutableRefObject<{ yaw: number; pitch: number; distScale: number }>;
   onNearEquipment: (name: string | null) => void;
   onMountedExercises: (info: MountedExerciseInfo | null) => void;
   onFreeCamChange: (on: boolean) => void;
@@ -116,6 +117,7 @@ const CAM_HEIGHT = 2.2;   // m ovanför höfterna
 
 export function GameGymnast3D({
   station, hallW, hallH, joystickRef, mountTriggerRef, speedRef, cameraResetRef,
+  cameraOrbitRef,
   onNearEquipment, onMountedExercises, onFreeCamChange, onExit, color = "#C2185B",
 }: Props) {
   const SKIN = "#E8C99A";
@@ -197,6 +199,10 @@ export function GameGymnast3D({
         freeCamRef.current = false;
         onFreeCamChangeRef.current(false);
       }
+      // Nollställ touch-orbit
+      cameraOrbitRef.current.yaw = 0;
+      cameraOrbitRef.current.pitch = 0;
+      cameraOrbitRef.current.distScale = 1;
       const by = H_THIGH + H_SHIN;
       const gp = new THREE.Vector3(pos.current.x, by + 0.8, pos.current.z);
       const sx = Math.sin(camYaw.current);
@@ -332,12 +338,21 @@ export function GameGymnast3D({
         pose.rootY = mountBaseY + (pose.rootY ?? 0);
       }
 
-      // Kamera: visa gymnast + redskap — mer utzoomad
+      // Kamera: visa gymnast + redskap — mer utzoomad + touch-orbit (yaw + zoom)
       if (eq && type) {
+        const orbit = cameraOrbitRef.current;
         const span = Math.max(type.widthM, type.heightM, type.physicalHeightM, 1.5);
         const cy = (eq.z ?? 0) + type.physicalHeightM * 0.5;
         const center = new THREE.Vector3(eq.x, cy, eq.y);
-        const target = center.clone().add(new THREE.Vector3(span * 1.6, span * 1.3, span * 2.3));
+        const base = new THREE.Vector3(span * 1.6, span * 1.3, span * 2.3);
+        // Rotera offset kring Y med orbit.yaw
+        const c = Math.cos(orbit.yaw), s = Math.sin(orbit.yaw);
+        const rx = base.x * c + base.z * s;
+        const rz = -base.x * s + base.z * c;
+        // Pitch lyfter kameran; distScale zoomar
+        const ry = base.y + Math.sin(orbit.pitch) * span * 2.0;
+        const offset = new THREE.Vector3(rx, ry, rz).multiplyScalar(orbit.distScale);
+        const target = center.clone().add(offset);
         camPos.current.lerp(target, 0.04);
         camLook.current.lerp(center, 0.06);
       }
@@ -406,12 +421,17 @@ export function GameGymnast3D({
       const baseY = H_THIGH + H_SHIN;
       pose.rootY += baseY;
 
-      // Kamera bakifrån (skippa om fri kamera)
+      // Kamera bakifrån (skippa om fri kamera) – med touch-orbit-offset
       if (!freeCamRef.current) {
-        const sx = Math.sin(camYaw.current);
-        const sz = -Math.cos(camYaw.current);
+        const orbit = cameraOrbitRef.current;
+        const yawC = camYaw.current + orbit.yaw;
+        const sx = Math.sin(yawC);
+        const sz = -Math.cos(yawC);
+        const dist = CAM_DIST * orbit.distScale;
+        const horiz = dist * Math.cos(orbit.pitch);
+        const vert  = CAM_HEIGHT + dist * Math.sin(orbit.pitch);
         const gymnPos = new THREE.Vector3(pos.current.x, baseY + 0.8, pos.current.z);
-        const camTarget = gymnPos.clone().add(new THREE.Vector3(-sx * CAM_DIST, CAM_HEIGHT, -sz * CAM_DIST));
+        const camTarget = gymnPos.clone().add(new THREE.Vector3(-sx * horiz, vert, -sz * horiz));
         const lookTarget = gymnPos.clone().add(new THREE.Vector3(0, 0.2, 0));
         camPos.current.lerp(camTarget, 0.06);
         camLook.current.lerp(lookTarget, 0.08);
