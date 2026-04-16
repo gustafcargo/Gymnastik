@@ -2,7 +2,7 @@
  * GameGymnast3D – spelbar gymnast som rör sig fritt i salen.
  * Kroppen renderas via <GymnastBody> som enkelt kan bytas mot GLB-modell.
  */
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Station } from "../../types";
@@ -236,21 +236,23 @@ type Props = {
   hallH: number;
   joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
   mountTriggerRef: React.MutableRefObject<boolean>;
+  speedRef: React.MutableRefObject<number>;
+  cameraResetRef: React.MutableRefObject<boolean>;
   onNearEquipment: (name: string | null) => void;
   onMountedExercises: (info: MountedExerciseInfo | null) => void;
+  onFreeCamChange: (on: boolean) => void;
   onExit: () => void;
   color?: string;
 };
 
-const SPEED      = 2.2;   // m/s
 const TURN_SPEED = 2.5;   // rad/s
 const PROX       = 1.8;   // m, monteringsradie
 const CAM_DIST   = 5.5;   // m bakom gymnasten
 const CAM_HEIGHT = 2.2;   // m ovanför höfterna
 
 export function GameGymnast3D({
-  station, hallW, hallH, joystickRef, mountTriggerRef,
-  onNearEquipment, onMountedExercises, onExit, color = "#C2185B",
+  station, hallW, hallH, joystickRef, mountTriggerRef, speedRef, cameraResetRef,
+  onNearEquipment, onMountedExercises, onFreeCamChange, onExit, color = "#C2185B",
 }: Props) {
   const SKIN = "#E8C99A";
   const HAIR = "#2d1a08";
@@ -265,16 +267,20 @@ export function GameGymnast3D({
   const nearEq  = useRef<null | { id: string; name: string }>(null);
   const onMountedExercisesRef = useRef(onMountedExercises);
   onMountedExercisesRef.current = onMountedExercises;
+  const onExitRef = useRef(onExit);
+  onExitRef.current = onExit;
+  const onFreeCamChangeRef = useRef(onFreeCamChange);
+  onFreeCamChangeRef.current = onFreeCamChange;
 
   // Kamera-mål
   const camPos  = useRef(new THREE.Vector3());
   const camLook = useRef(new THREE.Vector3());
 
-  // Tangenter
+  // Tangenter + edge-triggers
   const keys = useRef(new Set<string>());
-
-  // Spacebar (edge-trigger)
   const spaceDown = useRef(false);
+  const eCycleRef = useRef(false);
+  const freeCamRef = useRef(false);
 
   const rootRef  = useRef<THREE.Group>(null);
   const bodyRefs: BodyRefs = {
@@ -290,14 +296,17 @@ export function GameGymnast3D({
     rKnRef:   useRef<THREE.Group>(null),
   };
 
-  // Registrera tangentlyssnare en gång
-  const listenersAdded = useRef(false);
-  if (!listenersAdded.current) {
-    listenersAdded.current = true;
+  // Tangentlyssnare med cleanup
+  useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       keys.current.add(e.key.toLowerCase());
       if (e.key === " ") { e.preventDefault(); spaceDown.current = true; }
-      if (e.key === "Escape") onExit();
+      if (e.key.toLowerCase() === "e") eCycleRef.current = true;
+      if (e.key.toLowerCase() === "f") {
+        freeCamRef.current = !freeCamRef.current;
+        onFreeCamChangeRef.current(freeCamRef.current);
+      }
+      if (e.key === "Escape") onExitRef.current();
     };
     const onUp = (e: KeyboardEvent) => {
       keys.current.delete(e.key.toLowerCase());
@@ -305,12 +314,51 @@ export function GameGymnast3D({
     };
     window.addEventListener("keydown", onDown);
     window.addEventListener("keyup", onUp);
-  }
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+      keys.current.clear();
+    };
+  }, []);
 
   useFrame(({ clock }, delta) => {
     const t   = clock.getElapsedTime();
     const k   = keys.current;
     const joy = joystickRef.current;
+
+    // ── Kamera-reset ──────────────────────────────────────────────────────
+    if (cameraResetRef.current) {
+      cameraResetRef.current = false;
+      if (freeCamRef.current) {
+        freeCamRef.current = false;
+        onFreeCamChangeRef.current(false);
+      }
+      const by = H_THIGH + H_SHIN;
+      const gp = new THREE.Vector3(pos.current.x, by + 0.8, pos.current.z);
+      const sx = Math.sin(camYaw.current);
+      const sz = -Math.cos(camYaw.current);
+      camPos.current.copy(gp.clone().add(new THREE.Vector3(-sx * CAM_DIST, CAM_HEIGHT, -sz * CAM_DIST)));
+      camLook.current.copy(gp);
+    }
+
+    // ── E-cycling ──────────────────────────────────────────────────────────
+    if (eCycleRef.current && mounted.current) {
+      eCycleRef.current = false;
+      const meq = station.equipment.find(e => e.id === mounted.current!.eqId);
+      const mt = meq ? getEquipmentById(meq.typeId) : null;
+      if (meq && mt) {
+        const exs = exercisesForKind(mt.detail?.kind ?? "");
+        const idx = exs.findIndex(ex => ex.id === mounted.current!.exerciseId);
+        const nid = exs[(idx + 1) % exs.length].id;
+        mounted.current.exerciseId = nid;
+        onMountedExercisesRef.current({
+          exercises: exs, exerciseId: nid,
+          onChange: (id) => { if (mounted.current) mounted.current.exerciseId = id; },
+        });
+      }
+    } else {
+      eCycleRef.current = false;
+    }
 
     // ── Montera/demontera ──────────────────────────────────────────────────
     const triggerMount = mountTriggerRef.current || spaceDown.current;
@@ -329,9 +377,10 @@ export function GameGymnast3D({
           const exs  = exercisesForKind(kind);
           if (exs.length) {
             const isHang = ["high-bar","rings","rings-free","uneven-bars"].includes(kind);
+            const isRings = kind === "rings" || kind === "rings-free";
             const isSupport = ["parallel-bars","pommel-horse"].includes(kind);
             const baseY = isHang
-              ? type.physicalHeightM + 0.04 - HANG_DIST
+              ? (isRings ? type.physicalHeightM - 0.18 : type.physicalHeightM + 0.04) - HANG_DIST
               : isSupport
               ? type.physicalHeightM + H_UPPER + H_LOWER - H_TORSO * 0.85
               : type.physicalHeightM + H_THIGH + H_SHIN;
@@ -351,19 +400,50 @@ export function GameGymnast3D({
 
     if (mounted.current) {
       // ── Monterad: spela övningsanimation ────────────────────────────────
-      const { exerciseId, baseY } = mounted.current;
+      const { eqId, exerciseId, baseY: mountBaseY } = mounted.current;
+      const eq = station.equipment.find(e => e.id === eqId);
+      const type = eq ? getEquipmentById(eq.typeId) : null;
       const def = EXERCISES[exerciseId];
       pose = def ? evalKF(def.kfs, t) : evalKF(IDLE_KFS, t);
       if (def?.baseRotY) pose.rootRotY += def.baseRotY;
-      pose.rootY = baseY + (pose.rootY ?? 0);
 
-      // Kamera: visa gymnast + redskap
-      const eq = station.equipment.find(e => e.id === mounted.current!.eqId);
-      const type = eq ? getEquipmentById(eq.typeId) : null;
+      // Advance-logik (ping-pong gång, t.ex. bom)
+      if (def?.advance && def.advance > 0) {
+        const dur = def.kfs[def.kfs.length - 1].t;
+        const dist = (t / dur) * def.advance;
+        const range = def.range ?? 3.0;
+        const period = range * 2;
+        const phase = dist % period;
+        if (phase <= range) {
+          pose.rootX += phase - range / 2;
+        } else {
+          pose.rootX += (period - phase) - range / 2;
+          pose.rootRotY += P;
+        }
+      }
+
+      // Transformera lokal rootX/rootZ till världskoordinater via utrustningens rotation
       if (eq && type) {
-        const span   = Math.max(type.widthM, type.heightM, type.physicalHeightM, 1.5);
-        const center = new THREE.Vector3(eq.x, type.physicalHeightM * 0.5, eq.y);
-        const target = center.clone().add(new THREE.Vector3(span * 1.1, span * 0.8, span * 1.5));
+        const eqRot = -(eq.rotation * Math.PI) / 180;
+        const c = Math.cos(eqRot), s = Math.sin(eqRot);
+        const wx = pose.rootX * c - pose.rootZ * s;
+        const wz = pose.rootX * s + pose.rootZ * c;
+        pos.current.x = eq.x + wx;
+        pos.current.z = eq.y + wz;
+        pose.rootRotY += eqRot;
+        pose.rootY = (eq.z ?? 0) + mountBaseY + (pose.rootY ?? 0);
+        pose.rootX = 0;
+        pose.rootZ = 0;
+      } else {
+        pose.rootY = mountBaseY + (pose.rootY ?? 0);
+      }
+
+      // Kamera: visa gymnast + redskap — mer utzoomad
+      if (eq && type) {
+        const span = Math.max(type.widthM, type.heightM, type.physicalHeightM, 1.5);
+        const cy = (eq.z ?? 0) + type.physicalHeightM * 0.5;
+        const center = new THREE.Vector3(eq.x, cy, eq.y);
+        const target = center.clone().add(new THREE.Vector3(span * 1.6, span * 1.3, span * 2.3));
         camPos.current.lerp(target, 0.04);
         camLook.current.lerp(center, 0.06);
       }
@@ -381,61 +461,74 @@ export function GameGymnast3D({
       const moving  = fwd || back || Math.abs(joyFwd) > 0.1 || turning;
 
       // Rotera gymnast (rotY) + lät kamera följa med fördröjning (camYaw)
-      rotY.current += (rgt - left - joyTurn) * TURN_SPEED * delta;
+      rotY.current += (rgt - left + joyTurn) * TURN_SPEED * delta;
       // Lerpa camYaw mot rotY → gymnast vrids synbart innan kameran hinner med
       camYaw.current += (rotY.current - camYaw.current) * Math.min(1, delta * 6);
 
-      // Flytta i gymnasten's framåtriktning (W/↑ = framåt = bort från kameran)
-      const moveD = (fwd - back + joyFwd) * SPEED * delta;
-      pos.current.x += Math.sin(rotY.current) * moveD;
-      pos.current.z -= Math.cos(rotY.current) * moveD;
+      // Flytta i gymnasten's framåtriktning
+      const moveD = (fwd - back + joyFwd) * speedRef.current * delta;
+      let newX = pos.current.x + Math.sin(rotY.current) * moveD;
+      let newZ = pos.current.z - Math.cos(rotY.current) * moveD;
 
-      // Klämma till hallens gränser
-      pos.current.x = Math.max(0.5, Math.min(hallW - 0.5, pos.current.x));
-      pos.current.z = Math.max(0.5, Math.min(hallH - 0.5, pos.current.z));
+      // Kollision + proximity (kombinerad loop)
+      let closest: { id: string; name: string } | null = null;
+      let minDist = PROX;
+      for (const eq of station.equipment) {
+        const eqType = getEquipmentById(eq.typeId);
+        if (!eqType) continue;
+        const dx = eq.x - pos.current.x;
+        const dz = eq.y - pos.current.z;
+        const d  = Math.sqrt(dx * dx + dz * dz);
+        if (d < minDist) {
+          minDist = d;
+          closest = { id: eq.id, name: eq.label ?? eqType.name };
+        }
+        // AABB-kollision (skippa nära redskap så montering fungerar)
+        if (d > PROX && eqType) {
+          const hw = (eqType.widthM * eq.scaleX) / 2 + 0.3;
+          const hd = (eqType.heightM * eq.scaleY) / 2 + 0.3;
+          if (Math.abs(newX - eq.x) < hw && Math.abs(newZ - eq.y) < hd) {
+            newX = pos.current.x;
+            newZ = pos.current.z;
+          }
+        }
+      }
+
+      pos.current.x = Math.max(0.5, Math.min(hallW - 0.5, newX));
+      pos.current.z = Math.max(0.5, Math.min(hallH - 0.5, newZ));
+
+      if (closest?.id !== nearEq.current?.id) {
+        nearEq.current = closest;
+        onNearEquipment(closest?.name ?? null);
+      }
 
       // Välj animation
       const kfs  = moving ? WALK_KFS : IDLE_KFS;
       pose       = evalKF(kfs, t);
       pose.rootX = 0;
       pose.rootZ = 0;
-      pose.rootRotY = rotY.current;
+      pose.rootRotY = -rotY.current;
 
       const baseY = H_THIGH + H_SHIN;
       pose.rootY += baseY;
 
-      // Proximity-check
-      let closest: { id: string; name: string } | null = null;
-      let minDist = PROX;
-      for (const eq of station.equipment) {
-        const dx = eq.x - pos.current.x;
-        const dz = eq.y - pos.current.z;
-        const d  = Math.sqrt(dx*dx + dz*dz);
-        if (d < minDist) {
-          minDist = d;
-          const type = getEquipmentById(eq.typeId);
-          closest = { id: eq.id, name: eq.label ?? type?.name ?? "" };
-        }
+      // Kamera bakifrån (skippa om fri kamera)
+      if (!freeCamRef.current) {
+        const sx = Math.sin(camYaw.current);
+        const sz = -Math.cos(camYaw.current);
+        const gymnPos = new THREE.Vector3(pos.current.x, baseY + 0.8, pos.current.z);
+        const camTarget = gymnPos.clone().add(new THREE.Vector3(-sx * CAM_DIST, CAM_HEIGHT, -sz * CAM_DIST));
+        const lookTarget = gymnPos.clone().add(new THREE.Vector3(0, 0.2, 0));
+        camPos.current.lerp(camTarget, 0.06);
+        camLook.current.lerp(lookTarget, 0.08);
       }
-      if (closest?.id !== nearEq.current?.id) {
-        nearEq.current = closest;
-        onNearEquipment(closest?.name ?? null);
-      }
-
-      // Kamera bakifrån – använd camYaw (fördröjd) för att göra gymnastvridningen synbar
-      const sx = Math.sin(camYaw.current);
-      const sz = -Math.cos(camYaw.current);
-      const gymnPos = new THREE.Vector3(pos.current.x, baseY + 0.8, pos.current.z);
-      const camTarget = gymnPos.clone().add(new THREE.Vector3(-sx * CAM_DIST, CAM_HEIGHT, -sz * CAM_DIST));
-      const lookTarget = gymnPos.clone().add(new THREE.Vector3(0, 0.2, 0));
-
-      camPos.current.lerp(camTarget, 0.06);
-      camLook.current.lerp(lookTarget, 0.08);
     }
 
-    // ── Applicera kamera ───────────────────────────────────────────────────
-    camera.position.copy(camPos.current);
-    camera.lookAt(camLook.current);
+    // ── Applicera kamera (skippa om fri kamera) ─────────────────────────
+    if (!freeCamRef.current) {
+      camera.position.copy(camPos.current);
+      camera.lookAt(camLook.current);
+    }
 
     // ── Applicera pose på refs ─────────────────────────────────────────────
     if (rootRef.current) {

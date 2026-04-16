@@ -67,6 +67,7 @@ export default function App() {
 
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const viewMode = usePlanStore((s) => s.viewMode);
+  const gameMode = usePlanStore((s) => s.gameMode);
   const is3D = viewMode === "3D";
 
   const plan = usePlanStore((s) => s.plan);
@@ -144,6 +145,17 @@ export default function App() {
       )}
     </div>
   );
+
+  // I spelläge: visa bara canvasarean (GameHUD hanterar exit-knapp)
+  if (gameMode) {
+    return (
+      <div className="flex h-full flex-col">
+        <main className="relative flex min-w-0 flex-1 flex-col">
+          {canvasArea}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">

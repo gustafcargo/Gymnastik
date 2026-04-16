@@ -1,10 +1,10 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Environment } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { nanoid } from "nanoid";
-import { ChevronDown, ChevronUp, Copy, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Plus, Redo2, Trash2, Undo2, X } from "lucide-react";
 import { useCustomEquipmentStore } from "../store/useCustomEquipmentStore";
 import type {
   CustomEquipmentPart,
@@ -224,22 +224,51 @@ function PreviewScene({
 }
 
 // ---------------------------------------------------------------------------
+// Undo/redo reducer for parts
+// ---------------------------------------------------------------------------
+type PartsState = { parts: CustomEquipmentPart[]; past: CustomEquipmentPart[][]; future: CustomEquipmentPart[][] };
+type PartsAction =
+  | { type: "set"; parts: CustomEquipmentPart[] }
+  | { type: "undo" }
+  | { type: "redo" };
+
+function partsReducer(s: PartsState, a: PartsAction): PartsState {
+  switch (a.type) {
+    case "set":
+      return { parts: a.parts, past: [...s.past.slice(-30), s.parts], future: [] };
+    case "undo":
+      if (!s.past.length) return s;
+      return { parts: s.past[s.past.length - 1], past: s.past.slice(0, -1), future: [s.parts, ...s.future] };
+    case "redo":
+      if (!s.future.length) return s;
+      return { parts: s.future[0], past: [...s.past, s.parts], future: s.future.slice(1) };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Modal
 // ---------------------------------------------------------------------------
 
-type Props = { onClose: () => void };
+type Props = {
+  onClose: () => void;
+  initialParts?: CustomEquipmentPart[];
+  initialName?: string;
+};
 
-export function CustomEquipmentModal({ onClose }: Props) {
+export function CustomEquipmentModal({ onClose, initialParts, initialName }: Props) {
   const addCustomType = useCustomEquipmentStore((s) => s.addCustomType);
 
-  const [name, setName] = useState("Eget redskap");
+  const startParts = initialParts?.length ? initialParts : [newPart()];
+  const [name, setName] = useState(initialName ?? "Eget redskap");
   const [category, setCategory] = useState<EquipmentCategory>("redskap");
   const [footprintShape, setFootprintShape] = useState<EquipmentShape>("roundedRect");
   const [baseColor, setBaseColor] = useState("#788C9E");
   const [desc, setDesc] = useState("");
-  const [parts, setParts] = useState<CustomEquipmentPart[]>([newPart()]);
-  const [expandedId, setExpandedId] = useState<string | null>(parts[0]?.id ?? null);
-  const [selectedPartId, setSelectedPartId] = useState<string | null>(parts[0]?.id ?? null);
+  const [partsState, dispatchParts] = useReducer(partsReducer, { parts: startParts, past: [], future: [] });
+  const parts = partsState.parts;
+  const setParts = useCallback((p: CustomEquipmentPart[]) => dispatchParts({ type: "set", parts: p }), []);
+  const [expandedId, setExpandedId] = useState<string | null>(startParts[0]?.id ?? null);
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(startParts[0]?.id ?? null);
 
   const orbitRef = useRef<OrbitControlsImpl>(null);
 
@@ -264,12 +293,12 @@ export function CustomEquipmentModal({ onClose }: Props) {
   };
 
   const updatePart = (id: string, patch: Partial<CustomEquipmentPart>) => {
-    setParts((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    setParts(parts.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   };
 
   const addPart = () => {
     const p = newPart();
-    setParts((ps) => [...ps, p]);
+    setParts([...parts, p]);
     setExpandedId(p.id);
     setSelectedPartId(p.id);
   };
@@ -278,18 +307,16 @@ export function CustomEquipmentModal({ onClose }: Props) {
     const src = parts.find((p) => p.id === id);
     if (!src) return;
     const clone: CustomEquipmentPart = { ...src, id: nanoid(6), offsetX: src.offsetX + 0.2, offsetZ: src.offsetZ + 0.2 };
-    setParts((ps) => {
-      const idx = ps.findIndex((p) => p.id === id);
-      const next = [...ps];
-      next.splice(idx + 1, 0, clone);
-      return next;
-    });
+    const idx = parts.findIndex((p) => p.id === id);
+    const next = [...parts];
+    next.splice(idx + 1, 0, clone);
+    setParts(next);
     setExpandedId(clone.id);
     setSelectedPartId(clone.id);
   };
 
   const removePart = (id: string) => {
-    setParts((ps) => ps.filter((p) => p.id !== id));
+    setParts(parts.filter((p) => p.id !== id));
     if (expandedId === id) setExpandedId(null);
     if (selectedPartId === id) setSelectedPartId(null);
   };
@@ -299,9 +326,20 @@ export function CustomEquipmentModal({ onClose }: Props) {
     setExpandedId(id);
   };
 
-  const handleUpdatePartXZ = (id: string, offsetX: number, offsetZ: number) => {
-    updatePart(id, { offsetX, offsetZ });
-  };
+  const handleUpdatePartXZ = useCallback((id: string, offsetX: number, offsetZ: number) => {
+    dispatchParts({ type: "set", parts: partsState.parts.map(p => p.id === id ? { ...p, offsetX, offsetZ } : p) });
+  }, [partsState.parts]);
+
+  // Ctrl+Z / Ctrl+Y keyboard shortcuts
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); dispatchParts({ type: "undo" }); }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) { e.preventDefault(); dispatchParts({ type: "redo" }); }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
 
   return (
     <div
@@ -323,9 +361,19 @@ export function CustomEquipmentModal({ onClose }: Props) {
         {/* ── Left: properties + parts ── */}
         <div className="flex w-80 shrink-0 flex-col border-r border-surface-3">
           <div className="border-b border-surface-3 px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Skapa eget redskap
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                {initialParts ? "Redigera redskap" : "Skapa eget redskap"}
+              </p>
+              <div className="flex gap-1">
+                <button type="button" onClick={() => dispatchParts({ type: "undo" })} disabled={!partsState.past.length}
+                  className={"grid h-6 w-6 place-items-center rounded " + (partsState.past.length ? "text-slate-500 hover:bg-surface-2" : "text-slate-300 cursor-not-allowed")}
+                  title="Ångra (Ctrl+Z)"><Undo2 size={13} /></button>
+                <button type="button" onClick={() => dispatchParts({ type: "redo" })} disabled={!partsState.future.length}
+                  className={"grid h-6 w-6 place-items-center rounded " + (partsState.future.length ? "text-slate-500 hover:bg-surface-2" : "text-slate-300 cursor-not-allowed")}
+                  title="Gör om (Ctrl+Y)"><Redo2 size={13} /></button>
+              </div>
+            </div>
             <input
               type="text"
               value={name}
