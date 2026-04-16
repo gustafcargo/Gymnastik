@@ -95,8 +95,8 @@ function Joint({ r, color, leotard = false }: {
 function Head({ skin, hair, ribbon = "#ff6fa0" }: {
   skin: string; hair: string; ribbon?: string;
 }) {
-  // Något ljusare hy på ansikte och örsnibbar
-  const skinWarm = "#f2d1ae";
+  // Använd `skin` som bas och blanda till en något varmare ton i ansiktet
+  const skinWarm = skin || "#f2d1ae";
   return (
     <>
       {/* Huvud – lätt ovalt via icke-uniform skala */}

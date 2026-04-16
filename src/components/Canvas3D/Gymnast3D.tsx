@@ -123,25 +123,26 @@ export const EXERCISES: Record<string, ExerciseDef> = {
 
   // Kip – häng → pike → sving upp → stöd → häng
   // Händer låsta vid stången via HANG_STRAIGHT + pend() under svingfaserna
+  // Konvention (ansikte −Z): positiv hipX = ben framåt, negativ knX = naturlig böjning
   "high-bar:kip": { kfs: [
     // Häng
     { t: 0,    pose: { ...HANG_STRAIGHT } },
-    // Liten baksving
+    // Liten baksving (fötter bakåt = +Z → positiv rootRotX)
     { t: 0.30, pose: { ...HANG_STRAIGHT,
-        rootRotX: -P*0.15, ...pend(-P*0.15) } },
-    // Framsving + pike (tårna mot stången)
+        rootRotX: P*0.15, ...pend(P*0.15) } },
+    // Framsving + pike (tårna fram mot stången, höfter vikta kraftigt fram)
     { t: 0.75, pose: { ...HANG_STRAIGHT,
-        lHipX: -P*0.60, rHipX: -P*0.60,
-        lKnX: P*0.08, rKnX: P*0.08,
-        spineX: -P*0.08,
-        rootRotX: P*0.08, ...pend(P*0.08) } },
-    // Extension – kroppen skjuter upp
+        lHipX: P*0.95, rHipX: P*0.95,
+        lKnX: -P*0.05, rKnX: -P*0.05,
+        spineX: -P*0.10,
+        rootRotX: -P*0.10, ...pend(-P*0.10) } },
+    // Extension – kroppen skjuter upp (höfter öppnas, kropp över stången)
     { t: 1.05, pose: { ...HANG_STRAIGHT,
-        lHipX: -P*0.10, rHipX: -P*0.10,
-        rootRotX: P*0.40, ...pend(P*0.40) } },
-    // Kroppen roterar över stången
+        lHipX: P*0.15, rHipX: P*0.15,
+        rootRotX: -P*0.25, ...pend(-P*0.25) } },
+    // Kroppen roterar över stången till stödet
     { t: 1.25, pose: { ...HANG_STRAIGHT,
-        rootRotX: P*0.55, ...pend(P*0.55) } },
+        rootRotX: -P*0.50, ...pend(-P*0.50) } },
     // Snabb övergång till stöd (0.15 s)
     { t: 1.40, pose: { ...ZERO,
         lShX: P*0.05, rShX: P*0.05,
@@ -247,17 +248,19 @@ export const EXERCISES: Record<string, ExerciseDef> = {
     ],
   },
 
-  // Hopp bom
+  // Hopp bom – knäböj inför hopp + mjuk landning (−Z-konvention)
   "beam:jump": { baseRotY: P / 2, kfs: [
     { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
-    { t: 0.25, pose: { ...ZERO, lHipX:-P*0.10, rHipX:-P*0.10, lKnX:P*0.14, rKnX:P*0.14,
+    { t: 0.25, pose: { ...ZERO, lHipX: P*0.22, rHipX: P*0.22, lKnX:-P*0.32, rKnX:-P*0.32,
+                       spineX:-P*0.08,
                        rootY:-0.06, lShZ:-P*0.20, rShZ:P*0.20 } },
     { t: 0.50, pose: { ...ZERO, rootY:0.28,
                        lShX:-P*0.6, rShX:-P*0.6, lShZ:-P*0.10, rShZ:P*0.10,
                        spineX:-P*0.03, headX:-P*0.05 } },
     { t: 0.75, pose: { ...ZERO, rootY:0.20,
                        lShX:-P*0.4, rShX:-P*0.4, lShZ:-P*0.15, rShZ:P*0.15 } },
-    { t: 1.05, pose: { ...ZERO, lHipX:-P*0.08, rHipX:-P*0.08, lKnX:P*0.12, rKnX:P*0.12,
+    { t: 1.05, pose: { ...ZERO, lHipX: P*0.20, rHipX: P*0.20, lKnX:-P*0.30, rKnX:-P*0.30,
+                       spineX:-P*0.08,
                        rootY:-0.05, lShZ:-P*0.22, rShZ:P*0.22 } },
     { t: 1.40, pose: { ...ZERO, ...ARMS_SIDE } },
   ] },
@@ -269,42 +272,46 @@ export const EXERCISES: Record<string, ExerciseDef> = {
     { t: 4.0, pose: { ...ZERO, ...ARMS_SIDE } },
   ] },
 
-  // Arabesque – vänster ben bak, armar i balansposition
+  // Arabesque – vänster ben bak (höger = stödben), torso framåt, huvud lyft
+  //   Konvention (ansikte −Z): negativ hipX = ben bakåt (+Z)
   "beam:arabesque": { baseRotY: P / 2, kfs: [
     { t: 0,   pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 0.70, pose: { ...ZERO,
-        lHipX: P*0.50, lKnX: P*0.03,
+        lHipX: -P*0.50, lKnX: 0,
         rHipX: -P*0.04,
-        spineX: -P*0.10, spineZ: 0.02,
+        spineX: -P*0.18, spineZ: 0.02,
         lShX: -P*0.70, lShZ:-P*0.10, lElX: P*0.05,
         rShZ: P*0.42, rShX:-P*0.04, rElX: P*0.04,
-        headX: -P*0.06,
+        headX: P*0.12,
         rootY: 0.01 } },
     { t: 2.80, pose: { ...ZERO,
-        lHipX: P*0.52, lKnX: P*0.03,
+        lHipX: -P*0.52, lKnX: 0,
         rHipX: -P*0.04,
-        spineX: -P*0.09, spineZ: 0.02,
+        spineX: -P*0.18, spineZ: 0.02,
         lShX: -P*0.72, lShZ:-P*0.10, lElX: P*0.05,
         rShZ: P*0.40, rShX:-P*0.04, rElX: P*0.04,
-        headX: -P*0.06,
+        headX: P*0.12,
         rootY: 0.01 } },
     { t: 3.50, pose: { ...ZERO, ...ARMS_SIDE } },
   ] },
 
-  // Knähopp (tuck jump) – armar driver uppåt, tuck med händer mot knän
+  // Knähopp (tuck jump) – knäböj → tuck (knän mot bröst) → landning
   "beam:tuck-jump": { baseRotY: P / 2, kfs: [
     { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
-    { t: 0.22, pose: { ...ZERO, lKnX:P*0.14, rKnX:P*0.14, lHipX:-P*0.08, rHipX:-P*0.08,
+    { t: 0.22, pose: { ...ZERO, lHipX: P*0.20, rHipX: P*0.20, lKnX:-P*0.32, rKnX:-P*0.32,
+                       spineX:-P*0.08,
                        rootY:-0.07, lShZ:-P*0.18, rShZ:P*0.18 } },
     { t: 0.45, pose: { ...ZERO, rootY:0.30,
                        lShX:-P*0.5, rShX:-P*0.5, lShZ:-P*0.06, rShZ:P*0.06,
                        spineX:-P*0.03 } },
-    { t: 0.62, pose: { ...ZERO, lHipX:-P*0.72, rHipX:-P*0.72, lKnX:P*0.55, rKnX:P*0.55,
-                       spineX:-P*0.08, rootY:0.34,
+    // Tuck i luften: lår upp-framåt (+hipX stor), skenben vikta bakåt under (−knX stor)
+    { t: 0.62, pose: { ...ZERO, lHipX: P*0.85, rHipX: P*0.85, lKnX:-P*0.95, rKnX:-P*0.95,
+                       spineX:-P*0.18, rootY:0.34,
                        lShX:-P*0.30, rShX:-P*0.30, lElX:P*0.45, rElX:P*0.45 } },
     { t: 0.85, pose: { ...ZERO, rootY:0.15,
                        lShX:-P*0.3, rShX:-P*0.3, lShZ:-P*0.12, rShZ:P*0.12 } },
-    { t: 1.05, pose: { ...ZERO, lHipX:-P*0.08, rHipX:-P*0.08, lKnX:P*0.12, rKnX:P*0.12,
+    { t: 1.05, pose: { ...ZERO, lHipX: P*0.20, rHipX: P*0.20, lKnX:-P*0.30, rKnX:-P*0.30,
+                       spineX:-P*0.08,
                        rootY:-0.05, lShZ:-P*0.22, rShZ:P*0.22 } },
     { t: 1.40, pose: { ...ZERO, ...ARMS_SIDE } },
   ] },
@@ -335,80 +342,85 @@ export const EXERCISES: Record<string, ExerciseDef> = {
     { t: 0,    pose: { ...ZERO, ...ARMS_SIDE, rootY: -1.25, rootZ: 0.55 } },
 
     // ── Fas 2: Hopp till jämvägande sittande ────────────────────────────
-    // Hoppförberedelse på golvet
+    // Hoppförberedelse på golvet – knäböj (lår något framåt, skenben vertikalt)
     { t: 0.40, pose: { ...ZERO,
-        lHipX: -P*0.08, rHipX: -P*0.08, lKnX: P*0.15, rKnX: P*0.15,
+        lHipX: P*0.22, rHipX: P*0.22, lKnX: -P*0.35, rKnX: -P*0.35,
+        spineX: -P*0.10,
         rootY: -1.30, rootZ: 0.55,
         lShZ: -P*0.18, rShZ: P*0.18 } },
-    // I luften – hoppar upp mot bommen
+    // I luften – hoppar upp mot bommen (armar upp)
     { t: 0.75, pose: { ...ZERO,
         rootY: 0.10, rootZ: 0.15,
         lShX: -P*0.30, rShX: -P*0.30,
         lShZ: -P*0.10, rShZ: P*0.10 } },
-    // Landning sittande på bommen
+    // Landning sittande på bommen – benen framåt över bommen, knän naturligt böjda
     { t: 1.20, pose: { ...ZERO,
-        lHipX: -P*0.50, rHipX: -P*0.50,
-        lKnX: P*0.45, rKnX: P*0.45,
+        lHipX: P*0.50, rHipX: P*0.50,
+        lKnX: -P*0.45, rKnX: -P*0.45,
         spineX: -P*0.05, rootY: -0.55, ...ARMS_SIDE } },
 
     // ── Fas 3: Ena benet över → ridsittande, armar ut ───────────────────
+    //   Höger ben fortsatt framåt, vänster ben svingas bakåt (straddle)
     { t: 2.00, pose: { ...ZERO,
-        lHipX: -P*0.45, rHipX: P*0.30,
-        lKnX: P*0.35, rKnX: P*0.20,
+        lHipX: -P*0.35, rHipX: P*0.40,
+        lKnX: -P*0.25, rKnX: -P*0.20,
         rootY: -0.55, ...ARMS_SIDE } },
     { t: 2.60, pose: { ...ZERO,
-        lHipX: -P*0.42, rHipX: P*0.32,
-        lKnX: P*0.32, rKnX: P*0.18,
+        lHipX: -P*0.32, rHipX: P*0.42,
+        lKnX: -P*0.22, rKnX: -P*0.18,
         rootY: -0.55, ...ARMS_SIDE } },
 
     // ── Fas 4: Vipp till huksittande, händer i midjan ───────────────────
+    //   Djup huk: lår upp-framåt, skenben ≈ vertikalt
     { t: 3.20, pose: { ...ZERO,
-        lHipX: -P*0.18, rHipX: -P*0.18,
-        lKnX: P*0.55, rKnX: P*0.55,
-        spineX: -P*0.12, rootY: -0.35,
+        lHipX: P*0.55, rHipX: P*0.55,
+        lKnX: -P*0.55, rKnX: -P*0.55,
+        spineX: -P*0.18, rootY: -0.35,
         lShZ: -P*0.12, rShZ: P*0.12,
         lElX: P*0.55, rElX: P*0.55 } },
 
     // ── Fas 5: Gå två steg på huk, händer i midjan ─────────────────────
     //   (rootX negativ = framåt i blickriktningen −X efter baseRotY=π/2)
     { t: 3.90, pose: { ...ZERO,
-        lHipX: -P*0.26, rHipX: -P*0.12,
-        lKnX: P*0.48, rKnX: P*0.58,
-        spineX: -P*0.12, rootY: -0.33, rootX: -0.25,
+        lHipX: P*0.50, rHipX: P*0.60,
+        lKnX: -P*0.58, rKnX: -P*0.48,
+        spineX: -P*0.18, rootY: -0.33, rootX: -0.25,
         lShZ: -P*0.12, rShZ: P*0.12,
         lElX: P*0.55, rElX: P*0.55 } },
     { t: 4.60, pose: { ...ZERO,
-        lHipX: -P*0.12, rHipX: -P*0.26,
-        lKnX: P*0.58, rKnX: P*0.48,
-        spineX: -P*0.12, rootY: -0.33, rootX: -0.50,
+        lHipX: P*0.60, rHipX: P*0.50,
+        lKnX: -P*0.48, rKnX: -P*0.58,
+        spineX: -P*0.18, rootY: -0.33, rootX: -0.50,
         lShZ: -P*0.12, rShZ: P*0.12,
         lElX: P*0.55, rElX: P*0.55 } },
 
     // ── Fas 6: Sträck benen → pikstående, armar ut ──────────────────────
+    //   Pik = framåtvikt överkropp: spineX negativ (huvudet mot −Z/ansiktet)
     { t: 5.20, pose: { ...ZERO,
-        spineX: P*0.50, rootY: -0.06, rootX: -0.55,
+        spineX: -P*0.50, rootY: -0.06, rootX: -0.55,
         ...ARMS_SIDE } },
     { t: 5.80, pose: { ...ZERO,
-        spineX: P*0.52, rootY: -0.06, rootX: -0.55,
+        spineX: -P*0.52, rootY: -0.06, rootX: -0.55,
         ...ARMS_SIDE } },
 
     // ── Fas 7: Händer på bom, gå med fötter och händer (björngång) ──────
+    //   Framåtlutning (spineX negativ) + armar sträckta ned mot bommen
     { t: 6.30, pose: { ...ZERO,
-        spineX: P*0.55,
-        lShX: -P*0.50, rShX: -P*0.50,
+        spineX: -P*0.55,
+        lShX: P*0.50, rShX: P*0.50,
         lElX: P*0.10, rElX: P*0.10,
         rootY: -0.08, rootX: -0.60 } },
     { t: 6.90, pose: { ...ZERO,
-        spineX: P*0.55,
-        lShX: -P*0.55, rShX: -P*0.42,
+        spineX: -P*0.55,
+        lShX: P*0.55, rShX: P*0.42,
         lElX: P*0.10, rElX: P*0.10,
-        lHipX: P*0.06, rHipX: -P*0.10, rKnX:-P*0.10,
+        lHipX: P*0.10, rHipX: -P*0.06, rKnX:-P*0.10,
         rootY: -0.08, rootX: -0.80 } },
     { t: 7.50, pose: { ...ZERO,
-        spineX: P*0.55,
-        lShX: -P*0.42, rShX: -P*0.55,
+        spineX: -P*0.55,
+        lShX: P*0.42, rShX: P*0.55,
         lElX: P*0.10, rElX: P*0.10,
-        lHipX: -P*0.10, rHipX: P*0.06, lKnX:-P*0.10,
+        lHipX: -P*0.06, rHipX: P*0.10, lKnX:-P*0.10,
         rootY: -0.08, rootX: -1.00 } },
 
     // ── Fas 8: Res upp, sträckt kropp, händer bakom ryggen ──────────────
@@ -449,8 +461,10 @@ export const EXERCISES: Record<string, ExerciseDef> = {
     { t: 11.80, pose: { ...ZERO, ...ARMS_SIDE, rootX: -2.10 } },
 
     // ── Fas 12: Avhopp – ljushopp med armdrag, kontrollerad landning ────
+    //   Knäböj inför hopp: lår framåt (+hipX), skenben vertikalt (−knX)
     { t: 12.20, pose: { ...ZERO,
-        lHipX: -P*0.08, rHipX: -P*0.08, lKnX: P*0.14, rKnX: P*0.14,
+        lHipX: P*0.18, rHipX: P*0.18, lKnX: -P*0.30, rKnX: -P*0.30,
+        spineX: -P*0.08,
         rootY: -0.05, lShZ: -P*0.18, rShZ: P*0.18, rootX: -2.10 } },
     { t: 12.50, pose: { ...ZERO,
         rootY: 0.35,
@@ -461,8 +475,10 @@ export const EXERCISES: Record<string, ExerciseDef> = {
         rootY: 0.15,
         lShX: -P*0.80, rShX: -P*0.80,
         rootX: -2.10, rootZ: 0.45 } },
+    // Landning – mjuk mottagning med böjda knän
     { t: 13.10, pose: { ...ZERO,
-        lHipX: -P*0.10, rHipX: -P*0.10, lKnX: P*0.16, rKnX: P*0.16,
+        lHipX: P*0.22, rHipX: P*0.22, lKnX: -P*0.38, rKnX: -P*0.38,
+        spineX: -P*0.10,
         rootY: -1.20,
         lShZ: -P*0.22, rShZ: P*0.22,
         rootX: -2.10, rootZ: 0.55 } },
@@ -547,14 +563,16 @@ export const EXERCISES: Record<string, ExerciseDef> = {
 
   "mini-tramp:bounce": { kfs: [
     { t: 0,    pose: { ...ZERO } },
-    { t: 0.20, pose: { ...ZERO, lKnX:P*0.15, rKnX:P*0.15, lHipX:-P*0.08, rHipX:-P*0.08,
+    { t: 0.20, pose: { ...ZERO, lHipX: P*0.18, rHipX: P*0.18, lKnX:-P*0.28, rKnX:-P*0.28,
+                       spineX:-P*0.06,
                        rootY:-0.06, lShZ:-P*0.10, rShZ:P*0.10 } },
     { t: 0.45, pose: { ...ZERO, rootY:0.32,
                        lShX:-P*0.4, rShX:-P*0.4, lShZ:-P*0.10, rShZ:P*0.10,
                        spineX:-P*0.02 } },
     { t: 0.70, pose: { ...ZERO, rootY:0.15,
                        lShX:-P*0.2, rShX:-P*0.2, lShZ:-P*0.12, rShZ:P*0.12 } },
-    { t: 0.85, pose: { ...ZERO, lKnX:P*0.13, rKnX:P*0.13, lHipX:-P*0.07, rHipX:-P*0.07,
+    { t: 0.85, pose: { ...ZERO, lHipX: P*0.16, rHipX: P*0.16, lKnX:-P*0.26, rKnX:-P*0.26,
+                       spineX:-P*0.06,
                        rootY:-0.05, lShZ:-P*0.08, rShZ:P*0.08 } },
     { t: 1.0,  pose: { ...ZERO } },
   ] },
