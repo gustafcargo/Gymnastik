@@ -196,6 +196,16 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshBasicMaterial color="#ffffff" />
       </mesh>
 
+      {/* Ögonfransar – tunn mörk båge precis ovanför ögat */}
+      <mesh position={[-H_HEAD * 0.34, H_HEAD * 0.135, -H_HEAD * 0.88]} rotation={[P * 0.5, 0, 0]} castShadow>
+        <torusGeometry args={[0.013, 0.0014, 6, 10, P * 0.9]} />
+        <meshPhysicalMaterial color="#1a0f06" roughness={0.55} metalness={0.1} />
+      </mesh>
+      <mesh position={[ H_HEAD * 0.34, H_HEAD * 0.135, -H_HEAD * 0.88]} rotation={[P * 0.5, 0, 0]} castShadow>
+        <torusGeometry args={[0.013, 0.0014, 6, 10, P * 0.9]} />
+        <meshPhysicalMaterial color="#1a0f06" roughness={0.55} metalness={0.1} />
+      </mesh>
+
       {/* Ögonbryn – lätta torusbitar ovanför ögonen */}
       <mesh position={[-H_HEAD * 0.34, H_HEAD * 0.23, -H_HEAD * 0.85]} rotation={[P * 0.12, 0, -P * 0.05]} castShadow>
         <capsuleGeometry args={[0.004, 0.024, 3, 6]} />
@@ -303,16 +313,28 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
 
       {/* ── Bål (uppåt från höfter) ──────────────────────────────────── */}
       <group ref={r3f(refs.spineRef)}>
-        {/* Torso – avsmalnande cylinder (bredare axlar, smalare midja) */}
-        <mesh position={[0, H_TORSO * 0.5, 0]} castShadow>
-          <cylinderGeometry args={[R_BODY * 0.82, R_BODY * 1.02, H_TORSO, 20]} />
+        {/* Överbål (bröstkorg) – bredare upptill, smalare vid midjan */}
+        <mesh position={[0, H_TORSO * 0.72, 0]} castShadow>
+          <cylinderGeometry args={[R_BODY * 0.94, R_BODY * 0.74, H_TORSO * 0.58, 22]} />
           <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
             clearcoat={0.55} clearcoatRoughness={0.22} />
         </mesh>
+        {/* Underbål (höft) – smalare upptill vid midjan, bredare ned */}
+        <mesh position={[0, H_TORSO * 0.22, 0]} castShadow>
+          <cylinderGeometry args={[R_BODY * 0.74, R_BODY * 1.02, H_TORSO * 0.45, 22]} />
+          <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
+            clearcoat={0.55} clearcoatRoughness={0.22} />
+        </mesh>
+        {/* Bröstvolym – subtil rundning fram i bröstkorgen */}
+        <mesh position={[0, H_TORSO * 0.78, -R_BODY * 0.55]} scale={[1.5, 0.75, 0.95]} castShadow>
+          <sphereGeometry args={[R_BODY * 0.44, 16, 12]} />
+          <meshPhysicalMaterial color={color} roughness={0.38} metalness={0.16}
+            clearcoat={0.50} clearcoatRoughness={0.25} />
+        </mesh>
 
-        {/* Midjeband – mörkare accent */}
-        <mesh position={[0, H_TORSO * 0.36, 0]} castShadow>
-          <torusGeometry args={[R_BODY * 1.00, 0.006, 10, 24]} />
+        {/* Midjeband – mörkare accent vid smalaste punkten */}
+        <mesh position={[0, H_TORSO * 0.44, 0]} castShadow>
+          <torusGeometry args={[R_BODY * 0.76, 0.005, 10, 24]} />
           <meshPhysicalMaterial color={color} roughness={0.25} metalness={0.4} clearcoat={0.8} />
         </mesh>
 
@@ -384,9 +406,14 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
         </group>
       </group>
 
-      {/* ── Vänster ben – barfota ───────────────────────────────────── */}
+      {/* ── Vänster ben – barfota, hög benskärning på leotard ────────── */}
       <group ref={r3f(refs.lHipRef)} position={[-W_HIP, 0, 0]}>
         <LeotardSeg len={H_THIGH} r={R_LEG * 1.02} color={color} />
+        {/* Hög benskärning – tunn hud-ring där leotard slutar */}
+        <mesh position={[0, -0.012, 0]} rotation={[0, 0, P * 0.5]} castShadow>
+          <torusGeometry args={[R_LEG * 1.04, 0.004, 8, 18]} />
+          <meshPhysicalMaterial color={skin} roughness={0.62} metalness={0} />
+        </mesh>
         <group ref={r3f(refs.lKnRef)} position={[0, -H_THIGH, 0]}>
           <Joint r={R_LEG * 1.08} color={skin} />
           <SkinSeg len={H_SHIN} r={R_LEG * 0.88} color={skin} />
@@ -394,9 +421,13 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
         </group>
       </group>
 
-      {/* ── Höger ben – barfota ─────────────────────────────────────── */}
+      {/* ── Höger ben – barfota, hög benskärning på leotard ─────────── */}
       <group ref={r3f(refs.rHipRef)} position={[W_HIP, 0, 0]}>
         <LeotardSeg len={H_THIGH} r={R_LEG * 1.02} color={color} />
+        <mesh position={[0, -0.012, 0]} rotation={[0, 0, P * 0.5]} castShadow>
+          <torusGeometry args={[R_LEG * 1.04, 0.004, 8, 18]} />
+          <meshPhysicalMaterial color={skin} roughness={0.62} metalness={0} />
+        </mesh>
         <group ref={r3f(refs.rKnRef)} position={[0, -H_THIGH, 0]}>
           <Joint r={R_LEG * 1.08} color={skin} />
           <SkinSeg len={H_SHIN} r={R_LEG * 0.88} color={skin} />

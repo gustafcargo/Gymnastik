@@ -27,12 +27,13 @@ type Props = { className?: string };
 
 const GYMNAST_COLOR = "#c026d3";
 
-function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamEnabled, onNearEquipment, onMountedExercises, onFreeCamChange }: {
+function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRef, cameraOrbitRef, freeCamEnabled, onNearEquipment, onMountedExercises, onFreeCamChange }: {
   W: number; H: number;
   joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
   mountTriggerRef: React.MutableRefObject<boolean>;
   speedRef: React.MutableRefObject<number>;
   cameraResetRef: React.MutableRefObject<boolean>;
+  cameraOrbitRef: React.MutableRefObject<{ yaw: number; pitch: number; distScale: number }>;
   freeCamEnabled: boolean;
   onNearEquipment: (name: string | null) => void;
   onMountedExercises: (info: MountedExerciseInfo | null) => void;
@@ -641,6 +642,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
           mountTriggerRef={mountTriggerRef}
           speedRef={speedRef}
           cameraResetRef={cameraResetRef}
+          cameraOrbitRef={cameraOrbitRef}
           color={GYMNAST_COLOR}
           onNearEquipment={onNearEquipment}
           onMountedExercises={onMountedExercises}
@@ -672,6 +674,10 @@ export function Hall3D({ className }: Props) {
   const mountTriggerRef = useRef(false);
   const speedRef        = useRef(2.2);
   const cameraResetRef  = useRef(false);
+  // Touch-orbit: dragning + pinch påverkar yaw-offset, pitch och avstånd
+  const cameraOrbitRef  = useRef<{ yaw: number; pitch: number; distScale: number }>({
+    yaw: 0, pitch: 0, distScale: 1,
+  });
   const [nearEquipment, setNearEquipment] = useState<string | null>(null);
   const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);
@@ -706,6 +712,7 @@ export function Hall3D({ className }: Props) {
           mountTriggerRef={mountTriggerRef}
           speedRef={speedRef}
           cameraResetRef={cameraResetRef}
+          cameraOrbitRef={cameraOrbitRef}
           freeCamEnabled={freeCamEnabled}
           onNearEquipment={setNearEquipment}
           onMountedExercises={setMountedExerciseInfo}
@@ -722,6 +729,7 @@ export function Hall3D({ className }: Props) {
             mountTriggerRef={mountTriggerRef}
             speedRef={speedRef}
             cameraResetRef={cameraResetRef}
+            cameraOrbitRef={cameraOrbitRef}
             freeCamActive={freeCamEnabled}
             onExit={() => { setGameMode(false); setMountedExerciseInfo(null); setFreeCamEnabled(false); }}
           />
