@@ -166,18 +166,18 @@ const EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Barr ───────────────────────────────────────────────────────────────────
 
-  // Barrsving
-  "parallel-bars:swing": { kfs: [
+  // Barrsving – gymnasten tittar längs barrarna (+X)
+  "parallel-bars:swing": { baseRotY: P / 2, kfs: [
     { t: 0,   pose: { ...ZERO, lShX:-P*0.09, rShX:-P*0.09, lElX:P*0.12, rElX:P*0.12,
-                      lHipX: P*0.58, rHipX: P*0.58, lKnX:-P*0.12, rKnX:-P*0.12 } },
+                      lHipX: P*0.58, rHipX: P*0.58, lKnX: P*0.12, rKnX: P*0.12 } },
     { t: 0.8, pose: { ...ZERO, lShX: P*0.09, rShX: P*0.09, lElX:P*0.12, rElX:P*0.12,
-                      lHipX:-P*0.48, rHipX:-P*0.48, lKnX: P*0.20, rKnX: P*0.20 } },
+                      lHipX:-P*0.48, rHipX:-P*0.48, lKnX: P*0.10, rKnX: P*0.10 } },
     { t: 1.6, pose: { ...ZERO, lShX:-P*0.09, rShX:-P*0.09, lElX:P*0.12, rElX:P*0.12,
-                      lHipX: P*0.58, rHipX: P*0.58, lKnX:-P*0.12, rKnX:-P*0.12 } },
+                      lHipX: P*0.58, rHipX: P*0.58, lKnX: P*0.12, rKnX: P*0.12 } },
   ] },
 
   // Stöd barr
-  "parallel-bars:support": { kfs: [
+  "parallel-bars:support": { baseRotY: P / 2, kfs: [
     { t: 0,   pose: { ...ZERO, lElX:P*0.10, rElX:P*0.10, spineX:-P*0.04 } },
     { t: 1.5, pose: { ...ZERO, lElX:P*0.07, rElX:P*0.07, spineX: P*0.03, rootY:0.03,
                       lShZ:-0.04, rShZ: 0.04 } },
@@ -417,15 +417,15 @@ const EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Bygelhäst ──────────────────────────────────────────────────────────────
 
-  "pommel-horse:scissors": { kfs: [
+  "pommel-horse:scissors": { baseRotY: P / 2, kfs: [
     { t: 0,   pose: { ...ZERO,
-        lHipX: P*0.52, rHipX:-P*0.22, lKnX:-P*0.06,
+        lHipX: P*0.52, rHipX:-P*0.22, lKnX: P*0.06,
         lShX:-P*0.08, rShX:-P*0.04, lElX:P*0.19, rElX:P*0.14, rootY:0.09 } },
     { t: 0.7, pose: { ...ZERO,
-        lHipX:-P*0.22, rHipX: P*0.52, rKnX:-P*0.06,
+        lHipX:-P*0.22, rHipX: P*0.52, rKnX: P*0.06,
         lShX:-P*0.04, rShX:-P*0.08, lElX:P*0.14, rElX:P*0.19, rootY:0.09 } },
     { t: 1.4, pose: { ...ZERO,
-        lHipX: P*0.52, rHipX:-P*0.22, lKnX:-P*0.06,
+        lHipX: P*0.52, rHipX:-P*0.22, lKnX: P*0.06,
         lShX:-P*0.08, rShX:-P*0.04, lElX:P*0.19, rElX:P*0.14, rootY:0.09 } },
   ] },
 
