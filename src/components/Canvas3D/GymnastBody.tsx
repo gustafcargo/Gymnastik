@@ -105,52 +105,57 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshPhysicalMaterial color={skinWarm} roughness={0.55} metalness={0} clearcoat={0.08} clearcoatRoughness={0.6} />
       </mesh>
 
-      {/* Hårkalott – mjuk volym som täcker ovansidan och gränsar mot pannan */}
-      <mesh position={[0, H_HEAD * 0.18, H_HEAD * 0.05]} castShadow scale={[1.02, 1.0, 1.05]}>
-        <sphereGeometry args={[H_HEAD * 0.94, 24, 18]} />
+      {/* Hår – unifierad dome som täcker HELA skallen utom ansiktet.
+          Begränsar sfären till bakre delen + övre kalotten via phiStart/thetaStart. */}
+      <mesh position={[0, H_HEAD * 0.04, H_HEAD * 0.02]} castShadow scale={[1.03, 1.05, 1.08]}>
+        {/* phiStart=-π/2, phiLength=π → halvsfären som pekar mot +Z (bak).
+            thetaStart=0, thetaLength=π*0.85 → behåller toppen, klipper under hakan. */}
+        <sphereGeometry args={[H_HEAD * 1.01, 28, 20, -P * 0.5, P, 0, P * 0.85]} />
+        <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
+          clearcoat={0.35} clearcoatRoughness={0.30} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Hår-kalott över toppen – täcker hjässan ovanför ansiktet */}
+      <mesh position={[0, H_HEAD * 0.30, H_HEAD * 0.05]} castShadow scale={[1.05, 0.75, 1.10]}>
+        <sphereGeometry args={[H_HEAD * 0.85, 24, 18]} />
         <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
           clearcoat={0.35} clearcoatRoughness={0.30} />
       </mesh>
-      {/* Pannlugg – bred liten kalott strax ovanför pannan */}
-      <mesh position={[0, H_HEAD * 0.22, -H_HEAD * 0.55]} rotation={[P * 0.10, 0, 0]} castShadow>
-        <sphereGeometry args={[H_HEAD * 0.52, 16, 12, 0, P * 2, 0, P * 0.55]} />
+      {/* Pannlugg – snedlugg som täcker pannan, asymmetrisk för charm */}
+      <mesh position={[-H_HEAD * 0.18, H_HEAD * 0.28, -H_HEAD * 0.72]}
+            rotation={[P * 0.18, P * 0.08, P * 0.06]} castShadow scale={[1.3, 0.45, 1.0]}>
+        <sphereGeometry args={[H_HEAD * 0.42, 16, 12]} />
         <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
           clearcoat={0.35} clearcoatRoughness={0.30} />
-      </mesh>
-      {/* Bakhuvud / nacke – täcker occipital */}
-      <mesh position={[0, -H_HEAD * 0.06, H_HEAD * 0.58]} castShadow>
-        <sphereGeometry args={[H_HEAD * 0.66, 16, 12]} />
-        <meshPhysicalMaterial color={hair} roughness={0.74} metalness={0.06} />
       </mesh>
 
-      {/* Hårknut (bun) i bakhuvudet – klassisk gymnast-look */}
-      <mesh position={[0, H_HEAD * 0.25, H_HEAD * 1.02]} castShadow>
-        <sphereGeometry args={[H_HEAD * 0.38, 18, 14]} />
+      {/* Hårknut (bun) – placerad i nacken, mindre och mer kompakt */}
+      <mesh position={[0, H_HEAD * 0.15, H_HEAD * 1.08]} castShadow>
+        <sphereGeometry args={[H_HEAD * 0.42, 20, 16]} />
         <meshPhysicalMaterial color={hair} roughness={0.78} metalness={0.05}
           clearcoat={0.35} clearcoatRoughness={0.30} />
       </mesh>
-      {/* Rosett runt hårknuten */}
-      <mesh position={[0, H_HEAD * 0.06, H_HEAD * 0.88]} rotation={[0, 0, 0]} castShadow>
-        <torusGeometry args={[H_HEAD * 0.30, 0.012, 8, 18]} />
-        <meshPhysicalMaterial color={ribbon} roughness={0.45} metalness={0.08} clearcoat={0.4} />
+      {/* Hårband runt knuten */}
+      <mesh position={[0, H_HEAD * 0.15, H_HEAD * 1.02]} rotation={[P * 0.5, 0, 0]} castShadow>
+        <torusGeometry args={[H_HEAD * 0.36, 0.010, 8, 20]} />
+        <meshPhysicalMaterial color={ribbon} roughness={0.40} metalness={0.15} clearcoat={0.6} />
       </mesh>
       {/* Rosett-sidor (små öglor) */}
-      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.30, H_HEAD * 0.92]} rotation={[0, 0, -P * 0.25]} castShadow>
+      <mesh position={[-H_HEAD * 0.36, H_HEAD * 0.22, H_HEAD * 1.00]} rotation={[0, 0, -P * 0.25]} castShadow>
         <sphereGeometry args={[0.018, 10, 8]} />
         <meshPhysicalMaterial color={ribbon} roughness={0.45} metalness={0.08} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.30, H_HEAD * 0.92]} rotation={[0, 0, P * 0.25]} castShadow>
+      <mesh position={[ H_HEAD * 0.36, H_HEAD * 0.22, H_HEAD * 1.00]} rotation={[0, 0, P * 0.25]} castShadow>
         <sphereGeometry args={[0.018, 10, 8]} />
         <meshPhysicalMaterial color={ribbon} roughness={0.45} metalness={0.08} />
       </mesh>
 
-      {/* Öron */}
-      <mesh position={[-H_HEAD * 0.94, -H_HEAD * 0.05, H_HEAD * 0.05]} rotation={[0, P * 0.08, 0]} castShadow>
-        <sphereGeometry args={[H_HEAD * 0.22, 10, 8]} />
+      {/* Öron – mindre och mer naturligt placerade */}
+      <mesh position={[-H_HEAD * 0.92, -H_HEAD * 0.08, H_HEAD * 0.08]} rotation={[0, P * 0.1, 0]} scale={[0.6, 1.0, 1.2]} castShadow>
+        <sphereGeometry args={[H_HEAD * 0.15, 10, 8]} />
         <meshPhysicalMaterial color={skinWarm} roughness={0.60} metalness={0} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.94, -H_HEAD * 0.05, H_HEAD * 0.05]} rotation={[0, -P * 0.08, 0]} castShadow>
-        <sphereGeometry args={[H_HEAD * 0.22, 10, 8]} />
+      <mesh position={[ H_HEAD * 0.92, -H_HEAD * 0.08, H_HEAD * 0.08]} rotation={[0, -P * 0.1, 0]} scale={[0.6, 1.0, 1.2]} castShadow>
+        <sphereGeometry args={[H_HEAD * 0.15, 10, 8]} />
         <meshPhysicalMaterial color={skinWarm} roughness={0.60} metalness={0} />
       </mesh>
 
@@ -313,54 +318,54 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
 
       {/* ── Bål (uppåt från höfter) ──────────────────────────────────── */}
       <group ref={r3f(refs.spineRef)}>
-        {/* Överbål (bröstkorg) – bredare upptill, smalare vid midjan */}
-        <mesh position={[0, H_TORSO * 0.72, 0]} castShadow>
-          <cylinderGeometry args={[R_BODY * 0.94, R_BODY * 0.74, H_TORSO * 0.58, 22]} />
+        {/* Bröstkorg (topp) – bredare upptill och ut mot axlarna */}
+        <mesh position={[0, H_TORSO * 0.76, 0]} castShadow>
+          <cylinderGeometry args={[R_BODY * 1.15, R_BODY * 0.82, H_TORSO * 0.50, 22]} />
           <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
             clearcoat={0.55} clearcoatRoughness={0.22} />
         </mesh>
-        {/* Underbål (höft) – smalare upptill vid midjan, bredare ned */}
-        <mesh position={[0, H_TORSO * 0.22, 0]} castShadow>
-          <cylinderGeometry args={[R_BODY * 0.74, R_BODY * 1.02, H_TORSO * 0.45, 22]} />
+        {/* Midja (smalare) – mjuk övergång bröst → höft */}
+        <mesh position={[0, H_TORSO * 0.40, 0]} castShadow>
+          <cylinderGeometry args={[R_BODY * 0.82, R_BODY * 0.78, H_TORSO * 0.24, 22]} />
           <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
             clearcoat={0.55} clearcoatRoughness={0.22} />
         </mesh>
-        {/* Bröstvolym – subtil rundning fram i bröstkorgen */}
-        <mesh position={[0, H_TORSO * 0.78, -R_BODY * 0.55]} scale={[1.5, 0.75, 0.95]} castShadow>
-          <sphereGeometry args={[R_BODY * 0.44, 16, 12]} />
+        {/* Höft – bredare nedre del */}
+        <mesh position={[0, H_TORSO * 0.14, 0]} castShadow>
+          <cylinderGeometry args={[R_BODY * 0.78, R_BODY * 1.06, H_TORSO * 0.30, 22]} />
+          <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
+            clearcoat={0.55} clearcoatRoughness={0.22} />
+        </mesh>
+
+        {/* Klavikel-brygga – kopplar bröstkorg → axelkulor på båda sidor */}
+        {([-1, 1] as number[]).map((side) => (
+          <mesh key={`clav-${side}`}
+                position={[side * W_SHLDR * 0.5, H_TORSO * 0.92, -R_BODY * 0.15]}
+                rotation={[0, 0, side * P * 0.48]} castShadow>
+            <cylinderGeometry args={[0.028, 0.032, W_SHLDR * 1.02, 14]} />
+            <meshPhysicalMaterial color={color} roughness={0.38} metalness={0.16}
+              clearcoat={0.50} clearcoatRoughness={0.25} />
+          </mesh>
+        ))}
+
+        {/* Övre bröst-"platta" – rundar av mellan axlarna fram */}
+        <mesh position={[0, H_TORSO * 0.88, -R_BODY * 0.35]} scale={[2.3, 0.70, 1.0]} castShadow>
+          <sphereGeometry args={[R_BODY * 0.55, 18, 14]} />
           <meshPhysicalMaterial color={color} roughness={0.38} metalness={0.16}
             clearcoat={0.50} clearcoatRoughness={0.25} />
         </mesh>
 
+        {/* V-ringning – mjuk triangulär hud-yta under halsen (framsida −Z) */}
+        <mesh position={[0, H_TORSO * 0.97, -R_BODY * 0.92]} rotation={[P * 0.18, 0, P * 0.25]} castShadow>
+          <planeGeometry args={[0.062, 0.062]} />
+          <meshPhysicalMaterial color={skin} roughness={0.62} metalness={0} side={THREE.DoubleSide} />
+        </mesh>
+
         {/* Midjeband – mörkare accent vid smalaste punkten */}
-        <mesh position={[0, H_TORSO * 0.44, 0]} castShadow>
-          <torusGeometry args={[R_BODY * 0.76, 0.005, 10, 24]} />
-          <meshPhysicalMaterial color={color} roughness={0.25} metalness={0.4} clearcoat={0.8} />
+        <mesh position={[0, H_TORSO * 0.40, 0]} castShadow>
+          <torusGeometry args={[R_BODY * 0.80, 0.0045, 10, 24]} />
+          <meshPhysicalMaterial color="#000" roughness={0.30} metalness={0.3} clearcoat={0.7} transparent opacity={0.35} />
         </mesh>
-
-        {/* Glittrig diagonalband över bålen (från vänster axel nedåt höger midja) */}
-        <mesh position={[0, H_TORSO * 0.60, -R_BODY * 0.92]} rotation={[0, 0, P * 0.32]} castShadow>
-          <planeGeometry args={[0.22, 0.018]} />
-          <meshPhysicalMaterial color="#ffffff" roughness={0.15} metalness={0.7}
-            clearcoat={1.0} clearcoatRoughness={0.05} side={THREE.DoubleSide} transparent opacity={0.85} />
-        </mesh>
-
-        {/* Leotard-urringning (sweet-heart-form) – liten kapsel fram på bröstet (−Z) */}
-        <mesh position={[0, H_TORSO * 0.92, -R_BODY * 0.82]} rotation={[P * 0.22, 0, 0]} castShadow>
-          <capsuleGeometry args={[0.009, 0.072, 4, 8]} />
-          <meshPhysicalMaterial color={skin} roughness={0.58} metalness={0} />
-        </mesh>
-
-        {/* Axelremmar – två smala band upp över axlarna */}
-        {([-1, 1] as number[]).map((side) => (
-          <mesh key={side}
-                position={[side * R_BODY * 0.45, H_TORSO * 0.96, 0]}
-                rotation={[0, 0, side * P * 0.04]} castShadow>
-            <cylinderGeometry args={[0.012, 0.012, 0.10, 10]} />
-            <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
-              clearcoat={0.55} clearcoatRoughness={0.22} />
-          </mesh>
-        ))}
 
         {/* Hals */}
         <group position={[0, H_TORSO + 0.005, 0]}>
@@ -372,12 +377,12 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
           <Head skin={skin} hair={hair} />
         </group>
 
-        {/* Axelkulor */}
+        {/* Axelkulor – mindre, smälter in med klavikelbryggan */}
         {([-W_SHLDR, W_SHLDR] as number[]).map((x, i) => (
-          <mesh key={i} position={[x, H_TORSO * 0.87, 0]} castShadow>
-            <sphereGeometry args={[0.052, 12, 10]} />
-            <meshPhysicalMaterial color={color} roughness={0.48} metalness={0.05}
-              clearcoat={0.35} clearcoatRoughness={0.30} />
+          <mesh key={i} position={[x, H_TORSO * 0.88, 0]} castShadow>
+            <sphereGeometry args={[0.044, 14, 11]} />
+            <meshPhysicalMaterial color={color} roughness={0.40} metalness={0.14}
+              clearcoat={0.50} clearcoatRoughness={0.25} />
           </mesh>
         ))}
 
