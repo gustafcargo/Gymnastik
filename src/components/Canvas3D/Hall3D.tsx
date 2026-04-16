@@ -13,7 +13,7 @@ import { usePlanStore } from "../../store/usePlanStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { Equipment3D } from "./Equipment3D";
 import { Gymnast3D } from "./Gymnast3D";
-import { GameGymnast3D } from "./GameGymnast3D";
+import { GameGymnast3D, type MountedExerciseInfo } from "./GameGymnast3D";
 import { GameHUD } from "./GameHUD";
 import { exercisesForKind } from "../../catalog/exercises";
 import { computeStackInfo } from "../../lib/stackGroups";
@@ -25,11 +25,12 @@ type Props = { className?: string };
 // Inner scene – lives inside Canvas so it can call useThree
 // ---------------------------------------------------------------------------
 
-function HallScene({ W, H, joystickRef, mountTriggerRef, onNearEquipment }: {
+function HallScene({ W, H, joystickRef, mountTriggerRef, onNearEquipment, onMountedExercises }: {
   W: number; H: number;
   joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
   mountTriggerRef: React.MutableRefObject<boolean>;
   onNearEquipment: (name: string | null) => void;
+  onMountedExercises: (info: MountedExerciseInfo | null) => void;
 }) {
   const plan = usePlanStore((s) => s.plan);
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
@@ -633,6 +634,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, onNearEquipment }: {
           joystickRef={joystickRef}
           mountTriggerRef={mountTriggerRef}
           onNearEquipment={onNearEquipment}
+          onMountedExercises={onMountedExercises}
           onExit={() => setGameMode(false)}
         />
       )}
@@ -659,6 +661,7 @@ export function Hall3D({ className }: Props) {
   const joystickRef    = useRef<{ dx: number; dz: number }>({ dx: 0, dz: 0 });
   const mountTriggerRef = useRef(false);
   const [nearEquipment, setNearEquipment] = useState<string | null>(null);
+  const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
 
   return (
     <div className={className} style={{ position: "relative" }}>
@@ -689,15 +692,17 @@ export function Hall3D({ className }: Props) {
           joystickRef={joystickRef}
           mountTriggerRef={mountTriggerRef}
           onNearEquipment={setNearEquipment}
+          onMountedExercises={setMountedExerciseInfo}
         />
       </Canvas>
 
       {gameMode && (
         <GameHUD
           nearEquipment={nearEquipment}
+          mountedExerciseInfo={mountedExerciseInfo}
           joystickRef={joystickRef}
           mountTriggerRef={mountTriggerRef}
-          onExit={() => setGameMode(false)}
+          onExit={() => { setGameMode(false); setMountedExerciseInfo(null); }}
         />
       )}
     </div>

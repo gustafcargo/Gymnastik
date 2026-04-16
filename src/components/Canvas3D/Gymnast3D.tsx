@@ -107,7 +107,7 @@ const P = Math.PI;
 // Armar ut åt sidan för balans (bom-stil)
 const ARMS_SIDE: Partial<Pose> = { lShZ: -P * 0.28, rShZ: P * 0.28, lElX: P * 0.05, rElX: P * 0.05 };
 
-const EXERCISES: Record<string, ExerciseDef> = {
+export const EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Räck ───────────────────────────────────────────────────────────────────
 

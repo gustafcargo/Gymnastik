@@ -7,7 +7,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Station } from "../../types";
 import { getEquipmentById } from "../../catalog/equipment";
-import { exercisesForKind } from "../../catalog/exercises";
+import { exercisesForKind, type Exercise } from "../../catalog/exercises";
+import { EXERCISES } from "./Gymnast3D";
 
 // ─── Återanvänd proportioner ──────────────────────────────────────────────────
 const H_HEAD  = 0.09;
@@ -223,6 +224,12 @@ function GymnastBody({ color, skin, hair, refs }: {
 }
 
 // ─── Huvud-komponent ──────────────────────────────────────────────────────────
+export type MountedExerciseInfo = {
+  exercises: Exercise[];
+  exerciseId: string;
+  onChange: (id: string) => void;
+};
+
 type Props = {
   station: Station;
   hallW: number;
@@ -230,17 +237,20 @@ type Props = {
   joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
   mountTriggerRef: React.MutableRefObject<boolean>;
   onNearEquipment: (name: string | null) => void;
+  onMountedExercises: (info: MountedExerciseInfo | null) => void;
   onExit: () => void;
   color?: string;
 };
 
 const SPEED      = 2.2;   // m/s
-const TURN_SPEED = 2.8;   // rad/s
+const TURN_SPEED = 2.5;   // rad/s
 const PROX       = 1.8;   // m, monteringsradie
+const CAM_DIST   = 5.5;   // m bakom gymnasten
+const CAM_HEIGHT = 2.2;   // m ovanför höfterna
 
 export function GameGymnast3D({
   station, hallW, hallH, joystickRef, mountTriggerRef,
-  onNearEquipment, onExit, color = "#C2185B",
+  onNearEquipment, onMountedExercises, onExit, color = "#C2185B",
 }: Props) {
   const SKIN = "#E8C99A";
   const HAIR = "#2d1a08";
@@ -250,8 +260,11 @@ export function GameGymnast3D({
   // Position & orientering
   const pos    = useRef({ x: hallW / 2, z: hallH / 2 });
   const rotY   = useRef(0);
+  const camYaw = useRef(0);  // kamerans yaw – lerpar mot rotY med fördröjning
   const mounted = useRef<null | { eqId: string; exerciseId: string; baseY: number }>(null);
   const nearEq  = useRef<null | { id: string; name: string }>(null);
+  const onMountedExercisesRef = useRef(onMountedExercises);
+  onMountedExercisesRef.current = onMountedExercises;
 
   // Kamera-mål
   const camPos  = useRef(new THREE.Vector3());
@@ -307,6 +320,7 @@ export function GameGymnast3D({
     if (triggerMount) {
       if (mounted.current) {
         mounted.current = null;
+        onMountedExercisesRef.current(null);
       } else if (nearEq.current) {
         const eq = station.equipment.find(e => e.id === nearEq.current!.id);
         const type = eq ? getEquipmentById(eq.typeId) : null;
@@ -323,6 +337,11 @@ export function GameGymnast3D({
               : type.physicalHeightM + H_THIGH + H_SHIN;
             mounted.current = { eqId: eq.id, exerciseId: exs[0].id, baseY };
             pos.current = { x: eq.x, z: eq.y };
+            onMountedExercisesRef.current({
+              exercises: exs,
+              exerciseId: exs[0].id,
+              onChange: (id) => { if (mounted.current) mounted.current.exerciseId = id; },
+            });
           }
         }
       }
@@ -333,11 +352,10 @@ export function GameGymnast3D({
     if (mounted.current) {
       // ── Monterad: spela övningsanimation ────────────────────────────────
       const { exerciseId, baseY } = mounted.current;
-      // Importera EXERCISES från Gymnast3D är inte möjligt utan refactor –
-      // använd en minimal inline-version för rörelsens skull.
-      // Kasta om till idle om vi inte hittar övningen.
-      pose = evalKF(IDLE_KFS, t);
-      pose.rootY = baseY;
+      const def = EXERCISES[exerciseId];
+      pose = def ? evalKF(def.kfs, t) : evalKF(IDLE_KFS, t);
+      if (def?.baseRotY) pose.rootRotY += def.baseRotY;
+      pose.rootY = baseY + (pose.rootY ?? 0);
 
       // Kamera: visa gymnast + redskap
       const eq = station.equipment.find(e => e.id === mounted.current!.eqId);
@@ -345,11 +363,10 @@ export function GameGymnast3D({
       if (eq && type) {
         const span   = Math.max(type.widthM, type.heightM, type.physicalHeightM, 1.5);
         const center = new THREE.Vector3(eq.x, type.physicalHeightM * 0.5, eq.y);
-        const target = center.clone().add(new THREE.Vector3(span * 0.9, span * 0.6, span * 1.3));
+        const target = center.clone().add(new THREE.Vector3(span * 1.1, span * 0.8, span * 1.5));
         camPos.current.lerp(target, 0.04);
         camLook.current.lerp(center, 0.06);
       }
-      void exerciseId; // används i framtida GLTF-integration
     } else {
       // ── Fri rörelse ───────────────────────────────────────────────────────
       const fwd  = (k.has("w") || k.has("arrowup"))   ? 1 : 0;
@@ -357,18 +374,21 @@ export function GameGymnast3D({
       const left = (k.has("a") || k.has("arrowleft"))  ? 1 : 0;
       const rgt  = (k.has("d") || k.has("arrowright")) ? 1 : 0;
 
-      // Joystick-input (touch) – prioritera om > 0.1
+      // Joystick-input (touch)
       const joyFwd  = -joy.dz;
       const joyTurn =  joy.dx;
-      const moving  = fwd || back || Math.abs(joyFwd) > 0.1 || Math.abs(joyTurn) > 0.1;
+      const turning = left || rgt || Math.abs(joyTurn) > 0.1;
+      const moving  = fwd || back || Math.abs(joyFwd) > 0.1 || turning;
 
-      // Rotera
-      rotY.current -= (left - rgt + joyTurn) * TURN_SPEED * delta;
+      // Rotera gymnast (rotY) + lät kamera följa med fördröjning (camYaw)
+      rotY.current += (rgt - left - joyTurn) * TURN_SPEED * delta;
+      // Lerpa camYaw mot rotY → gymnast vrids synbart innan kameran hinner med
+      camYaw.current += (rotY.current - camYaw.current) * Math.min(1, delta * 6);
 
-      // Flytta
-      const moveZ = (fwd - back + joyFwd) * SPEED * delta;
-      pos.current.x += -Math.sin(rotY.current) * moveZ;
-      pos.current.z +=  Math.cos(rotY.current) * moveZ;
+      // Flytta i gymnasten's framåtriktning (W/↑ = framåt = bort från kameran)
+      const moveD = (fwd - back + joyFwd) * SPEED * delta;
+      pos.current.x += Math.sin(rotY.current) * moveD;
+      pos.current.z -= Math.cos(rotY.current) * moveD;
 
       // Klämma till hallens gränser
       pos.current.x = Math.max(0.5, Math.min(hallW - 0.5, pos.current.x));
@@ -402,15 +422,15 @@ export function GameGymnast3D({
         onNearEquipment(closest?.name ?? null);
       }
 
-      // Kamera bakifrån (tredje person)
-      const sx = -Math.sin(rotY.current);
-      const sz =  Math.cos(rotY.current);
-      const gymnPos = new THREE.Vector3(pos.current.x, baseY + 0.4, pos.current.z);
-      const camTarget = gymnPos.clone().add(new THREE.Vector3(sx * 2.5, 1.2, sz * 2.5));
-      const lookTarget = gymnPos.clone().add(new THREE.Vector3(0, 0.4, 0));
+      // Kamera bakifrån – använd camYaw (fördröjd) för att göra gymnastvridningen synbar
+      const sx = Math.sin(camYaw.current);
+      const sz = -Math.cos(camYaw.current);
+      const gymnPos = new THREE.Vector3(pos.current.x, baseY + 0.8, pos.current.z);
+      const camTarget = gymnPos.clone().add(new THREE.Vector3(-sx * CAM_DIST, CAM_HEIGHT, -sz * CAM_DIST));
+      const lookTarget = gymnPos.clone().add(new THREE.Vector3(0, 0.2, 0));
 
-      camPos.current.lerp(camTarget, 0.08);
-      camLook.current.lerp(lookTarget, 0.10);
+      camPos.current.lerp(camTarget, 0.06);
+      camLook.current.lerp(lookTarget, 0.08);
     }
 
     // ── Applicera kamera ───────────────────────────────────────────────────
