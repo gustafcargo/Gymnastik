@@ -831,7 +831,6 @@ export function Hall3D({ className }: Props) {
             score={score}
             streak={streak}
             missions={missions}
-            ageGroup={ageGroup}
             onExit={() => { setGameMode(false); setMountedExerciseInfo(null); setFreeCamEnabled(false); }}
           />
 

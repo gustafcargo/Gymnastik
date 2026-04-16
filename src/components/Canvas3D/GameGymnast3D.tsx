@@ -145,78 +145,178 @@ type BodyRefs = {
 function GymnastBody({ color, skin, hair, refs }: {
   color: string; skin: string; hair: string; refs: BodyRefs;
 }) {
+  // Accent-färg: lite ljusare variant av leotard-färgen för detaljer
   return (
     <>
-      <Joint r={0.065} color={color} leotard />
+      {/* Höftkula */}
+      <Joint r={0.062} color={color} leotard />
+
+      {/* Kropp + huvud */}
       <group ref={r3f(refs.spineRef)}>
-        <LeotardSeg len={H_TORSO} r={R_BODY} color={color} up />
-        <group position={[0,H_TORSO-0.01,0]}>
-          <SkinSeg len={H_NECK} r={0.030} color={skin} up />
+
+        {/* Torso – avsmalnande cylinder (bredare axlar, smalare midja) */}
+        <mesh position={[0, H_TORSO * 0.5, 0]} castShadow>
+          <cylinderGeometry args={[R_BODY * 0.80, R_BODY * 1.05, H_TORSO, 12]} />
+          <meshPhysicalMaterial color={color} roughness={0.48} metalness={0.04}
+            clearcoat={0.35} clearcoatRoughness={0.30} />
+        </mesh>
+
+        {/* Leotard-V-ringning (subtil detalj på framsidan) */}
+        <mesh position={[0, H_TORSO * 0.88, -R_BODY * 0.78]} rotation={[P * 0.18, 0, 0]} castShadow>
+          <capsuleGeometry args={[0.008, 0.06, 4, 6]} />
+          <meshPhysicalMaterial color={skin} roughness={0.55} metalness={0} />
+        </mesh>
+
+        {/* Hals */}
+        <group position={[0, H_TORSO + 0.01, 0]}>
+          <SkinSeg len={H_NECK} r={0.028} color={skin} up />
         </group>
-        <group ref={r3f(refs.headRef)} position={[0,H_TORSO+H_NECK+H_HEAD*0.85,0]}>
+
+        {/* Huvud-grupp */}
+        <group ref={r3f(refs.headRef)} position={[0, H_TORSO + H_NECK + H_HEAD * 0.90, 0]}>
+
+          {/* Huvud */}
           <mesh castShadow>
-            <sphereGeometry args={[H_HEAD,14,10]} />
+            <sphereGeometry args={[H_HEAD, 16, 12]} />
+            <meshPhysicalMaterial color={skin} roughness={0.62} metalness={0} />
+          </mesh>
+
+          {/* Hår – täcker topp + baksida */}
+          <mesh position={[0, H_HEAD * 0.14, H_HEAD * 0.06]} castShadow>
+            <sphereGeometry args={[H_HEAD * 0.87, 14, 10]} />
+            <meshPhysicalMaterial color={hair} roughness={0.80} metalness={0.04}
+              clearcoat={0.20} clearcoatRoughness={0.45} />
+          </mesh>
+
+          {/* Hårsektion bak som täcker occipital */}
+          <mesh position={[0, H_HEAD * 0.02, H_HEAD * 0.55]} castShadow>
+            <sphereGeometry args={[H_HEAD * 0.60, 10, 8]} />
+            <meshPhysicalMaterial color={hair} roughness={0.80} metalness={0.04} />
+          </mesh>
+
+          {/* Hästsvans – tre sammanlänkade kapslar nedåt bakifrån */}
+          <mesh position={[0, -H_HEAD * 0.10, H_HEAD * 0.80]} rotation={[P * 0.22, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.020, 0.10, 4, 8]} />
+            <meshPhysicalMaterial color={hair} roughness={0.82} metalness={0} />
+          </mesh>
+          <mesh position={[0, -H_HEAD * 0.28, H_HEAD * 1.10]} rotation={[P * 0.32, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.016, 0.09, 4, 8]} />
+            <meshPhysicalMaterial color={hair} roughness={0.82} metalness={0} />
+          </mesh>
+          <mesh position={[0, -H_HEAD * 0.46, H_HEAD * 1.35]} rotation={[P * 0.42, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.012, 0.07, 4, 8]} />
+            <meshPhysicalMaterial color={hair} roughness={0.82} metalness={0} />
+          </mesh>
+
+          {/* Ögon */}
+          <mesh position={[-H_HEAD * 0.37, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow>
+            <sphereGeometry args={[0.018, 8, 6]} />
+            <meshPhysicalMaterial color="#1a1a2e" roughness={0.3} metalness={0.1} />
+          </mesh>
+          <mesh position={[ H_HEAD * 0.37, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow>
+            <sphereGeometry args={[0.018, 8, 6]} />
+            <meshPhysicalMaterial color="#1a1a2e" roughness={0.3} metalness={0.1} />
+          </mesh>
+
+          {/* Ögonvitor (subtil vit spegel) */}
+          <mesh position={[-H_HEAD * 0.37, H_HEAD * 0.09, -H_HEAD * 0.895]} castShadow>
+            <sphereGeometry args={[0.011, 6, 5]} />
+            <meshPhysicalMaterial color="#ffffff" roughness={0.2} metalness={0} />
+          </mesh>
+          <mesh position={[ H_HEAD * 0.37, H_HEAD * 0.09, -H_HEAD * 0.895]} castShadow>
+            <sphereGeometry args={[0.011, 6, 5]} />
+            <meshPhysicalMaterial color="#ffffff" roughness={0.2} metalness={0} />
+          </mesh>
+
+          {/* Näsa */}
+          <mesh position={[0, -H_HEAD * 0.06, -H_HEAD * 0.96]} castShadow>
+            <sphereGeometry args={[0.012, 6, 5]} />
             <meshPhysicalMaterial color={skin} roughness={0.68} metalness={0} />
           </mesh>
-          <mesh position={[0,H_HEAD*0.18,0]} castShadow>
-            <sphereGeometry args={[H_HEAD*0.84,12,8]} />
-            <meshPhysicalMaterial color={hair} roughness={0.82} metalness={0.03} clearcoat={0.15} clearcoatRoughness={0.5} />
-          </mesh>
-          <mesh position={[0,H_HEAD*0.45,-H_HEAD*0.55]} rotation={[0.55,0,0]} castShadow>
-            <capsuleGeometry args={[0.018,0.08,4,6]} />
-            <meshPhysicalMaterial color={hair} roughness={0.85} metalness={0} />
+
+          {/* Mun (liten oval) */}
+          <mesh position={[0, -H_HEAD * 0.24, -H_HEAD * 0.93]} rotation={[P * 0.06, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.008, 0.026, 4, 6]} />
+            <meshPhysicalMaterial color="#c97070" roughness={0.6} metalness={0} />
           </mesh>
         </group>
-        {([-W_SHLDR,W_SHLDR] as number[]).map((x,i) => (
-          <mesh key={i} position={[x,H_TORSO*0.85,0]} castShadow>
-            <sphereGeometry args={[0.048,10,8]} />
-            <meshPhysicalMaterial color={color} roughness={0.55} metalness={0.02} clearcoat={0.25} clearcoatRoughness={0.35} />
+
+        {/* Axelkulor */}
+        {([-W_SHLDR, W_SHLDR] as number[]).map((x, i) => (
+          <mesh key={i} position={[x, H_TORSO * 0.87, 0]} castShadow>
+            <sphereGeometry args={[0.052, 10, 8]} />
+            <meshPhysicalMaterial color={color} roughness={0.48} metalness={0.04}
+              clearcoat={0.35} clearcoatRoughness={0.30} />
           </mesh>
         ))}
-        <group ref={r3f(refs.lShRef)} position={[-W_SHLDR,H_TORSO*0.85,0]}>
-          <LeotardSeg len={H_UPPER} r={R_LIMB} color={color} />
-          <group ref={r3f(refs.lElRef)} position={[0,-H_UPPER,0]}>
-            <Joint r={R_LIMB*1.10} color={skin} />
-            <SkinSeg len={H_LOWER} r={R_LIMB*0.85} color={skin} />
-            <mesh position={[0,-H_LOWER,0]} castShadow>
-              <sphereGeometry args={[0.028,8,6]} />
+
+        {/* Vänster arm */}
+        <group ref={r3f(refs.lShRef)} position={[-W_SHLDR, H_TORSO * 0.87, 0]}>
+          <LeotardSeg len={H_UPPER} r={R_LIMB * 1.05} color={color} />
+          <group ref={r3f(refs.lElRef)} position={[0, -H_UPPER, 0]}>
+            <Joint r={R_LIMB * 1.12} color={skin} />
+            <SkinSeg len={H_LOWER} r={R_LIMB * 0.88} color={skin} />
+            {/* Handled */}
+            <mesh position={[0, -H_LOWER, 0]} castShadow>
+              <sphereGeometry args={[0.026, 8, 6]} />
               <meshPhysicalMaterial color={skin} roughness={0.68} metalness={0} />
             </mesh>
           </group>
         </group>
-        <group ref={r3f(refs.rShRef)} position={[W_SHLDR,H_TORSO*0.85,0]}>
-          <LeotardSeg len={H_UPPER} r={R_LIMB} color={color} />
-          <group ref={r3f(refs.rElRef)} position={[0,-H_UPPER,0]}>
-            <Joint r={R_LIMB*1.10} color={skin} />
-            <SkinSeg len={H_LOWER} r={R_LIMB*0.85} color={skin} />
-            <mesh position={[0,-H_LOWER,0]} castShadow>
-              <sphereGeometry args={[0.028,8,6]} />
+
+        {/* Höger arm */}
+        <group ref={r3f(refs.rShRef)} position={[W_SHLDR, H_TORSO * 0.87, 0]}>
+          <LeotardSeg len={H_UPPER} r={R_LIMB * 1.05} color={color} />
+          <group ref={r3f(refs.rElRef)} position={[0, -H_UPPER, 0]}>
+            <Joint r={R_LIMB * 1.12} color={skin} />
+            <SkinSeg len={H_LOWER} r={R_LIMB * 0.88} color={skin} />
+            {/* Handled */}
+            <mesh position={[0, -H_LOWER, 0]} castShadow>
+              <sphereGeometry args={[0.026, 8, 6]} />
               <meshPhysicalMaterial color={skin} roughness={0.68} metalness={0} />
             </mesh>
           </group>
         </group>
       </group>
-      <Joint r={0.052} color={color} leotard />
-      <group ref={r3f(refs.lHipRef)} position={[-W_HIP,0,0]}>
-        <LeotardSeg len={H_THIGH} r={R_LEG} color={color} />
-        <group ref={r3f(refs.lKnRef)} position={[0,-H_THIGH,0]}>
-          <Joint r={R_LEG*1.05} color={skin} />
-          <SkinSeg len={H_SHIN} r={R_LEG*0.85} color={skin} />
-          <mesh position={[0,-H_SHIN-0.015,0.028]} rotation={[-P*0.20,0,0]} castShadow>
-            <capsuleGeometry args={[0.024,0.058,4,8]} />
-            <meshPhysicalMaterial color="#F0F0F0" roughness={0.75} metalness={0} />
-          </mesh>
+
+      {/* Vänster ben */}
+      <group ref={r3f(refs.lHipRef)} position={[-W_HIP, 0, 0]}>
+        <LeotardSeg len={H_THIGH} r={R_LEG * 1.02} color={color} />
+        <group ref={r3f(refs.lKnRef)} position={[0, -H_THIGH, 0]}>
+          <Joint r={R_LEG * 1.08} color={skin} />
+          <SkinSeg len={H_SHIN} r={R_LEG * 0.88} color={skin} />
+          {/* Sko – oval med sula */}
+          <group position={[0, -H_SHIN - 0.01, 0]}>
+            <mesh position={[0, -0.018, 0.025]} rotation={[-P * 0.18, 0, 0]} castShadow>
+              <capsuleGeometry args={[0.026, 0.07, 5, 8]} />
+              <meshPhysicalMaterial color="#2a2a3a" roughness={0.65} metalness={0.05} />
+            </mesh>
+            {/* Sula */}
+            <mesh position={[0, -0.036, 0.018]} rotation={[-P * 0.18, 0, 0]} castShadow>
+              <capsuleGeometry args={[0.027, 0.075, 4, 8]} />
+              <meshPhysicalMaterial color="#111" roughness={0.9} metalness={0} />
+            </mesh>
+          </group>
         </group>
       </group>
-      <group ref={r3f(refs.rHipRef)} position={[W_HIP,0,0]}>
-        <LeotardSeg len={H_THIGH} r={R_LEG} color={color} />
-        <group ref={r3f(refs.rKnRef)} position={[0,-H_THIGH,0]}>
-          <Joint r={R_LEG*1.05} color={skin} />
-          <SkinSeg len={H_SHIN} r={R_LEG*0.85} color={skin} />
-          <mesh position={[0,-H_SHIN-0.015,0.028]} rotation={[-P*0.20,0,0]} castShadow>
-            <capsuleGeometry args={[0.024,0.058,4,8]} />
-            <meshPhysicalMaterial color="#F0F0F0" roughness={0.75} metalness={0} />
-          </mesh>
+
+      {/* Höger ben */}
+      <group ref={r3f(refs.rHipRef)} position={[W_HIP, 0, 0]}>
+        <LeotardSeg len={H_THIGH} r={R_LEG * 1.02} color={color} />
+        <group ref={r3f(refs.rKnRef)} position={[0, -H_THIGH, 0]}>
+          <Joint r={R_LEG * 1.08} color={skin} />
+          <SkinSeg len={H_SHIN} r={R_LEG * 0.88} color={skin} />
+          {/* Sko */}
+          <group position={[0, -H_SHIN - 0.01, 0]}>
+            <mesh position={[0, -0.018, 0.025]} rotation={[-P * 0.18, 0, 0]} castShadow>
+              <capsuleGeometry args={[0.026, 0.07, 5, 8]} />
+              <meshPhysicalMaterial color="#2a2a3a" roughness={0.65} metalness={0.05} />
+            </mesh>
+            <mesh position={[0, -0.036, 0.018]} rotation={[-P * 0.18, 0, 0]} castShadow>
+              <capsuleGeometry args={[0.027, 0.075, 4, 8]} />
+              <meshPhysicalMaterial color="#111" roughness={0.9} metalness={0} />
+            </mesh>
+          </group>
         </group>
       </group>
     </>
@@ -360,9 +460,17 @@ export function GameGymnast3D({
         const idx = exs.findIndex(ex => ex.id === mounted.current!.exerciseId);
         const nid = exs[(idx + 1) % exs.length].id;
         mounted.current.exerciseId = nid;
+        const makeOnChange = (exercises: typeof exs) => {
+          const handler = (id: string) => {
+            if (!mounted.current) return;
+            mounted.current.exerciseId = id;
+            onMountedExercisesRef.current({ exercises, exerciseId: id, onChange: handler });
+          };
+          return handler;
+        };
         onMountedExercisesRef.current({
           exercises: exs, exerciseId: nid,
-          onChange: (id) => { if (mounted.current) mounted.current.exerciseId = id; },
+          onChange: makeOnChange(exs),
         });
       }
     } else {
@@ -380,6 +488,9 @@ export function GameGymnast3D({
         lastCyclePhase.current = -1;
         lastTrackedExerciseId.current = "";
         onMountedExercisesRef.current(null);
+        // Rensa proximity-state så etiketten försvinner
+        nearEq.current = null;
+        onNearEquipment(null);
       } else if (nearEq.current) {
         const eq = station.equipment.find(e => e.id === nearEq.current!.id);
         const type = eq ? getEquipmentById(eq.typeId) : null;
@@ -397,10 +508,27 @@ export function GameGymnast3D({
               : type.physicalHeightM + H_THIGH + H_SHIN;
             mounted.current = { eqId: eq.id, exerciseId: exs[0].id, baseY };
             pos.current = { x: eq.x, z: eq.y };
+            // Rensa nearEq så etiketten försvinner direkt
+            nearEq.current = null;
+            onNearEquipment(null);
+            // onChange måste också uppdatera React-state (mountedExerciseInfo.exerciseId)
+            // för att övningsmenyn ska visa korrekt markering.
+            const makeOnChange = (exercises: typeof exs) => {
+              const handler = (id: string) => {
+                if (!mounted.current) return;
+                mounted.current.exerciseId = id;
+                onMountedExercisesRef.current({
+                  exercises,
+                  exerciseId: id,
+                  onChange: handler,
+                });
+              };
+              return handler;
+            };
             onMountedExercisesRef.current({
               exercises: exs,
               exerciseId: exs[0].id,
-              onChange: (id) => { if (mounted.current) mounted.current.exerciseId = id; },
+              onChange: makeOnChange(exs),
             });
           }
         }
