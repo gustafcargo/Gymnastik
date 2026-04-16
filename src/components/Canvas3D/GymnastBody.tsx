@@ -105,25 +105,24 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshPhysicalMaterial color={skinWarm} roughness={0.55} metalness={0} clearcoat={0.08} clearcoatRoughness={0.6} />
       </mesh>
 
-      {/* Hår – unifierad dome som täcker HELA skallen utom ansiktet.
-          Begränsar sfären till bakre delen + övre kalotten via phiStart/thetaStart. */}
-      <mesh position={[0, H_HEAD * 0.04, H_HEAD * 0.02]} castShadow scale={[1.03, 1.05, 1.08]}>
-        {/* phiStart=-π/2, phiLength=π → halvsfären som pekar mot +Z (bak).
-            thetaStart=0, thetaLength=π*0.85 → behåller toppen, klipper under hakan. */}
-        <sphereGeometry args={[H_HEAD * 1.01, 28, 20, -P * 0.5, P, 0, P * 0.85]} />
-        <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
-          clearcoat={0.35} clearcoatRoughness={0.30} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Hår-kalott över toppen – täcker hjässan ovanför ansiktet */}
-      <mesh position={[0, H_HEAD * 0.30, H_HEAD * 0.05]} castShadow scale={[1.05, 0.75, 1.10]}>
-        <sphereGeometry args={[H_HEAD * 0.85, 24, 18]} />
+      {/* Hår – toppkalott (ingen phi-cut) som täcker hela hjässan */}
+      <mesh position={[0, H_HEAD * 0.06, H_HEAD * 0.02]} castShadow scale={[1.05, 1.05, 1.08]}>
+        {/* thetaLength=π*0.55 → från topp ned till strax under öronnivå */}
+        <sphereGeometry args={[H_HEAD * 1.02, 28, 20, 0, P * 2, 0, P * 0.55]} />
         <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
           clearcoat={0.35} clearcoatRoughness={0.30} />
       </mesh>
-      {/* Pannlugg – snedlugg som täcker pannan, asymmetrisk för charm */}
-      <mesh position={[-H_HEAD * 0.18, H_HEAD * 0.28, -H_HEAD * 0.72]}
-            rotation={[P * 0.18, P * 0.08, P * 0.06]} castShadow scale={[1.3, 0.45, 1.0]}>
-        <sphereGeometry args={[H_HEAD * 0.42, 16, 12]} />
+      {/* Hår – bakre halvskal (phi 0→π = −X → +Z → +X), täcker nacken/bakhuvudet.
+          Ansiktssidan (−Z) lämnas helt fri. */}
+      <mesh position={[0, -H_HEAD * 0.02, H_HEAD * 0.04]} castShadow scale={[1.04, 1.08, 1.08]}>
+        <sphereGeometry args={[H_HEAD * 1.00, 28, 20, 0, P, 0, P]} />
+        <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
+          clearcoat={0.35} clearcoatRoughness={0.30} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Snedlugg – lätt asymmetrisk täckning av pannan (−Z, ovanför ögonen) */}
+      <mesh position={[-H_HEAD * 0.12, H_HEAD * 0.36, -H_HEAD * 0.78]}
+            rotation={[P * 0.20, P * 0.06, P * 0.04]} castShadow scale={[1.4, 0.40, 0.90]}>
+        <sphereGeometry args={[H_HEAD * 0.45, 16, 12]} />
         <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
           clearcoat={0.35} clearcoatRoughness={0.30} />
       </mesh>
