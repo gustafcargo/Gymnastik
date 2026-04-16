@@ -74,12 +74,15 @@ function evalKF(kfs: KF[], t: number): Pose {
 }
 
 // Gångcykel – 4 nyckelbilder, 0.6 s/cykel
+// Gångcykel i fri rörelse (rootRotY=0, ansikte mot −Z).
+// Positiv hipX → ben svänger framåt (mot −Z). Negativt knäX → underben hänger
+// bakåt relativt låret = naturlig knäböjning i framsvingen.
 const WALK_KFS: KF[] = [
-  { t:0.0,  pose:{...ZERO,lHipX:-P*0.18,rHipX:P*0.22,rKnX:P*0.10,lShX:P*0.12,rShX:-P*0.10,lShZ:-P*0.08,rShZ:P*0.08,spineZ:0.02 } },
-  { t:0.15, pose:{...ZERO,lHipX:P*0.04, rHipX:-P*0.08,rKnX:P*0.18,spineZ:-0.01,rootY:0.015 } },
-  { t:0.30, pose:{...ZERO,rHipX:-P*0.18,lHipX:P*0.22,lKnX:P*0.10,rShX:P*0.12,lShX:-P*0.10,lShZ:-P*0.08,rShZ:P*0.08,spineZ:-0.02 } },
-  { t:0.45, pose:{...ZERO,rHipX:P*0.04, lHipX:-P*0.08,lKnX:P*0.18,spineZ:0.01,rootY:0.015 } },
-  { t:0.60, pose:{...ZERO,lHipX:-P*0.18,rHipX:P*0.22,rKnX:P*0.10,lShX:P*0.12,rShX:-P*0.10,lShZ:-P*0.08,rShZ:P*0.08,spineZ:0.02 } },
+  { t:0.0,  pose:{...ZERO,lHipX:-P*0.18,rHipX:P*0.22,rKnX:-P*0.12,lShX:P*0.12,rShX:-P*0.10,lShZ:-P*0.08,rShZ:P*0.08,spineZ:0.02 } },
+  { t:0.15, pose:{...ZERO,lHipX:P*0.04, rHipX:-P*0.08,rKnX:-P*0.20,spineZ:-0.01,rootY:0.015 } },
+  { t:0.30, pose:{...ZERO,rHipX:-P*0.18,lHipX:P*0.22,lKnX:-P*0.12,rShX:P*0.12,lShX:-P*0.10,lShZ:-P*0.08,rShZ:P*0.08,spineZ:-0.02 } },
+  { t:0.45, pose:{...ZERO,rHipX:P*0.04, lHipX:-P*0.08,lKnX:-P*0.20,spineZ:0.01,rootY:0.015 } },
+  { t:0.60, pose:{...ZERO,lHipX:-P*0.18,rHipX:P*0.22,rKnX:-P*0.12,lShX:P*0.12,rShX:-P*0.10,lShZ:-P*0.08,rShZ:P*0.08,spineZ:0.02 } },
 ];
 
 // Idle (subtil andning)
@@ -533,15 +536,11 @@ export function GameGymnast3D({
       const type = eq ? getEquipmentById(eq.typeId) : null;
       const def = EXERCISES[exerciseId];
       pose = def ? evalKF(def.kfs, t) : evalKF(IDLE_KFS, t);
-      if (def?.baseRotY) {
-        pose.rootRotY += def.baseRotY;
-        // baseRotY-övningar designades för ansikte åt +Z; spelläget
-        // använder ansikte åt −Z → vänd 180° så ansikte och fötter
-        // alltid pekar i rörelsens riktning.
-        pose.rootRotY += P;
-      }
+      if (def?.baseRotY) pose.rootRotY += def.baseRotY;
 
-      // Advance-logik (ping-pong gång, t.ex. bom)
+      // Advance-logik (ping-pong gång, t.ex. bom).
+      // Övningar med baseRotY har ansiktet mot lokal −Z → världens −X (vid baseRotY=PI/2).
+      // Vi negerar rootX-förflyttningen så att gymnasten rör sig i sin blickriktning (−X).
       if (def?.advance && def.advance > 0) {
         const dur = def.kfs[def.kfs.length - 1].t;
         const dist = (t / dur) * def.advance;
@@ -549,10 +548,10 @@ export function GameGymnast3D({
         const period = range * 2;
         const phase = dist % period;
         if (phase <= range) {
-          pose.rootX += phase - range / 2;
+          pose.rootX -= phase - range / 2;        // framåt i blickriktningen (−X)
         } else {
-          pose.rootX += (period - phase) - range / 2;
-          pose.rootRotY += P;
+          pose.rootX -= (period - phase) - range / 2;  // retur
+          pose.rootRotY += P;                          // vänd 180° för returvarvet
         }
       }
 
