@@ -395,35 +395,35 @@ const EXERCISES: Record<string, ExerciseDef> = {
 
     // ── Fas 6: Sträck benen → pikstående, armar ut ──────────────────────
     { t: 5.20, pose: { ...ZERO,
-        spineX: -P*0.50, rootY: -0.06, rootX: 0.55,
+        spineX: P*0.50, rootY: -0.06, rootX: 0.55,
         ...ARMS_SIDE } },
     { t: 5.80, pose: { ...ZERO,
-        spineX: -P*0.52, rootY: -0.06, rootX: 0.55,
+        spineX: P*0.52, rootY: -0.06, rootX: 0.55,
         ...ARMS_SIDE } },
 
     // ── Fas 7: Händer på bom, gå med fötter och händer ──────────────────
-    // (positiv lShX = armar bakåt relativt böjd bål → pekar NER mot bommen)
+    // (positiv spineX = framåtböjd; negativ lShX = armar framåt/ner mot bommen)
     { t: 6.30, pose: { ...ZERO,
-        spineX: -P*0.55,
-        lShX: P*0.50, rShX: P*0.50,
+        spineX: P*0.55,
+        lShX: -P*0.50, rShX: -P*0.50,
         lElX: P*0.10, rElX: P*0.10,
         rootY: -0.08, rootX: 0.60 } },
     { t: 6.90, pose: { ...ZERO,
-        spineX: -P*0.55,
-        lShX: P*0.55, rShX: P*0.42,
+        spineX: P*0.55,
+        lShX: -P*0.55, rShX: -P*0.42,
         lElX: P*0.10, rElX: P*0.10,
         lHipX: P*0.06, rHipX: -P*0.10, rKnX: P*0.10,
         rootY: -0.08, rootX: 0.80 } },
     { t: 7.50, pose: { ...ZERO,
-        spineX: -P*0.55,
-        lShX: P*0.42, rShX: P*0.55,
+        spineX: P*0.55,
+        lShX: -P*0.42, rShX: -P*0.55,
         lElX: P*0.10, rElX: P*0.10,
         lHipX: -P*0.10, rHipX: P*0.06, lKnX: P*0.10,
         rootY: -0.08, rootX: 1.00 } },
 
     // ── Fas 8: Res upp, sträckt kropp, händer bakom ryggen ──────────────
     { t: 8.10, pose: { ...ZERO,
-        spineX: -P*0.10,
+        spineX: P*0.10,
         lShX: P*0.18, rShX: P*0.18,
         lElX: P*0.45, rElX: P*0.45,
         lShZ: P*0.04, rShZ: -P*0.04,
@@ -437,29 +437,21 @@ const EXERCISES: Record<string, ExerciseDef> = {
     // ── Fas 9: Gå 2 steg med peka tå ────────────────────────────────────
     { t: 9.30, pose: { ...ZERO,
         lHipX: -P*0.16, rHipX: P*0.10, rKnX: P*0.06,
-        lShX: P*0.18, rShX: P*0.18,
-        lElX: P*0.45, rElX: P*0.45,
-        lShZ: P*0.04, rShZ: -P*0.04,
+        ...ARMS_SIDE,
         rootX: 1.30 } },
     { t: 10.00, pose: { ...ZERO,
         rHipX: -P*0.16, lHipX: P*0.10, lKnX: P*0.06,
-        lShX: P*0.18, rShX: P*0.18,
-        lElX: P*0.45, rElX: P*0.45,
-        lShZ: P*0.04, rShZ: -P*0.04,
+        ...ARMS_SIDE,
         rootX: 1.55 } },
 
     // ── Fas 10: Ytterligare 2 steg med tå och knä ───────────────────────
     { t: 10.70, pose: { ...ZERO,
         lHipX: -P*0.25, rHipX: P*0.08, lKnX: P*0.12,
-        lShX: P*0.18, rShX: P*0.18,
-        lElX: P*0.45, rElX: P*0.45,
-        lShZ: P*0.04, rShZ: -P*0.04,
+        ...ARMS_SIDE,
         rootX: 1.80 } },
     { t: 11.40, pose: { ...ZERO,
         rHipX: -P*0.25, lHipX: P*0.08, rKnX: P*0.12,
-        lShX: P*0.18, rShX: P*0.18,
-        lElX: P*0.45, rElX: P*0.45,
-        lShZ: P*0.04, rShZ: -P*0.04,
+        ...ARMS_SIDE,
         rootX: 2.05 } },
 
     // ── Fas 11: Steg ihop till samlat stående ───────────────────────────
@@ -504,10 +496,11 @@ const EXERCISES: Record<string, ExerciseDef> = {
     ];
   })() },
 
+  // Kors – armar åt sidan, rootY kompenserar för att händerna är vid axelhöjd (ej ovanför)
   "rings:cross": { kfs: [
-    { t: 0,   pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.06 } },
-    { t: 2.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.10, rElX:P*0.10, rootY:0.09, spineX:P*0.02 } },
-    { t: 4.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.06 } },
+    { t: 0,   pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.51 } },
+    { t: 2.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.10, rElX:P*0.10, rootY:0.54, spineX:P*0.02 } },
+    { t: 4.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.51 } },
   ] },
 
   // ── Fristående ─────────────────────────────────────────────────────────────
