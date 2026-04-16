@@ -6,7 +6,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, X } from "lucide-react";
 import type { MountedExerciseInfo } from "./GameGymnast3D";
-import type { AgeGroup } from "../../store/usePlanStore";
 
 export type Mission = {
   id: string;
@@ -28,11 +27,10 @@ type Props = {
   score: number;
   streak: number;
   missions: Mission[];
-  ageGroup: AgeGroup;
   onExit: () => void;
 };
 
-export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamActive, score, streak, missions, ageGroup, onExit }: Props) {
+export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamActive, score, streak, missions, onExit }: Props) {
   const [isTouch, setIsTouch] = useState(false);
   const [speedDisplay, setSpeedDisplay] = useState(speedRef.current);
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
@@ -254,7 +252,8 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
         transform: "translateX(-50%)",
         pointerEvents: "none",
       }}>
-        {nearEquipment ? (
+        {/* Visa inte proximity-etiketten när gymnasten är monterad */}
+        {!mountedExerciseInfo && nearEquipment ? (
           <div style={{
             background: "rgba(59,130,246,0.85)", backdropFilter: "blur(6px)",
             borderRadius: 20, padding: "7px 18px",
@@ -265,7 +264,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
             {isTouch ? `👆 Hoppa upp på ${nearEquipment}` : `[Space] Hoppa upp på ${nearEquipment}`}
           </div>
         ) : (
-          !isTouch && (
+          !isTouch && !mountedExerciseInfo && (
             <div style={{
               background: "rgba(10,18,32,0.55)", backdropFilter: "blur(4px)",
               borderRadius: 16, padding: "5px 14px",
@@ -303,22 +302,28 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
             }} />
           </div>
 
-          {/* Hoppa upp-knapp – nedre höger */}
+          {/* Hoppa upp/av-knapp – nedre höger */}
           <button
             type="button"
             onPointerDown={(e) => { e.preventDefault(); mountTriggerRef.current = true; }}
             style={{
               position: "absolute", bottom: 40, right: 40,
               width: 80, height: 80,
-              background: nearEquipment ? "rgba(59,130,246,0.85)" : "rgba(255,255,255,0.15)",
+              background: mountedExerciseInfo
+                ? "rgba(239,68,68,0.85)"
+                : nearEquipment
+                  ? "rgba(59,130,246,0.85)"
+                  : "rgba(255,255,255,0.15)",
               border: "2px solid rgba(255,255,255,0.30)",
               borderRadius: "50%",
               color: "#fff", fontSize: 11, fontWeight: 700,
               cursor: "pointer", pointerEvents: "all", touchAction: "none",
               transition: "background 0.2s",
+              whiteSpace: "pre-line",
+              lineHeight: 1.3,
             }}
           >
-            {nearEquipment ? "Hoppa\nupp" : "–"}
+            {mountedExerciseInfo ? "Hoppa\nav" : nearEquipment ? "Hoppa\nupp" : "–"}
           </button>
         </>
       )}
