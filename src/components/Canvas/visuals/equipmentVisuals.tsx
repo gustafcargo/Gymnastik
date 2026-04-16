@@ -371,7 +371,9 @@ function PommelHorse({ w, h, selected, color }: { w: number; h: number; selected
 function Vault({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
   const padColor = color ?? "#CC4E10";   // matchar 3D bodyColor
   const topColor = color ? darken(color, 0.12) : "#B84010";
-  const rEnd = Math.min(h * 0.44, w * 0.12); // rundade kortsidor
+  // Rundade approach/landing-kanter (kortsidorna). Radius ≈ halva kortsidan
+  // skapar en tydlig stadion-/pillform sedd uppifrån, som matchar 3D-modellen.
+  const rEnd = Math.min(w, h) * 0.42;
   return (
     <Group>
       {/* Skugga */}
