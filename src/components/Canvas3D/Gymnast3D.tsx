@@ -2,6 +2,7 @@
  * Gymnast3D – animerad FK-figur för 3D-vyn.
  *
  * ROOT = höfter.  Bålen sträcker sig UPPÅT; benen NEDÅT.
+ * Kroppen renderas via delad <GymnastBody> – ansikte och tåspetsar mot −Z.
  * Häng-övningar: händerna låsta vid stången via pendel-förskjutning
  * (rootZ + rootY) som matchar rootRotX, så pivot är i greppspunkten.
  */
@@ -9,23 +10,11 @@ import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { EquipmentType } from "../../types";
-
-// ─── Proportioner (meter) ─────────────────────────────────────────────────────
-const H_HEAD  = 0.09;
-const H_NECK  = 0.09;
-const H_TORSO = 0.46;
-const H_UPPER = 0.27;
-const H_LOWER = 0.24;
-const H_THIGH = 0.38;
-const H_SHIN  = 0.35;
-const R_BODY  = 0.068;
-const R_LIMB  = 0.036;
-const R_LEG   = 0.046;
-const W_SHLDR = 0.19;
-const W_HIP   = 0.11;
-
-// Avstånd höfter → händer (armar sträckta rakt upp)
-const HANG_DIST = H_TORSO * 0.85 + H_UPPER + H_LOWER; // ≈ 0.901 m
+import {
+  GymnastBody,
+  H_TORSO, H_UPPER, H_LOWER, H_THIGH, H_SHIN, HANG_DIST,
+  type BodyRefs,
+} from "./GymnastBody";
 
 // ─── Pose ─────────────────────────────────────────────────────────────────────
 type Pose = {
@@ -218,39 +207,40 @@ export const EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Bom ────────────────────────────────────────────────────────────────────
 
-  // Gång bom – gymnasten rör sig framåt längs bommen
+  // Gång bom – gymnasten rör sig framåt längs bommen (ansikte mot −Z lokalt).
+  // Positiv hipX = ben framåt (mot −Z). Negativ knX = naturlig knäböjning i svingen.
   "beam:walk": {
-    baseRotY: P / 2,  // vänd gymnasten så den tittar längs bommen (+X)
-    advance: 0.65,     // 0.65 m per 2 s cykel ≈ 0.33 m/s
+    baseRotY: P / 2,  // vänd gymnasten så den tittar längs bommen (−X i världen)
+    advance: 0.65,    // 0.65 m per 2 s cykel ≈ 0.33 m/s
     range: 3.5,
     kfs: [
-      // Vänster fot framme, höger bak – höger arm framåt (contra-lateral)
+      // Höger fot framme, vänster bak (contra-lateral arm: vänster fram)
       { t: 0,    pose: { ...ZERO,
-          lHipX:-P*0.12, rHipX: P*0.22, rKnX: P*0.10,
+          rHipX: P*0.22, lHipX:-P*0.18, lKnX:-P*0.12,
           lShX: P*0.10, rShX:-P*0.08,
           ...ARMS_SIDE,
           spineZ: 0.025, rootY:-0.01 } },
-      // Transition – höger ben svänger framåt
+      // Transition – vänster ben svänger framåt, knä böjs
       { t: 0.5,  pose: { ...ZERO,
-          lHipX: P*0.04, rHipX:-P*0.10, rKnX: P*0.20,
+          rHipX:-P*0.08, lHipX: P*0.04, lKnX:-P*0.22,
           rShX: P*0.04, lShX:-P*0.04,
           ...ARMS_SIDE,
           spineZ:-0.02, rootY: 0.02 } },
-      // Höger fot framme, vänster bak – vänster arm framåt (contra-lateral)
+      // Vänster fot framme, höger bak (contra-lateral arm: höger fram)
       { t: 1.0,  pose: { ...ZERO,
-          rHipX:-P*0.12, lHipX: P*0.22, lKnX: P*0.10,
+          lHipX: P*0.22, rHipX:-P*0.18, rKnX:-P*0.12,
           rShX: P*0.10, lShX:-P*0.08,
           ...ARMS_SIDE,
           spineZ:-0.025, rootY:-0.01 } },
-      // Transition – vänster ben svänger framåt
+      // Transition – höger ben svänger framåt, knä böjs
       { t: 1.5,  pose: { ...ZERO,
-          rHipX: P*0.04, lHipX:-P*0.10, lKnX: P*0.20,
+          lHipX:-P*0.08, rHipX: P*0.04, rKnX:-P*0.22,
           lShX: P*0.04, rShX:-P*0.04,
           ...ARMS_SIDE,
           spineZ: 0.02, rootY: 0.02 } },
       // Loop
       { t: 2.0,  pose: { ...ZERO,
-          lHipX:-P*0.12, rHipX: P*0.22, rKnX: P*0.10,
+          rHipX: P*0.22, lHipX:-P*0.18, lKnX:-P*0.12,
           lShX: P*0.10, rShX:-P*0.08,
           ...ARMS_SIDE,
           spineZ: 0.025, rootY:-0.01 } },
@@ -380,46 +370,46 @@ export const EXERCISES: Record<string, ExerciseDef> = {
         lElX: P*0.55, rElX: P*0.55 } },
 
     // ── Fas 5: Gå två steg på huk, händer i midjan ─────────────────────
+    //   (rootX negativ = framåt i blickriktningen −X efter baseRotY=π/2)
     { t: 3.90, pose: { ...ZERO,
         lHipX: -P*0.26, rHipX: -P*0.12,
         lKnX: P*0.48, rKnX: P*0.58,
-        spineX: -P*0.12, rootY: -0.33, rootX: 0.25,
+        spineX: -P*0.12, rootY: -0.33, rootX: -0.25,
         lShZ: -P*0.12, rShZ: P*0.12,
         lElX: P*0.55, rElX: P*0.55 } },
     { t: 4.60, pose: { ...ZERO,
         lHipX: -P*0.12, rHipX: -P*0.26,
         lKnX: P*0.58, rKnX: P*0.48,
-        spineX: -P*0.12, rootY: -0.33, rootX: 0.50,
+        spineX: -P*0.12, rootY: -0.33, rootX: -0.50,
         lShZ: -P*0.12, rShZ: P*0.12,
         lElX: P*0.55, rElX: P*0.55 } },
 
     // ── Fas 6: Sträck benen → pikstående, armar ut ──────────────────────
     { t: 5.20, pose: { ...ZERO,
-        spineX: P*0.50, rootY: -0.06, rootX: 0.55,
+        spineX: P*0.50, rootY: -0.06, rootX: -0.55,
         ...ARMS_SIDE } },
     { t: 5.80, pose: { ...ZERO,
-        spineX: P*0.52, rootY: -0.06, rootX: 0.55,
+        spineX: P*0.52, rootY: -0.06, rootX: -0.55,
         ...ARMS_SIDE } },
 
-    // ── Fas 7: Händer på bom, gå med fötter och händer ──────────────────
-    // (positiv spineX = framåtböjd; negativ lShX = armar framåt/ner mot bommen)
+    // ── Fas 7: Händer på bom, gå med fötter och händer (björngång) ──────
     { t: 6.30, pose: { ...ZERO,
         spineX: P*0.55,
         lShX: -P*0.50, rShX: -P*0.50,
         lElX: P*0.10, rElX: P*0.10,
-        rootY: -0.08, rootX: 0.60 } },
+        rootY: -0.08, rootX: -0.60 } },
     { t: 6.90, pose: { ...ZERO,
         spineX: P*0.55,
         lShX: -P*0.55, rShX: -P*0.42,
         lElX: P*0.10, rElX: P*0.10,
-        lHipX: P*0.06, rHipX: -P*0.10, rKnX: P*0.10,
-        rootY: -0.08, rootX: 0.80 } },
+        lHipX: P*0.06, rHipX: -P*0.10, rKnX:-P*0.10,
+        rootY: -0.08, rootX: -0.80 } },
     { t: 7.50, pose: { ...ZERO,
         spineX: P*0.55,
         lShX: -P*0.42, rShX: -P*0.55,
         lElX: P*0.10, rElX: P*0.10,
-        lHipX: -P*0.10, rHipX: P*0.06, lKnX: P*0.10,
-        rootY: -0.08, rootX: 1.00 } },
+        lHipX: -P*0.10, rHipX: P*0.06, lKnX:-P*0.10,
+        rootY: -0.08, rootX: -1.00 } },
 
     // ── Fas 8: Res upp, sträckt kropp, händer bakom ryggen ──────────────
     { t: 8.10, pose: { ...ZERO,
@@ -427,60 +417,61 @@ export const EXERCISES: Record<string, ExerciseDef> = {
         lShX: P*0.18, rShX: P*0.18,
         lElX: P*0.45, rElX: P*0.45,
         lShZ: P*0.04, rShZ: -P*0.04,
-        rootX: 1.05 } },
+        rootX: -1.05 } },
     { t: 8.60, pose: { ...ZERO,
         lShX: P*0.18, rShX: P*0.18,
         lElX: P*0.45, rElX: P*0.45,
         lShZ: P*0.04, rShZ: -P*0.04,
-        rootX: 1.05 } },
+        rootX: -1.05 } },
 
     // ── Fas 9: Gå 2 steg med peka tå ────────────────────────────────────
+    //   Positiv hipX = ben framåt (−Z lokalt). Negativ knX = naturlig böjning.
     { t: 9.30, pose: { ...ZERO,
-        lHipX: -P*0.16, rHipX: P*0.10, rKnX: P*0.06,
+        rHipX: -P*0.16, lHipX: P*0.10, lKnX:-P*0.06,
         ...ARMS_SIDE,
-        rootX: 1.30 } },
+        rootX: -1.30 } },
     { t: 10.00, pose: { ...ZERO,
-        rHipX: -P*0.16, lHipX: P*0.10, lKnX: P*0.06,
+        lHipX: -P*0.16, rHipX: P*0.10, rKnX:-P*0.06,
         ...ARMS_SIDE,
-        rootX: 1.55 } },
+        rootX: -1.55 } },
 
     // ── Fas 10: Ytterligare 2 steg med tå och knä ───────────────────────
     { t: 10.70, pose: { ...ZERO,
-        lHipX: -P*0.25, rHipX: P*0.08, lKnX: P*0.12,
+        rHipX: -P*0.25, lHipX: P*0.08, lKnX:-P*0.12,
         ...ARMS_SIDE,
-        rootX: 1.80 } },
+        rootX: -1.80 } },
     { t: 11.40, pose: { ...ZERO,
-        rHipX: -P*0.25, lHipX: P*0.08, rKnX: P*0.12,
+        lHipX: -P*0.25, rHipX: P*0.08, rKnX:-P*0.12,
         ...ARMS_SIDE,
-        rootX: 2.05 } },
+        rootX: -2.05 } },
 
     // ── Fas 11: Steg ihop till samlat stående ───────────────────────────
-    { t: 11.80, pose: { ...ZERO, ...ARMS_SIDE, rootX: 2.10 } },
+    { t: 11.80, pose: { ...ZERO, ...ARMS_SIDE, rootX: -2.10 } },
 
     // ── Fas 12: Avhopp – ljushopp med armdrag, kontrollerad landning ────
     { t: 12.20, pose: { ...ZERO,
         lHipX: -P*0.08, rHipX: -P*0.08, lKnX: P*0.14, rKnX: P*0.14,
-        rootY: -0.05, lShZ: -P*0.18, rShZ: P*0.18, rootX: 2.10 } },
+        rootY: -0.05, lShZ: -P*0.18, rShZ: P*0.18, rootX: -2.10 } },
     { t: 12.50, pose: { ...ZERO,
         rootY: 0.35,
         lShX: -P*0.75, rShX: -P*0.75,
         spineX: -P*0.02,
-        rootX: 2.10, rootZ: 0.15 } },
+        rootX: -2.10, rootZ: 0.15 } },
     { t: 12.80, pose: { ...ZERO,
         rootY: 0.15,
         lShX: -P*0.80, rShX: -P*0.80,
-        rootX: 2.10, rootZ: 0.45 } },
+        rootX: -2.10, rootZ: 0.45 } },
     { t: 13.10, pose: { ...ZERO,
         lHipX: -P*0.10, rHipX: -P*0.10, lKnX: P*0.16, rKnX: P*0.16,
         rootY: -1.20,
         lShZ: -P*0.22, rShZ: P*0.22,
-        rootX: 2.10, rootZ: 0.55 } },
+        rootX: -2.10, rootZ: 0.55 } },
     { t: 13.50, pose: { ...ZERO,
         rootY: -1.25, ...ARMS_SIDE,
-        rootX: 2.10, rootZ: 0.55 } },
+        rootX: -2.10, rootZ: 0.55 } },
     { t: 14.00, pose: { ...ZERO,
         rootY: -1.25, ...ARMS_SIDE,
-        rootX: 2.10, rootZ: 0.55 } },
+        rootX: -2.10, rootZ: 0.55 } },
   ] },
 
   // ── Ringar ─────────────────────────────────────────────────────────────────
@@ -594,65 +585,6 @@ function mountType(exerciseId: string): MountType {
   return "stand-surface";
 }
 
-// ─── Primitiver ───────────────────────────────────────────────────────────────
-// Leotard-segment: atletiskt tyg med subtilt skimmer
-function LeotardSeg({ len, r, color, up = false }: { len: number; r: number; color: string; up?: boolean }) {
-  return (
-    <mesh position={[0, up ? len / 2 : -len / 2, 0]} castShadow>
-      <capsuleGeometry args={[r, Math.max(0.001, len - r * 2), 6, 10]} />
-      <meshPhysicalMaterial color={color} roughness={0.55} metalness={0.02} clearcoat={0.25} clearcoatRoughness={0.35} />
-    </mesh>
-  );
-}
-
-// Hudsegment: mjuk matt yta
-function SkinSeg({ len, r, color, up = false }: { len: number; r: number; color: string; up?: boolean }) {
-  return (
-    <mesh position={[0, up ? len / 2 : -len / 2, 0]} castShadow>
-      <capsuleGeometry args={[r, Math.max(0.001, len - r * 2), 6, 10]} />
-      <meshPhysicalMaterial color={color} roughness={0.72} metalness={0} />
-    </mesh>
-  );
-}
-
-// Ledsfär
-function Joint({ r, color, leotard = false }: { r: number; color: string; leotard?: boolean }) {
-  return (
-    <mesh castShadow>
-      <sphereGeometry args={[r, 10, 8]} />
-      <meshPhysicalMaterial
-        color={color}
-        roughness={leotard ? 0.55 : 0.72}
-        metalness={leotard ? 0.02 : 0}
-        clearcoat={leotard ? 0.25 : 0}
-        clearcoatRoughness={0.35}
-      />
-    </mesh>
-  );
-}
-
-function Head({ skinColor, hairColor }: { skinColor: string; hairColor: string }) {
-  return (
-    <>
-      {/* Ansikte */}
-      <mesh castShadow>
-        <sphereGeometry args={[H_HEAD, 14, 10]} />
-        <meshPhysicalMaterial color={skinColor} roughness={0.68} metalness={0} />
-      </mesh>
-      {/* Hår – slät kalott */}
-      <mesh position={[0, H_HEAD * 0.18, 0]} castShadow>
-        <sphereGeometry args={[H_HEAD * 0.84, 12, 8]} />
-        <meshPhysicalMaterial color={hairColor} roughness={0.82} metalness={0.03} clearcoat={0.15} clearcoatRoughness={0.5} />
-      </mesh>
-      {/* Tofs / hästsvans */}
-      <mesh position={[0, H_HEAD * 0.45, -H_HEAD * 0.55]} rotation={[0.55, 0, 0]} castShadow>
-        <capsuleGeometry args={[0.018, 0.08, 4, 6]} />
-        <meshPhysicalMaterial color={hairColor} roughness={0.85} metalness={0} />
-      </mesh>
-    </>
-  );
-}
-
 // ─── Huvud-komponent ─────────────────────────────────────────────────────────
 type Props = {
   exerciseId: string;
@@ -684,16 +616,18 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
 
   // Leds-refs
   const rootRef  = useRef<THREE.Group>(null);
-  const spineRef = useRef<THREE.Group>(null);
-  const headRef  = useRef<THREE.Group>(null);
-  const lShRef   = useRef<THREE.Group>(null);
-  const lElRef   = useRef<THREE.Group>(null);
-  const rShRef   = useRef<THREE.Group>(null);
-  const rElRef   = useRef<THREE.Group>(null);
-  const lHipRef  = useRef<THREE.Group>(null);
-  const lKnRef   = useRef<THREE.Group>(null);
-  const rHipRef  = useRef<THREE.Group>(null);
-  const rKnRef   = useRef<THREE.Group>(null);
+  const bodyRefs: BodyRefs = {
+    spineRef: useRef<THREE.Group>(null),
+    headRef:  useRef<THREE.Group>(null),
+    lShRef:   useRef<THREE.Group>(null),
+    lElRef:   useRef<THREE.Group>(null),
+    rShRef:   useRef<THREE.Group>(null),
+    rElRef:   useRef<THREE.Group>(null),
+    lHipRef:  useRef<THREE.Group>(null),
+    lKnRef:   useRef<THREE.Group>(null),
+    rHipRef:  useRef<THREE.Group>(null),
+    rKnRef:   useRef<THREE.Group>(null),
+  };
 
   useFrame(({ clock }) => {
     const raw = clock.getElapsedTime();
@@ -702,7 +636,9 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
     // Basrotation – vrider gymnasten mot redskapets längdriktning
     if (def.baseRotY) p.rootRotY += def.baseRotY;
 
-    // Framåtrörelse (ping-pong) för gång-övningar
+    // Framåtrörelse (ping-pong) för gång-övningar.
+    // Ansiktet pekar lokal −Z → världens −X efter baseRotY=π/2.
+    // Vi negerar rootX så gymnasten rör sig i sin blickriktning.
     if (def.advance && def.advance > 0) {
       const dur = kfs[kfs.length - 1].t;
       const dist = (raw / dur) * def.advance;
@@ -710,10 +646,10 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
       const period = totalRange * 2;
       const phase = dist % period;
       if (phase <= totalRange) {
-        p.rootX += phase - totalRange / 2;
+        p.rootX -= phase - totalRange / 2;
       } else {
-        p.rootX += (period - phase) - totalRange / 2;
-        p.rootRotY += P; // vänd gymnasten vid återgång
+        p.rootX -= (period - phase) - totalRange / 2;
+        p.rootRotY += P; // vänd 180° för returvarvet
       }
     }
 
@@ -722,105 +658,22 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
       rootRef.current.rotation.x = p.rootRotX;
       rootRef.current.rotation.y = p.rootRotY;
     }
-    if (spineRef.current) { spineRef.current.rotation.x = p.spineX; spineRef.current.rotation.z = p.spineZ; }
-    if (headRef.current)  { headRef.current.rotation.x  = p.headX;  headRef.current.rotation.z  = p.headZ; }
-
-    if (lShRef.current) { lShRef.current.rotation.x = p.lShX; lShRef.current.rotation.z = p.lShZ; }
-    if (lElRef.current)   lElRef.current.rotation.x = p.lElX;
-    if (rShRef.current) { rShRef.current.rotation.x = p.rShX; rShRef.current.rotation.z = p.rShZ; }
-    if (rElRef.current)   rElRef.current.rotation.x = p.rElX;
-
-    if (lHipRef.current)  lHipRef.current.rotation.x = p.lHipX;
-    if (lKnRef.current)   lKnRef.current.rotation.x  = p.lKnX;
-    if (rHipRef.current)  rHipRef.current.rotation.x = p.rHipX;
-    if (rKnRef.current)   rKnRef.current.rotation.x  = p.rKnX;
+    const r = bodyRefs;
+    if (r.spineRef.current) { r.spineRef.current.rotation.x = p.spineX; r.spineRef.current.rotation.z = p.spineZ; }
+    if (r.headRef.current)  { r.headRef.current.rotation.x  = p.headX;  r.headRef.current.rotation.z  = p.headZ; }
+    if (r.lShRef.current)   { r.lShRef.current.rotation.x = p.lShX; r.lShRef.current.rotation.z = p.lShZ; }
+    if (r.lElRef.current)     r.lElRef.current.rotation.x = p.lElX;
+    if (r.rShRef.current)   { r.rShRef.current.rotation.x = p.rShX; r.rShRef.current.rotation.z = p.rShZ; }
+    if (r.rElRef.current)     r.rElRef.current.rotation.x = p.rElX;
+    if (r.lHipRef.current)    r.lHipRef.current.rotation.x = p.lHipX;
+    if (r.lKnRef.current)     r.lKnRef.current.rotation.x  = p.lKnX;
+    if (r.rHipRef.current)    r.rHipRef.current.rotation.x = p.rHipX;
+    if (r.rKnRef.current)     r.rKnRef.current.rotation.x  = p.rKnX;
   });
 
   return (
     <group ref={rootRef} position={[0, baseY, 0]}>
-
-      {/* Höft-sfär */}
-      <Joint r={0.065} color={color} leotard />
-
-      {/* ── Bål (uppåt från höfter) ───────────────────────── */}
-      <group ref={spineRef}>
-        <LeotardSeg len={H_TORSO} r={R_BODY} color={color} up />
-
-        {/* Nacke */}
-        <group position={[0, H_TORSO - 0.01, 0]}>
-          <SkinSeg len={H_NECK} r={0.030} color={SKIN} up />
-        </group>
-
-        {/* Huvud */}
-        <group ref={headRef} position={[0, H_TORSO + H_NECK + H_HEAD * 0.85, 0]}>
-          <Head skinColor={SKIN} hairColor={HAIR} />
-        </group>
-
-        {/* Axelsfärer */}
-        {([-W_SHLDR, W_SHLDR] as number[]).map((x, i) => (
-          <mesh key={i} position={[x, H_TORSO * 0.85, 0]} castShadow>
-            <sphereGeometry args={[0.048, 10, 8]} />
-            <meshPhysicalMaterial color={color} roughness={0.55} metalness={0.02} clearcoat={0.25} clearcoatRoughness={0.35} />
-          </mesh>
-        ))}
-
-        {/* Vänster arm: överarm leotard, underarm hud */}
-        <group ref={lShRef} position={[-W_SHLDR, H_TORSO * 0.85, 0]}>
-          <LeotardSeg len={H_UPPER} r={R_LIMB} color={color} />
-          <group ref={lElRef} position={[0, -H_UPPER, 0]}>
-            <Joint r={R_LIMB * 1.10} color={SKIN} />
-            <SkinSeg len={H_LOWER} r={R_LIMB * 0.85} color={SKIN} />
-            <mesh position={[0, -H_LOWER, 0]} castShadow>
-              <sphereGeometry args={[0.028, 8, 6]} />
-              <meshPhysicalMaterial color={SKIN} roughness={0.68} metalness={0} />
-            </mesh>
-          </group>
-        </group>
-
-        {/* Höger arm */}
-        <group ref={rShRef} position={[ W_SHLDR, H_TORSO * 0.85, 0]}>
-          <LeotardSeg len={H_UPPER} r={R_LIMB} color={color} />
-          <group ref={rElRef} position={[0, -H_UPPER, 0]}>
-            <Joint r={R_LIMB * 1.10} color={SKIN} />
-            <SkinSeg len={H_LOWER} r={R_LIMB * 0.85} color={SKIN} />
-            <mesh position={[0, -H_LOWER, 0]} castShadow>
-              <sphereGeometry args={[0.028, 8, 6]} />
-              <meshPhysicalMaterial color={SKIN} roughness={0.68} metalness={0} />
-            </mesh>
-          </group>
-        </group>
-      </group>
-
-      {/* ── Vänster ben: lår leotard, smalben hud ─────────── */}
-      <Joint r={0.052} color={color} leotard />
-      <group ref={lHipRef} position={[-W_HIP, 0, 0]}>
-        <LeotardSeg len={H_THIGH} r={R_LEG} color={color} />
-        <group ref={lKnRef} position={[0, -H_THIGH, 0]}>
-          <Joint r={R_LEG * 1.05} color={SKIN} />
-          <SkinSeg len={H_SHIN} r={R_LEG * 0.85} color={SKIN} />
-          {/* Gymnastikskor – vit sula, ljusare */}
-          <mesh position={[0, -H_SHIN - 0.015, 0.028]}
-                rotation={[-P * 0.20, 0, 0]} castShadow>
-            <capsuleGeometry args={[0.024, 0.058, 4, 8]} />
-            <meshPhysicalMaterial color="#F0F0F0" roughness={0.75} metalness={0} />
-          </mesh>
-        </group>
-      </group>
-
-      {/* ── Höger ben ───────────────────────────────────────── */}
-      <group ref={rHipRef} position={[W_HIP, 0, 0]}>
-        <LeotardSeg len={H_THIGH} r={R_LEG} color={color} />
-        <group ref={rKnRef} position={[0, -H_THIGH, 0]}>
-          <Joint r={R_LEG * 1.05} color={SKIN} />
-          <SkinSeg len={H_SHIN} r={R_LEG * 0.85} color={SKIN} />
-          <mesh position={[0, -H_SHIN - 0.015, 0.028]}
-                rotation={[-P * 0.20, 0, 0]} castShadow>
-            <capsuleGeometry args={[0.024, 0.058, 4, 8]} />
-            <meshPhysicalMaterial color="#F0F0F0" roughness={0.75} metalness={0} />
-          </mesh>
-        </group>
-      </group>
-
+      <GymnastBody color={color} skin={SKIN} hair={HAIR} refs={bodyRefs} />
     </group>
   );
 }
