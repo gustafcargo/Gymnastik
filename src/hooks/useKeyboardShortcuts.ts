@@ -18,6 +18,7 @@ export function useKeyboardShortcuts() {
     const handler = (e: KeyboardEvent) => {
       if (isEditable(e.target)) return;
       const store = usePlanStore.getState();
+      if (store.gameMode) return; // spelläge hanterar tangenter själv
       const temporal = useTemporalStore.getState();
       const selected = store.selectedEquipmentId;
 

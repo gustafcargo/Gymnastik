@@ -13,6 +13,8 @@ import { usePlanStore } from "../../store/usePlanStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { Equipment3D } from "./Equipment3D";
 import { Gymnast3D } from "./Gymnast3D";
+import { GameGymnast3D } from "./GameGymnast3D";
+import { GameHUD } from "./GameHUD";
 import { exercisesForKind } from "../../catalog/exercises";
 import { computeStackInfo } from "../../lib/stackGroups";
 import type { Station } from "../../types";
@@ -23,11 +25,18 @@ type Props = { className?: string };
 // Inner scene – lives inside Canvas so it can call useThree
 // ---------------------------------------------------------------------------
 
-function HallScene({ W, H }: { W: number; H: number }) {
+function HallScene({ W, H, joystickRef, mountTriggerRef, onNearEquipment }: {
+  W: number; H: number;
+  joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
+  mountTriggerRef: React.MutableRefObject<boolean>;
+  onNearEquipment: (name: string | null) => void;
+}) {
   const plan = usePlanStore((s) => s.plan);
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
+  const gameMode = usePlanStore((s) => s.gameMode);
+  const setGameMode = usePlanStore((s) => s.setGameMode);
   const moveEquipment = usePlanStore((s) => s.moveEquipment);
   const updateEquipment = usePlanStore((s) => s.updateEquipment);
   const showLabels = usePlanStore((s) => s.showLabels);
@@ -118,6 +127,7 @@ function HallScene({ W, H }: { W: number; H: number }) {
     const canvas = gl.domElement;
 
     const onPointerDownCapture = (e: PointerEvent) => {
+      if (usePlanStore.getState().gameMode) return; // spelläge hanterar input
       if (e.button !== 0) return; // only primary (left) button
       const rect = canvas.getBoundingClientRect();
       const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -612,7 +622,20 @@ function HallScene({ W, H }: { W: number; H: number }) {
         minDistance={3}
         maxDistance={Math.max(W, H) * 3}
         maxPolarAngle={Math.PI / 2 - 0.05}
+        enabled={!gameMode}
       />
+
+      {gameMode && station && (
+        <GameGymnast3D
+          station={station}
+          hallW={W}
+          hallH={H}
+          joystickRef={joystickRef}
+          mountTriggerRef={mountTriggerRef}
+          onNearEquipment={onNearEquipment}
+          onExit={() => setGameMode(false)}
+        />
+      )}
     </>
   );
 }
@@ -622,7 +645,9 @@ function HallScene({ W, H }: { W: number; H: number }) {
 // ---------------------------------------------------------------------------
 
 export function Hall3D({ className }: Props) {
-  const plan = usePlanStore((s) => s.plan);
+  const plan      = usePlanStore((s) => s.plan);
+  const gameMode  = usePlanStore((s) => s.gameMode);
+  const setGameMode = usePlanStore((s) => s.setGameMode);
 
   const W = plan.hall.widthM;
   const H = plan.hall.heightM;
@@ -630,8 +655,13 @@ export function Hall3D({ className }: Props) {
   const cz = H / 2;
   const camDist = Math.max(W, H) * 0.95;
 
+  // Refs delas mellan HallScene (Canvas) och GameHUD (DOM overlay)
+  const joystickRef    = useRef<{ dx: number; dz: number }>({ dx: 0, dz: 0 });
+  const mountTriggerRef = useRef(false);
+  const [nearEquipment, setNearEquipment] = useState<string | null>(null);
+
   return (
-    <div className={className}>
+    <div className={className} style={{ position: "relative" }}>
       <Canvas
         shadows
         dpr={[1, 2]}
@@ -654,8 +684,22 @@ export function Hall3D({ className }: Props) {
           <Environment preset="city" background={false} environmentIntensity={0.15} />
         </Suspense>
 
-        <HallScene W={W} H={H} />
+        <HallScene
+          W={W} H={H}
+          joystickRef={joystickRef}
+          mountTriggerRef={mountTriggerRef}
+          onNearEquipment={setNearEquipment}
+        />
       </Canvas>
+
+      {gameMode && (
+        <GameHUD
+          nearEquipment={nearEquipment}
+          joystickRef={joystickRef}
+          mountTriggerRef={mountTriggerRef}
+          onExit={() => setGameMode(false)}
+        />
+      )}
     </div>
   );
 }

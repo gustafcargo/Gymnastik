@@ -124,6 +124,7 @@ type PlanState = {
   equipmentEditorOpen: boolean;
   showLabels: boolean;
   showNotes: boolean;
+  gameMode: boolean;
 };
 
 type PlanActions = {
@@ -165,6 +166,8 @@ type PlanActions = {
   closeEquipmentEditor: () => void;
   toggleLabels: () => void;
   toggleNotes: () => void;
+  toggleGameMode: () => void;
+  setGameMode: (on: boolean) => void;
 
   // stations
   addStation: (name?: string) => string;
@@ -236,6 +239,7 @@ export const usePlanStore = create<PlanStore>()(
       equipmentEditorOpen: false,
       showLabels: true,
       showNotes: true,
+      gameMode: false,
 
       newPlan: (name) =>
         set(() => {
@@ -493,6 +497,8 @@ export const usePlanStore = create<PlanStore>()(
       closeEquipmentEditor: () => set({ equipmentEditorOpen: false }),
       toggleLabels: () => set((s) => ({ showLabels: !s.showLabels })),
       toggleNotes: () => set((s) => ({ showNotes: !s.showNotes })),
+      toggleGameMode: () => set((s) => ({ gameMode: !s.gameMode })),
+      setGameMode: (on) => set({ gameMode: on }),
 
       addStation: (name) => {
         const state = get();
@@ -610,9 +616,10 @@ export const usePlanStore = create<PlanStore>()(
           equipmentEditorOpen: _eo,
           showLabels: _sl,
           showNotes: _sn,
+          gameMode: _gm,
           ...rest
         } = state;
-        void _sel; void _s; void _ss; void _vm; void _eo; void _sl; void _sn;
+        void _sel; void _s; void _ss; void _vm; void _eo; void _sl; void _sn; void _gm;
         return rest;
       },
       limit: 100,

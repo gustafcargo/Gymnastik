@@ -4,6 +4,7 @@ import {
   Download,
   FileText,
   FolderOpen,
+  Gamepad2,
   Grid3x3,
   Image as ImageIcon,
   Maximize2,
@@ -38,6 +39,8 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   const setSnapToGrid = usePlanStore((s) => s.setSnapToGrid);
   const viewMode = usePlanStore((s) => s.viewMode);
   const toggleViewMode = usePlanStore((s) => s.toggleViewMode);
+  const gameMode = usePlanStore((s) => s.gameMode);
+  const toggleGameMode = usePlanStore((s) => s.toggleGameMode);
   const showLabels = usePlanStore((s) => s.showLabels);
   const toggleLabels = usePlanStore((s) => s.toggleLabels);
   const showNotes = usePlanStore((s) => s.showNotes);
@@ -189,6 +192,23 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           {viewMode === "3D" ? <Box size={14} /> : <Square size={14} />}
           <span>{viewMode}</span>
         </button>
+
+        {viewMode === "3D" && (
+          <button
+            type="button"
+            onClick={toggleGameMode}
+            className={
+              "flex h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold transition " +
+              (gameMode
+                ? "bg-green-600 text-white shadow-sm"
+                : "bg-surface-2 text-slate-700 hover:bg-surface-3")
+            }
+            title={gameMode ? "Avsluta spelläge" : "Spelläge – styr gymnasten"}
+          >
+            <Gamepad2 size={14} />
+            <span className="hidden sm:inline">Spelläge</span>
+          </button>
+        )}
 
         <div className="min-w-0">
           <label className="sr-only" htmlFor="hall-select">
