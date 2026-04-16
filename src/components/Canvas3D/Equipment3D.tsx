@@ -631,13 +631,13 @@ function Vault({
       </mesh>
       {/* Rounded approach edge (front — gymnast runs toward) */}
       <mesh position={[0, padY + padH / 2, -(d - padH * 0.90) / 2]}
-            rotation={[0, Math.PI / 2, 0]} castShadow>
+            rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[padH / 2, padH / 2, w, 20]} />
         <meshPhysicalMaterial color={bodyColor} roughness={0.60} metalness={0} />
       </mesh>
       {/* Rounded landing edge (back) */}
       <mesh position={[0, padY + padH / 2, (d - padH * 0.90) / 2]}
-            rotation={[0, Math.PI / 2, 0]} castShadow>
+            rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[padH / 2, padH / 2, w, 20]} />
         <meshPhysicalMaterial color={bodyColor} roughness={0.60} metalness={0} />
       </mesh>
