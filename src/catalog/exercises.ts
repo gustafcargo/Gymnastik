@@ -24,7 +24,7 @@ export const ALL_EXERCISES: Exercise[] = [
   { id: "beam:arabesque",         label: "Arabesque",    apparatus: ["beam"], speed: 3.5 },
   { id: "beam:tuck-jump",         label: "Knähopp",      apparatus: ["beam"], speed: 1.4 },
   { id: "beam:pirouette",         label: "Pirouette",    apparatus: ["beam"], speed: 2.5 },
-  { id: "beam:stegserie-1",       label: "Stegserie 1",  apparatus: ["beam"], speed: 9.0 },
+  { id: "beam:stegserie-1",       label: "Stegserie 1",  apparatus: ["beam"], speed: 14.0 },
   // ── Ringar ──────────────────────────────────────────────────────────────
   { id: "rings:swing",            label: "Sving",        apparatus: ["rings", "rings-free"], speed: 1.8 },
   { id: "rings:cross",            label: "Kors",         apparatus: ["rings", "rings-free"], speed: 4.0 },
@@ -34,7 +34,7 @@ export const ALL_EXERCISES: Exercise[] = [
   // ── Bygelhäst ───────────────────────────────────────────────────────────
   { id: "pommel-horse:scissors",  label: "Saxpendel",    apparatus: ["pommel-horse"], speed: 1.4 },
   // ── Hoppbord ────────────────────────────────────────────────────────────
-  { id: "vault:approach",         label: "Ansats",       apparatus: ["vault"], speed: 2.0 },
+  { id: "vault:handstand",        label: "Handstående",  apparatus: ["vault"], speed: 3.0 },
   // ── Trampett ────────────────────────────────────────────────────────────
   { id: "mini-tramp:bounce",      label: "Studs",        apparatus: ["mini-tramp", "trampette"], speed: 1.0 },
   // ── Plint ───────────────────────────────────────────────────────────────
