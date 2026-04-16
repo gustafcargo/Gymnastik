@@ -199,11 +199,16 @@ const EXERCISES: Record<string, ExerciseDef> = {
     { t: 3.0, pose: { ...ZERO, lElX:P*0.10, rElX:P*0.10, spineX:-P*0.04 } },
   ] },
 
-  // Ojämna barr – pendel
+  // Ojämna barr – pendel vid övre barren (Z = -0.70 i utrustningens lokal-rymd)
   "uneven-bars:swing": { kfs: (() => {
     const a = P * 0.28;
-    const fwd: Pose = { ...HANG_STRAIGHT, rootRotX:  a, lHipX:  P*0.10, rHipX:  P*0.10, ...pend( a) };
-    const bak: Pose = { ...HANG_STRAIGHT, rootRotX: -a, lHipX: -P*0.07, rHipX: -P*0.07, ...pend(-a) };
+    const barZ = -0.70; // övre barren i unevenBars: Z = -barSep/2
+    const fwd: Pose = { ...HANG_STRAIGHT, rootRotX:  a, lHipX:  P*0.10, rHipX:  P*0.10,
+        rootZ: -HANG_DIST * Math.sin(a) + barZ,
+        rootY:  HANG_DIST * (1 - Math.cos(a)) };
+    const bak: Pose = { ...HANG_STRAIGHT, rootRotX: -a, lHipX: -P*0.07, rHipX: -P*0.07,
+        rootZ: -HANG_DIST * Math.sin(-a) + barZ,
+        rootY:  HANG_DIST * (1 - Math.cos(-a)) };
     return [
       { t: 0.0, pose: fwd },
       { t: 0.9, pose: bak },
@@ -671,8 +676,15 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
   const pH   = equipmentType.physicalHeightM;
 
   // ROOT (höfter) basposition i redskaps-lokal Y
+  const kind = equipmentType.detail?.kind ?? "";
   const baseY = (() => {
-    if (mt === "hang-bar")     return pH - HANG_DIST;
+    if (mt === "hang-bar") {
+      // Ringar: greppet är vid ringens underkant = physicalHeightM - 0.18
+      if (kind === "rings" || kind === "rings-free")
+        return pH - 0.18 - HANG_DIST;
+      // Barr-baserade: Equipment3D lägger till 0.04 m basplatta som inte ingår i pH
+      return pH + 0.04 - HANG_DIST;
+    }
     if (mt === "support-bar")  return pH + H_UPPER + H_LOWER - H_TORSO * 0.85;
     return pH + H_THIGH + H_SHIN;
   })();
