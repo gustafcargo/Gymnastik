@@ -19,8 +19,22 @@ body,
   color: #0f172a;
   font-family: theme("fontFamily.sans");
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
   touch-action: manipulation;
+  text-rendering: optimizeLegibility;
+}
+
+/* Bättre fokus-styling för tillgänglighet */
+:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Smoothare transitions globalt */
+button, a, input, select {
+  transition: all 0.15s ease;
 }
 
 /* Prevent iOS Safari double-tap zoom on buttons */

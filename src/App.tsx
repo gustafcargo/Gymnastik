@@ -192,9 +192,9 @@ export default function App() {
                 type="button"
                 onClick={() => setPaletteOpen(true)}
                 aria-label="Visa redskap"
-                className="absolute left-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full border border-surface-3 bg-white/90 text-slate-600 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-accent"
+                className="absolute left-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-2xl border border-white/30 bg-accent text-white shadow-lg backdrop-blur-sm transition hover:opacity-90 active:scale-95"
               >
-                <Plus size={20} />
+                <Plus size={20} strokeWidth={2.5} />
               </button>
             )}
             {canvasArea}
@@ -215,30 +215,30 @@ export default function App() {
               type="button"
               onClick={() => setPaletteOpen(true)}
               aria-label="Visa redskap"
-              className="absolute left-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-surface-3 bg-white/95 text-slate-600 shadow-md backdrop-blur-sm transition active:scale-95"
+              className="absolute left-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/30 bg-accent text-white shadow-lg backdrop-blur-sm transition active:scale-95"
             >
-              <Plus size={22} />
+              <Plus size={22} strokeWidth={2.5} />
             </button>
             {canvasArea}
           </main>
 
-          {/* Selection bar */}
+          {/* Selection bar – förbättrad med bättre touch-targets */}
           {selectedId && !propertyOpen && (
-            <div className="safe-bottom flex items-center gap-2 border-t border-surface-3 bg-white px-3 py-2">
+            <div className="safe-bottom flex items-center gap-2 border-t border-surface-3 bg-white/95 px-4 py-2.5 shadow-[0_-2px_12px_rgba(0,0,0,0.08)] backdrop-blur-sm">
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
                 {selectedLabel}
               </span>
               <button
                 type="button"
                 onClick={() => setPropertyOpen(true)}
-                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white active:opacity-80"
+                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm active:opacity-80"
               >
                 <Settings2 size={14} /> Egenskaper
               </button>
               <button
                 type="button"
                 onClick={() => selectEquipment(null)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-slate-500"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-2 text-slate-500 active:bg-surface-3"
                 aria-label="Avmarkera"
               >
                 <X size={16} />

@@ -365,60 +365,62 @@ function PommelHorse({ w, h, selected, color }: { w: number; h: number; selected
 }
 
 // ---------------------------------------------------------------------------
-// Hoppbord/vault – top-down vy: stor stoppningsyta sedd uppifrån.
+// Hoppbord/vault – top-down vy: matchar 3D-modellens stoppade yta med
+// rundade kortsidor, sidosömmar och metallpelare under.
 // ---------------------------------------------------------------------------
 function Vault({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
-  const r = Math.min(w, h) * 0.38;
-  const base = color ?? "#8F5C3D";
+  const padColor = color ?? "#CC4E10";   // matchar 3D bodyColor
+  const topColor = color ? darken(color, 0.12) : "#B84010";
+  const rEnd = Math.min(h * 0.44, w * 0.12); // rundade kortsidor
   return (
     <Group>
-      <Rect
-        x={2}
-        y={4}
-        width={w - 4}
-        height={h - 4}
-        cornerRadius={r}
-        fill="#000"
-        opacity={0.22}
-      />
-      {/* Stoppningsyta – stor avrundad rektangel */}
+      {/* Skugga */}
+      <Rect x={2} y={3} width={w - 4} height={h - 3} cornerRadius={rEnd} fill="#000" opacity={0.20} />
+      {/* Stoppad yta – rektangulär med rundade kortsidor (som 3D-modellen) */}
       <Rect
         width={w}
         height={h}
-        cornerRadius={r}
+        cornerRadius={rEnd}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
-        fillLinearGradientEndPoint={{ x: w * 0.4, y: h }}
-        fillLinearGradientColorStops={[0, lighten(base, 0.3), 0.45, base, 1, darken(base, 0.25)]}
+        fillLinearGradientEndPoint={{ x: 0, y: h }}
+        fillLinearGradientColorStops={[0, lighten(padColor, 0.25), 0.4, padColor, 1, darken(padColor, 0.20)]}
         stroke={sel(selected)}
         strokeWidth={selected ? 2 : 0.9}
         {...SHADOW(selected)}
       />
-      {/* Inre stoppningskant (synlig söm runt ytan) */}
-      {w > 10 && h > 10 && (
-        <Rect
-          x={w * 0.1}
-          y={h * 0.1}
-          width={w * 0.8}
-          height={h * 0.8}
-          cornerRadius={r * 0.7}
-          stroke={darken(base, 0.15)}
-          strokeWidth={0.7}
-          dash={[3, 3]}
-          fill="transparent"
-          opacity={0.5}
-          listening={false}
-        />
-      )}
-      {/* Topp-highlight */}
+      {/* Sidosömmar (vertikala remsor som på 3D-modellen) */}
+      {[w * 0.04, w * 0.96].map((lx, i) => (
+        <Line key={i} points={[lx, h * 0.12, lx, h * 0.88]} stroke={topColor} strokeWidth={1.2} opacity={0.6} />
+      ))}
+      {/* Topp-yta (mörkare läder/syntet) */}
+      <Rect
+        x={w * 0.06}
+        y={h * 0.08}
+        width={w * 0.88}
+        height={h * 0.84}
+        cornerRadius={rEnd * 0.6}
+        fill={topColor}
+        opacity={0.25}
+        listening={false}
+      />
+      {/* Metallfot synlig under (grå cirkel i mitten) */}
+      <Circle
+        x={w * 0.5}
+        y={h * 0.5}
+        radius={Math.min(w, h) * 0.12}
+        fill="#5A6270"
+        opacity={0.30}
+      />
+      {/* Highlight */}
       {w > 8 && (
         <Rect
-          x={r * 0.5}
+          x={rEnd * 0.4}
           y={3}
-          width={w - r}
-          height={h * 0.22}
-          cornerRadius={r * 0.5}
+          width={w - rEnd * 0.8}
+          height={h * 0.18}
+          cornerRadius={rEnd * 0.4}
           fill="#FFF"
-          opacity={0.22}
+          opacity={0.20}
           listening={false}
         />
       )}
@@ -427,62 +429,72 @@ function Vault({ w, h, selected, color }: { w: number; h: number; selected: bool
 }
 
 function Trampette({ w, h, selected, small, color }: { w: number; h: number; selected: boolean; small: boolean; color?: string }) {
-  const r = Math.min(8, Math.min(w, h) * 0.1);
-  const inset = Math.min(w, h) * (small ? 0.14 : 0.18);
-  const bedColor = color ?? "#DC2626";
+  const r = Math.min(6, Math.min(w, h) * 0.08);
+  const frameW = Math.min(w, h) * 0.06;  // metallram-tjocklek
+  const padColor = small ? (color ?? "#B02020") : (color ?? "#E06020");
+  const frameColor = small ? "#3A4050" : "#2A2A2A";
+
+  if (small) {
+    // Mini-trampolin: metallram + hoppyta inuti + 4 splaya ben
+    const legR = Math.min(w, h) * 0.035;
+    const splay = Math.min(w, h) * 0.06;
+    return (
+      <Group>
+        <Rect x={2} y={3} width={w - 4} height={h - 3} cornerRadius={r} fill="#000" opacity={0.18} />
+        {/* Metallram */}
+        <Rect width={w} height={h} cornerRadius={r}
+          fill={frameColor} stroke={sel(selected)} strokeWidth={selected ? 2 : 0.9} {...SHADOW(selected)} />
+        {/* Hoppyta */}
+        <Rect x={frameW} y={frameW} width={w - frameW * 2} height={h - frameW * 2}
+          cornerRadius={r * 0.4}
+          fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+          fillLinearGradientEndPoint={{ x: 0, y: h - frameW * 2 }}
+          fillLinearGradientColorStops={[0, lighten(padColor, 0.22), 0.5, padColor, 1, darken(padColor, 0.22)]}
+        />
+        {/* 4 ben (sprider ut – syns som cirklar utanför ramen) */}
+        {[[splay, splay], [w - splay, splay], [splay, h - splay], [w - splay, h - splay]].map(([fx, fy], i) => (
+          <Circle key={i} x={fx} y={fy} radius={legR} fill="#5A6272" opacity={0.7} />
+        ))}
+        {/* Gummifötter */}
+        {[[splay, splay], [w - splay, splay], [splay, h - splay], [w - splay, h - splay]].map(([fx, fy], i) => (
+          <Circle key={`f${i}`} x={fx} y={fy} radius={legR * 0.6} fill="#C01818" opacity={0.8} />
+        ))}
+      </Group>
+    );
+  }
+
+  // Satsbräda (trampett): rektangulär stoppyta, fjädrar synliga som linjer
+  const springCount = 5;
   return (
     <Group>
-      {/* Mörk ram */}
-      <Rect
-        width={w}
-        height={h}
-        cornerRadius={r}
+      <Rect x={2} y={3} width={w - 4} height={h - 3} cornerRadius={r} fill="#000" opacity={0.18} />
+      {/* Träbas (ljust trä som i 3D) */}
+      <Rect width={w} height={h} cornerRadius={r}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
         fillLinearGradientEndPoint={{ x: 0, y: h }}
-        fillLinearGradientColorStops={[0, "#3F4757", 1, "#1A1F2A"]}
-        stroke={sel(selected)}
-        strokeWidth={selected ? 2 : 0.9}
-        {...SHADOW(selected)}
+        fillLinearGradientColorStops={[0, "#D4B878", 0.5, "#C8A060", 1, "#A08040"]}
+        stroke={sel(selected)} strokeWidth={selected ? 2 : 0.9} {...SHADOW(selected)} />
+      {/* Metallsidoramar */}
+      <Rect x={1} y={1} width={frameW} height={h - 2} cornerRadius={1} fill={frameColor} opacity={0.7} />
+      <Rect x={w - frameW - 1} y={1} width={frameW} height={h - 2} cornerRadius={1} fill={frameColor} opacity={0.7} />
+      {/* Stoppyta (orange som i 3D) */}
+      <Rect x={frameW + 2} y={h * 0.06} width={w - frameW * 2 - 4} height={h * 0.88}
+        cornerRadius={r * 0.4}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: 0, y: h * 0.88 }}
+        fillLinearGradientColorStops={[0, lighten(padColor, 0.28), 0.45, padColor, 1, darken(padColor, 0.22)]}
       />
-      {/* Studsmatta */}
-      <Rect
-        x={inset}
-        y={inset}
-        width={w - inset * 2}
-        height={h - inset * 2}
-        cornerRadius={r * 0.5}
-        fillRadialGradientStartPoint={{ x: (w - inset * 2) / 2, y: (h - inset * 2) / 2 }}
-        fillRadialGradientEndPoint={{ x: (w - inset * 2) / 2, y: (h - inset * 2) / 2 }}
-        fillRadialGradientStartRadius={0}
-        fillRadialGradientEndRadius={Math.max(w, h) * 0.6}
-        fillRadialGradientColorStops={[0, lighten(bedColor, 0.3), 0.7, bedColor, 1, darken(bedColor, 0.35)]}
-      />
-      {/* Fjäder/bungee-mönster */}
-      {Array.from({ length: 12 }).map((_, i) => {
-        const a = (i / 12) * Math.PI * 2;
-        const cx = w / 2;
-        const cy = h / 2;
-        const ri = Math.min(w, h) / 2 - inset;
-        const ro = Math.min(w, h) / 2 - inset / 2;
+      {/* Fjädrar (horisontella linjer) */}
+      {Array.from({ length: springCount }).map((_, i) => {
+        const sy = h * 0.12 + ((i + 0.5) / springCount) * h * 0.76;
         return (
-          <Line
-            key={i}
-            points={[cx + Math.cos(a) * ri, cy + Math.sin(a) * ri, cx + Math.cos(a) * ro, cy + Math.sin(a) * ro]}
-            stroke="#FCA5A5"
-            strokeWidth={1}
-            opacity={0.7}
-          />
+          <Line key={i} points={[frameW + 4, sy, w - frameW - 4, sy]}
+            stroke="#4A4A4A" strokeWidth={1.2} opacity={0.45} />
         );
       })}
-      {/* Hörnfötter */}
-      {[
-        [0.08, 0.08],
-        [0.92, 0.08],
-        [0.08, 0.92],
-        [0.92, 0.92],
-      ].map(([fx, fy], i) => (
-        <Circle key={i} x={w * fx} y={h * fy} radius={Math.min(w, h) * 0.045} fill="#0B0F18" />
-      ))}
+      {/* Highlight */}
+      <Rect x={frameW + 4} y={h * 0.08} width={w - frameW * 2 - 8} height={h * 0.14}
+        cornerRadius={2} fill="#FFF" opacity={0.18} listening={false} />
     </Group>
   );
 }
@@ -540,116 +552,116 @@ function AirTrack({ w, h, selected, color }: { w: number; h: number; selected: b
 }
 
 function Floor({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
-  const r = Math.min(w, h) * 0.04;
-  const base = color ?? "#A4C7A6";
+  const r = Math.min(w, h) * 0.03;
+  // Matchar 3D: blå ytterkant, röd inre tävlingsyta, vita linjer
+  const outerColor = color ?? "#1A50C0";
+  const innerColor = color ? lighten(color, 0.25) : "#CC2828";
+  const border = Math.min(w, h) * 0.083;
   return (
     <Group>
+      <Rect x={2} y={3} width={w - 4} height={h - 3} cornerRadius={r} fill="#000" opacity={0.18} />
+      {/* Blå yttermatta */}
       <Rect
-        width={w}
-        height={h}
-        cornerRadius={r}
+        width={w} height={h} cornerRadius={r}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
         fillLinearGradientEndPoint={{ x: w, y: h }}
-        fillLinearGradientColorStops={[0, lighten(base, 0.22), 0.5, base, 1, darken(base, 0.22)]}
-        stroke={sel(selected)}
-        strokeWidth={selected ? 2 : 0.9}
+        fillLinearGradientColorStops={[0, lighten(outerColor, 0.15), 0.5, outerColor, 1, darken(outerColor, 0.15)]}
+        stroke={sel(selected)} strokeWidth={selected ? 2 : 0.9}
         {...SHADOW(selected)}
       />
-      {/* Inre täv-linje */}
+      {/* Röd inre tävlingsyta */}
       <Rect
-        x={w * 0.06}
-        y={h * 0.06}
-        width={w * 0.88}
-        height={h * 0.88}
-        stroke="#FFF"
-        strokeWidth={1.4}
-        dash={[6, 4]}
-        opacity={0.7}
+        x={border} y={border} width={w - border * 2} height={h - border * 2}
+        cornerRadius={r * 0.5}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: w - border * 2, y: h - border * 2 }}
+        fillLinearGradientColorStops={[0, lighten(innerColor, 0.12), 0.5, innerColor, 1, darken(innerColor, 0.12)]}
       />
-      {/* Subtila parquet-linjer */}
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Line
-          key={i}
-          points={[0, h * ((i + 1) / 7), w, h * ((i + 1) / 7)]}
-          stroke="#5F8B62"
-          strokeWidth={0.4}
-          opacity={0.18}
-        />
-      ))}
+      {/* Vita kantlinjer */}
+      <Rect
+        x={border - 1} y={border - 1} width={w - border * 2 + 2} height={h - border * 2 + 2}
+        stroke="#FFFFFF" strokeWidth={1.2} opacity={0.8} fill="transparent" listening={false}
+      />
+      {/* Centrumkors */}
+      <Line points={[w * 0.42, h * 0.5, w * 0.58, h * 0.5]} stroke="#FFF" strokeWidth={0.8} opacity={0.6} />
+      <Line points={[w * 0.5, h * 0.42, w * 0.5, h * 0.58]} stroke="#FFF" strokeWidth={0.8} opacity={0.6} />
     </Group>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Bom – top-down vy: smal bom med T-formade benpar i varje ände.
+// Bom – top-down vy: matchar 3D med röda stöd, T-formade metallfötter,
+// smal bomyta med läder/mockastrimma.
 // ---------------------------------------------------------------------------
 function BeamVisual({ w, h, selected, color }: { w: number; h: number; selected: boolean; color?: string }) {
-  const base = color ?? "#B5894F";
-  // T-bar feet: wide perpendicular to beam axis, near each end
-  const footDepth = Math.max(3, h * 0.82);  // full-ish height of bounding box
-  const footW = Math.max(3, w * 0.055);
-  const foot1X = w * 0.13;
-  const foot2X = w * 0.87;
+  const topColor = color ?? "#B8875A";     // matchar 3D yta
+  const bodyColor = color ? darken(color, 0.30) : "#4A2810";
+  const postColor = color ?? "#C82020";    // röda stöd som i 3D
+  const footColor = "#7A7A8A";             // metall T-fötter
+
+  // T-bar fötter vid varje ände
+  const foot1X = w * 0.14;
+  const foot2X = w * 0.86;
+  const footDepth = Math.max(3, h * 0.85);
+  const footW = Math.max(2, w * 0.025);
   const footY = (h - footDepth) / 2;
-  // Beam body: narrow, centred vertically
-  const beamH = Math.max(3, h * 0.32);
+
+  // Bom-kropp: smal, centrerad
+  const beamH = Math.max(3, h * 0.28);
   const beamY = (h - beamH) / 2;
+
+  // Stödcirklar (röda pelare sett uppifrån)
+  const postR = Math.min(w, h) * 0.035;
 
   return (
     <Group>
-      {/* Shadow */}
-      <Rect x={2} y={3} width={w - 4} height={h - 2} cornerRadius={3} fill="#000" opacity={0.18} />
-      {/* Light background to show full footprint */}
-      <Rect
-        width={w}
-        height={h}
-        cornerRadius={3}
-        fill={lighten(base, 0.55)}
-        stroke={selected ? "#0B3FA8" : "#3A2614"}
-        strokeWidth={selected ? 2 : 0.7}
-        opacity={0.35}
-        {...SHADOW(selected)}
-      />
-      {/* T-bar feet at each end */}
+      <Rect x={2} y={3} width={w - 4} height={h - 2} cornerRadius={3} fill="#000" opacity={0.15} />
+      {/* Ljus bakgrund för fotavtryck */}
+      <Rect width={w} height={h} cornerRadius={3}
+        fill={lighten(topColor, 0.60)} opacity={0.30}
+        stroke={selected ? "#0B3FA8" : "#5A6270"}
+        strokeWidth={selected ? 2 : 0.5}
+        {...SHADOW(selected)} />
+
+      {/* T-bar metallfötter (vinkelräta mot bommen) */}
       {[foot1X, foot2X].map((cx) => (
-        <Rect
-          key={cx}
-          x={cx - footW / 2}
-          y={footY}
-          width={footW}
-          height={footDepth}
-          cornerRadius={1}
-          fillLinearGradientStartPoint={{ x: 0, y: 0 }}
-          fillLinearGradientEndPoint={{ x: footW, y: 0 }}
-          fillLinearGradientColorStops={[0, lighten(base, 0.2), 0.5, base, 1, darken(base, 0.3)]}
-          stroke="#3A2614"
-          strokeWidth={0.5}
-        />
+        <Rect key={cx} x={cx - footW / 2} y={footY} width={footW} height={footDepth}
+          cornerRadius={1} fill={footColor} opacity={0.6} />
       ))}
-      {/* Beam body */}
-      <Rect
-        x={w * 0.04}
-        y={beamY}
-        width={w * 0.92}
-        height={beamH}
+      {/* Vita gummikuddar vid T-fotens ändar */}
+      {[foot1X, foot2X].flatMap((cx) => [
+        { x: cx, y: footY + footDepth * 0.06 },
+        { x: cx, y: footY + footDepth * 0.94 },
+      ]).map((p, i) => (
+        <Rect key={`pad${i}`} x={p.x - footW * 0.8} y={p.y - Math.max(2, h * 0.05)}
+          width={footW * 1.6} height={Math.max(3, h * 0.10)}
+          cornerRadius={1} fill="#EEEEEE" opacity={0.7} />
+      ))}
+      {/* Röda stödpelare (sett uppifrån = cirklar) */}
+      {[foot1X, foot2X].map((cx, i) => (
+        <Circle key={`post${i}`} x={cx} y={h / 2} radius={postR}
+          fillRadialGradientStartPoint={{ x: -1, y: -1 }}
+          fillRadialGradientEndPoint={{ x: 0, y: 0 }}
+          fillRadialGradientStartRadius={0}
+          fillRadialGradientEndRadius={postR}
+          fillRadialGradientColorStops={[0, lighten(postColor, 0.3), 0.6, postColor, 1, darken(postColor, 0.3)]}
+          opacity={0.8} />
+      ))}
+
+      {/* Bom-kropp (mörk aluminiumstruktur) */}
+      <Rect x={w * 0.04} y={beamY + beamH * 0.15} width={w * 0.92} height={beamH * 0.70}
+        cornerRadius={Math.min(beamH * 0.3, 3)}
+        fill={bodyColor} opacity={0.5} />
+      {/* Läder/mocka-yta ovanpå */}
+      <Rect x={w * 0.03} y={beamY} width={w * 0.94} height={beamH}
         cornerRadius={Math.min(beamH * 0.45, 4)}
         fillLinearGradientStartPoint={{ x: 0, y: 0 }}
         fillLinearGradientEndPoint={{ x: 0, y: beamH }}
-        fillLinearGradientColorStops={[0, lighten(base, 0.28), 0.4, base, 1, darken(base, 0.22)]}
-        stroke="#3A2614"
-        strokeWidth={0.7}
-      />
-      {/* Felt / suede stripe on top of beam */}
-      <Rect
-        x={w * 0.04 + 2}
-        y={beamY + 2}
-        width={w * 0.92 - 4}
-        height={beamH * 0.42}
-        cornerRadius={2}
-        fill="#F1D9A5"
-        opacity={0.5}
-        listening={false}
-      />
+        fillLinearGradientColorStops={[0, lighten(topColor, 0.22), 0.35, topColor, 1, darken(topColor, 0.18)]}
+        stroke={darken(bodyColor, 0.2)} strokeWidth={0.5} />
+      {/* Ljus centerremsa */}
+      <Rect x={w * 0.05} y={beamY + beamH * 0.12} width={w * 0.90} height={beamH * 0.35}
+        cornerRadius={2} fill="#F1D9A5" opacity={0.40} listening={false} />
     </Group>
   );
 }
