@@ -230,6 +230,8 @@ export type MountedExerciseInfo = {
   onChange: (id: string) => void;
 };
 
+type CycleEvent = { equipmentId: string; equipmentName: string; exerciseId: string };
+
 type Props = {
   station: Station;
   hallW: number;
@@ -241,6 +243,7 @@ type Props = {
   onNearEquipment: (name: string | null) => void;
   onMountedExercises: (info: MountedExerciseInfo | null) => void;
   onFreeCamChange: (on: boolean) => void;
+  onExerciseCycle?: (ev: CycleEvent) => void;
   onExit: () => void;
   color?: string;
 };
@@ -252,7 +255,7 @@ const CAM_HEIGHT = 2.2;   // m ovanför höfterna
 
 export function GameGymnast3D({
   station, hallW, hallH, joystickRef, mountTriggerRef, speedRef, cameraResetRef,
-  onNearEquipment, onMountedExercises, onFreeCamChange, onExit, color = "#C2185B",
+  onNearEquipment, onMountedExercises, onFreeCamChange, onExerciseCycle, onExit, color = "#C2185B",
 }: Props) {
   const SKIN = "#E8C99A";
   const HAIR = "#2d1a08";
@@ -271,6 +274,12 @@ export function GameGymnast3D({
   onExitRef.current = onExit;
   const onFreeCamChangeRef = useRef(onFreeCamChange);
   onFreeCamChangeRef.current = onFreeCamChange;
+  const onExerciseCycleRef = useRef(onExerciseCycle);
+  onExerciseCycleRef.current = onExerciseCycle;
+
+  // Cycle-detektering: spåra senaste animationsfas per övning
+  const lastCyclePhase = useRef(-1);
+  const lastTrackedExerciseId = useRef("");
 
   // Kamera-mål
   const camPos  = useRef(new THREE.Vector3());
@@ -368,6 +377,8 @@ export function GameGymnast3D({
     if (triggerMount) {
       if (mounted.current) {
         mounted.current = null;
+        lastCyclePhase.current = -1;
+        lastTrackedExerciseId.current = "";
         onMountedExercisesRef.current(null);
       } else if (nearEq.current) {
         const eq = station.equipment.find(e => e.id === nearEq.current!.id);
@@ -406,6 +417,27 @@ export function GameGymnast3D({
       const def = EXERCISES[exerciseId];
       pose = def ? evalKF(def.kfs, t) : evalKF(IDLE_KFS, t);
       if (def?.baseRotY) pose.rootRotY += def.baseRotY;
+
+      // Detektera avslutat animationsvarv (fas-wraparound)
+      if (def && def.kfs.length > 1) {
+        const dur = def.kfs[def.kfs.length - 1].t;
+        const phase = t % dur;
+        if (exerciseId !== lastTrackedExerciseId.current) {
+          // Ny övning – nollställ tracking
+          lastTrackedExerciseId.current = exerciseId;
+          lastCyclePhase.current = phase;
+        } else if (lastCyclePhase.current > 0 && phase < lastCyclePhase.current) {
+          // Fas-wraparound = ett varv klart
+          const eq = station.equipment.find(e => e.id === eqId);
+          const eqType = eq ? getEquipmentById(eq.typeId) : null;
+          onExerciseCycleRef.current?.({
+            equipmentId: eqId,
+            equipmentName: eq?.label ?? eqType?.name ?? "",
+            exerciseId,
+          });
+        }
+        lastCyclePhase.current = phase;
+      }
 
       // Advance-logik (ping-pong gång, t.ex. bom)
       if (def?.advance && def.advance > 0) {

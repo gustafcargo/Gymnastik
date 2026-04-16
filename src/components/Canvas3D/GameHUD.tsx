@@ -6,6 +6,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, X } from "lucide-react";
 import type { MountedExerciseInfo } from "./GameGymnast3D";
+import type { AgeGroup } from "../../store/usePlanStore";
+
+export type Mission = {
+  id: string;
+  text: string;
+  target: number;
+  progress: number;
+  done: boolean;
+  type: "mount" | "cycle" | "score" | "different-equipment";
+};
 
 type Props = {
   nearEquipment: string | null;
@@ -15,10 +25,14 @@ type Props = {
   speedRef: React.MutableRefObject<number>;
   cameraResetRef: React.MutableRefObject<boolean>;
   freeCamActive: boolean;
+  score: number;
+  streak: number;
+  missions: Mission[];
+  ageGroup: AgeGroup;
   onExit: () => void;
 };
 
-export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamActive, onExit }: Props) {
+export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, speedRef, cameraResetRef, freeCamActive, score, streak, missions, ageGroup, onExit }: Props) {
   const [isTouch, setIsTouch] = useState(false);
   const [speedDisplay, setSpeedDisplay] = useState(speedRef.current);
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
@@ -79,6 +93,71 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
       >
         <X size={14} /> Avsluta spelläge
       </button>
+
+      {/* Poäng + streak – övre mitt */}
+      <div style={{
+        position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)",
+        display: "flex", alignItems: "center", gap: 8, pointerEvents: "none",
+      }}>
+        <div style={{
+          background: "rgba(10,18,32,0.78)", backdropFilter: "blur(6px)",
+          border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10,
+          padding: "6px 14px", color: "#FFD700",
+          fontSize: 16, fontWeight: 900,
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          ⭐ <span>{score}</span>
+        </div>
+        {streak >= 3 && (
+          <div style={{
+            background: streak >= 5 ? "rgba(239,68,68,0.88)" : "rgba(249,115,22,0.88)",
+            borderRadius: 10, padding: "6px 12px",
+            color: "#fff", fontSize: 13, fontWeight: 800,
+          }}>
+            🔥 {streak} i rad!
+          </div>
+        )}
+      </div>
+
+      {/* Missions – övre vänster (under övningsmenyn om monterad) */}
+      {missions.length > 0 && (
+        <div style={{
+          position: "absolute",
+          top: mountedExerciseInfo ? 14 + 50 + missions.filter(m => !m.done).length * 0 + 200 : 14,
+          left: 14,
+          pointerEvents: "none",
+          display: "flex", flexDirection: "column", gap: 5,
+          maxWidth: 240,
+        }}>
+          {!mountedExerciseInfo && missions.map((m) => (
+            <div key={m.id} style={{
+              background: m.done ? "rgba(16,185,129,0.85)" : "rgba(10,18,32,0.78)",
+              backdropFilter: "blur(6px)",
+              border: `1px solid ${m.done ? "rgba(16,185,129,0.5)" : "rgba(255,255,255,0.12)"}`,
+              borderRadius: 8, padding: "6px 10px",
+              display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span style={{ fontSize: 14, flexShrink: 0 }}>{m.done ? "✅" : "⬜"}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: m.done ? "#fff" : "#e2e8f0", lineHeight: 1.3 }}>{m.text}</div>
+                {!m.done && (
+                  <div style={{ marginTop: 3, height: 3, background: "rgba(255,255,255,0.15)", borderRadius: 2 }}>
+                    <div style={{
+                      height: "100%", borderRadius: 2,
+                      background: "#3B82F6",
+                      width: `${Math.round((m.progress / m.target) * 100)}%`,
+                      transition: "width 0.3s",
+                    }} />
+                  </div>
+                )}
+              </div>
+              {!m.done && (
+                <span style={{ fontSize: 10, color: "#64748b", flexShrink: 0 }}>{m.progress}/{m.target}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Kamera-reset + fri kamera-indikator – övre höger under avsluta */}
       <div style={{
