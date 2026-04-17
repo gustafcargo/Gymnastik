@@ -324,8 +324,10 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
         if (!type) return null;
         const isSelected = eq.id === selectedId;
         const sInfo = stackInfo.get(eq.id);
-        // For stacked mats: only the leader shows label/note
-        const showThisLabel = showLabels && (sInfo === undefined || sInfo.isLeader);
+        // For stacked mats: only the leader shows label/note.
+        // I spelläge döljs redskapsetiketter helt — spelaren behöver inte se
+        // redigerings-UI:t.
+        const showThisLabel = !gameMode && showLabels && (sInfo === undefined || sInfo.isLeader);
         const baseLabel = eq.label ?? type.name;
         const labelText =
           showThisLabel && sInfo && sInfo.count > 1
