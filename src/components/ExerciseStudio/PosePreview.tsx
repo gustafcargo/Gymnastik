@@ -83,6 +83,11 @@ function RiggedGymnast({ pose, def, apparatus, color = "#c026d3" }: Props) {
 
   const eq = equipmentForApparatus(apparatus);
   const baseY = baseYFor(apparatus, eq?.type.physicalHeightM ?? 0, eq?.type.detail?.kind);
+  // Golv-clamp aktivt för fristående golv-övningar (inget redskap eller
+  // "floor"). På hängande/stödjande redskap skulle en automatisk lyft ge
+  // fel utseende (t.ex. under giant-swing hamnar kroppen tillfälligt långt
+  // ned nära stången – inte meningen att lyfta hela kroppen).
+  const floorClamp = !apparatus || apparatus === "floor";
 
   useEffect(() => {
     const p = { ...pose };
@@ -105,7 +110,20 @@ function RiggedGymnast({ pose, def, apparatus, color = "#c026d3" }: Props) {
     if (r.lKnRef.current)     r.lKnRef.current.rotation.x  = p.lKnX;
     if (r.rHipRef.current)  { r.rHipRef.current.rotation.x = p.rHipX; r.rHipRef.current.rotation.z = p.rHipZ; }
     if (r.rKnRef.current)     r.rKnRef.current.rotation.x  = p.rKnX;
-  }, [pose, def.baseRotY, baseY, bodyRefs]);
+
+    // ── Golv-clamp: lyft root så inget mesh-hörn hamnar under y = 0 ──
+    // Räknar world-AABB för hela kroppen efter att alla rotationer
+    // applicerats. Om lägsta punkten är under golvet lyfter vi root med
+    // exakt den differensen så gymnasten precis står/hänger på golvet
+    // istället för att klippa igenom det.
+    if (floorClamp && rootRef.current) {
+      rootRef.current.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(rootRef.current);
+      if (isFinite(box.min.y) && box.min.y < 0) {
+        rootRef.current.position.y -= box.min.y;
+      }
+    }
+  }, [pose, def.baseRotY, baseY, bodyRefs, floorClamp]);
 
   return (
     <>
@@ -131,7 +149,7 @@ export function PosePreview({ pose, def, apparatus, color }: Props) {
     <Canvas
       shadows
       camera={{ position: [2.6, 1.8, 3.2], fov: 40 }}
-      style={{ background: "#f1f5f9", width: "100%", height: "100%" }}
+      style={{ background: "#94a3b8", width: "100%", height: "100%" }}
     >
       <ambientLight intensity={0.55} />
       <directionalLight
@@ -145,15 +163,17 @@ export function PosePreview({ pose, def, apparatus, color }: Props) {
       <Grid
         args={[6, 6]}
         cellSize={0.5}
-        cellColor="#cbd5e1"
+        cellColor="#475569"
         sectionSize={2}
-        sectionColor="#94a3b8"
+        sectionColor="#1e293b"
         fadeDistance={10}
         infiniteGrid
       />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[20, 20]} />
-        <shadowMaterial opacity={0.25} />
+      {/* Golv-plan: ogenomskinlig grå yta + mörkare mottagarplan för
+          skuggor. Placeras y = -0.001 så grid-linjerna ritas ovanpå. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.001, 0]} receiveShadow>
+        <planeGeometry args={[40, 40]} />
+        <meshStandardMaterial color="#64748b" roughness={1} />
       </mesh>
       <RiggedGymnast pose={pose} def={def} apparatus={apparatus} color={color} />
       <OrbitControls
