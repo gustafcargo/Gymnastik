@@ -367,10 +367,13 @@ export function GameGymnast3D({
       pose.rootRotY += -startRotY;
       const baseY = H_THIGH + H_SHIN;
       pose.rootY += baseY;
-      // rootX/rootZ är lokala offsets från gymnastens startposition (i dess
-      // frame). Rotera dem till världen och addera till startposen.
-      const c = Math.cos(-startRotY);
-      const s = Math.sin(-startRotY);
+      // rootX/rootZ är lokala offsets i gymnastens frame (hon tittar mot
+      // lokal −Z). Gymnastens rendering-rotation är Y-rot(-startRotY), så vi
+      // applicerar samma Y-rotation för att få world-positionen. Viktigt:
+      // tecknet på sin måste matcha rotation.y; annars blir rörelsen speglad
+      // när gymnasten står vriden åt andra hållet.
+      const c = Math.cos(startRotY);
+      const s = Math.sin(startRotY);
       const wx = pose.rootX * c - pose.rootZ * s;
       const wz = pose.rootX * s + pose.rootZ * c;
       pos.current.x = startX + wx;
