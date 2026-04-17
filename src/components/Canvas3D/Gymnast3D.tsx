@@ -548,18 +548,29 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Hopp ───────────────────────────────────────────────────────────────────
 
-  // Handstående på hoppbord – gymnasten står på händer ovanpå bordet
-  "vault:handstand": { kfs: [
-    { t: 0,   pose: { ...ZERO,
-        lShX: -P, rShX: -P,
-        rootRotX: P, rootY: 0.17, spineX: -P*0.03 } },
-    { t: 1.5, pose: { ...ZERO,
-        lShX: -P, rShX: -P,
-        rootRotX: P, rootY: 0.19, spineX: P*0.03, headX: P*0.04 } },
-    { t: 3.0, pose: { ...ZERO,
-        lShX: -P, rShX: -P,
-        rootRotX: P, rootY: 0.17, spineX: -P*0.03 } },
-  ] },
+  // Handstående på hoppbord – 3 KFs importerade från studion. lockMode
+  // hands håller händerna mot bordet, spineX + rootZ-vågningen ger en
+  // levande balansering ovanpå.
+  "vault:handstand": {
+    lockMode: "hands",
+    kfs: [
+      { t: 0, pose: { ...ZERO,
+        spineX: -0.09424777960769379,
+        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        rootY: 0.17,
+        rootRotX: 3.141592653589793 } },
+      { t: 0.5, pose: { ...ZERO,
+        spineX: 0.076814692820414,
+        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        rootY: 0.17133316519169073, rootZ: 0.1529426709093971,
+        rootRotX: 3.141592653589793 } },
+      { t: 1, pose: { ...ZERO,
+        spineX: -0.09424777960769379,
+        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        rootY: 0.17,
+        rootRotX: 3.141592653589793 } },
+    ],
+  },
 
   // ── Trampett ───────────────────────────────────────────────────────────────
 
