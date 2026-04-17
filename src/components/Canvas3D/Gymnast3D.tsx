@@ -164,22 +164,25 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
     { t: 3.0, pose: { ...ZERO, lElX:P*0.10, rElX:P*0.10, spineX:-P*0.04 } },
   ] },
 
-  // Ojämna barr – pendel vid övre barren (Z = -0.70 i utrustningens lokal-rymd)
-  "uneven-bars:swing": { kfs: (() => {
-    const a = P * 0.28;
-    const barZ = -0.70; // övre barren i unevenBars: Z = -barSep/2
-    const fwd: Pose = { ...HANG_STRAIGHT, rootRotX:  a, lHipX:  P*0.10, rHipX:  P*0.10,
-        rootZ: -HANG_DIST * Math.sin(a) + barZ,
-        rootY:  HANG_DIST * (1 - Math.cos(a)) };
-    const bak: Pose = { ...HANG_STRAIGHT, rootRotX: -a, lHipX: -P*0.07, rHipX: -P*0.07,
-        rootZ: -HANG_DIST * Math.sin(-a) + barZ,
-        rootY:  HANG_DIST * (1 - Math.cos(-a)) };
-    return [
-      { t: 0.0, pose: fwd },
-      { t: 0.9, pose: bak },
-      { t: 1.8, pose: fwd },
-    ];
-  })() },
+  // Ojämna barr – pendel vid övre barren. 3 KFs importerade från studion,
+  // lockMode: hands håller greppet vid stången under hela rörelsen.
+  "uneven-bars:swing": {
+    lockMode: "hands",
+    kfs: [
+      { t: 0, pose: { ...HANG_STRAIGHT,
+        lHipX: 0.3141592653589793, rHipX: 0.3141592653589793,
+        rootY: 0.31, rootZ: -1.42,
+        rootRotX: 0.8796459430051422 } },
+      { t: 0.9, pose: { ...HANG_STRAIGHT,
+        lHipX: -0.21991148575128555, rHipX: -0.21991148575128555,
+        rootY: 0.3, rootZ: 0.02,
+        rootRotX: -0.8796459430051422 } },
+      { t: 1.8, pose: { ...HANG_STRAIGHT,
+        lHipX: 0.3141592653589793, rHipX: 0.3141592653589793,
+        rootY: 0.31, rootZ: -1.44,
+        rootRotX: 0.8796459430051422 } },
+    ],
+  },
 
   // ── Bom ────────────────────────────────────────────────────────────────────
 
