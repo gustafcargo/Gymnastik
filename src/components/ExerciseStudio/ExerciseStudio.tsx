@@ -12,7 +12,10 @@
  * override med samma id. "Återställ till original" raderar override-posten.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, Play, Pause, Plus, Trash2, Copy as CopyIcon } from "lucide-react";
+import {
+  X, Play, Pause, Plus, Trash2, Copy as CopyIcon,
+  ChevronLeft, ChevronRight, ArrowUp, ArrowDown,
+} from "lucide-react";
 import { PosePreview } from "./PosePreview";
 import {
   type Pose, type KF, type ExerciseDef,
@@ -122,6 +125,14 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const duration = def.kfs.length ? def.kfs[def.kfs.length - 1].t : 0;
   const currentPose: Pose = useMemo(() => evalKF(def.kfs, time), [def.kfs, time]);
 
+  // Om selectedKfIdx hamnat utanför listan (t.ex. vid laddning av en kortare
+  // övning) – klämp in det igen så slidrarna redigerar en giltig KF.
+  useEffect(() => {
+    if (selectedKfIdx >= def.kfs.length) {
+      setSelectedKfIdx(Math.max(0, def.kfs.length - 1));
+    }
+  }, [def.kfs.length, selectedKfIdx]);
+
   // Play-loop
   const rafRef = useRef<number | null>(null);
   const lastTsRef = useRef<number>(0);
@@ -145,12 +156,22 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const hasOverride = isBuiltIn && customDefs[meta.id] !== undefined;
 
   // ── Handlers ─────────────────────────────────────────────────────────────
+  // Viktigt: KF-listan sorteras efter t vid varje ändring, och rader kan
+  // tas bort – så ett statiskt index till `selectedKfIdx` skulle ofta peka
+  // på fel KF. Därför återräknar vi indexet via objekt-identitet efter
+  // varje mutation (referensen till det muterade KF-objektet bevaras).
   const updateKeyframe = (idx: number, patch: Partial<KF>) => {
-    setDef((d) => ({
-      ...d,
-      kfs: d.kfs.map((k, i) => (i === idx ? { ...k, ...patch } : k))
-                .sort((a, b) => a.t - b.t),
-    }));
+    const target = def.kfs[idx];
+    if (!target) return;
+    const updated: KF = { ...target, ...patch };
+    const newKfs = def.kfs
+      .map((k, i) => (i === idx ? updated : k))
+      .sort((a, b) => a.t - b.t);
+    setDef((d) => ({ ...d, kfs: newKfs }));
+    if (selectedKfIdx === idx) {
+      const newIdx = newKfs.indexOf(updated);
+      if (newIdx !== -1) setSelectedKfIdx(newIdx);
+    }
   };
 
   const updatePoseKey = (key: keyof Pose, value: number) => {
@@ -165,33 +186,59 @@ export function ExerciseStudio({ open, onClose }: Props) {
   };
 
   const addKeyframe = () => {
-    setDef((d) => {
-      const lastT = d.kfs.length ? d.kfs[d.kfs.length - 1].t : 0;
-      const newT = lastT + 0.5;
-      const newKfs = [...d.kfs, { t: newT, pose: { ...currentPose } }];
-      newKfs.sort((a, b) => a.t - b.t);
-      return { ...d, kfs: newKfs };
-    });
-    setSelectedKfIdx(def.kfs.length);
+    const lastT = def.kfs.length ? def.kfs[def.kfs.length - 1].t : 0;
+    const newKf: KF = { t: lastT + 0.5, pose: { ...currentPose } };
+    const newKfs = [...def.kfs, newKf].sort((a, b) => a.t - b.t);
+    setDef((d) => ({ ...d, kfs: newKfs }));
+    setSelectedKfIdx(newKfs.indexOf(newKf));
+    setTime(newKf.t);
   };
 
   const duplicateKeyframe = (idx: number) => {
-    setDef((d) => {
-      const src = d.kfs[idx];
-      if (!src) return d;
-      const newT = src.t + 0.25;
-      const newKfs = [...d.kfs, { t: newT, pose: { ...src.pose } }];
-      newKfs.sort((a, b) => a.t - b.t);
-      return { ...d, kfs: newKfs };
-    });
+    const src = def.kfs[idx];
+    if (!src) return;
+    const newKf: KF = { t: src.t + 0.25, pose: { ...src.pose } };
+    const newKfs = [...def.kfs, newKf].sort((a, b) => a.t - b.t);
+    setDef((d) => ({ ...d, kfs: newKfs }));
+    setSelectedKfIdx(newKfs.indexOf(newKf));
+    setTime(newKf.t);
+    setPlaying(false);
   };
 
   const deleteKeyframe = (idx: number) => {
-    setDef((d) => {
-      if (d.kfs.length <= 1) return d;
-      return { ...d, kfs: d.kfs.filter((_, i) => i !== idx) };
+    if (def.kfs.length <= 1) return;
+    const newKfs = def.kfs.filter((_, i) => i !== idx);
+    setDef((d) => ({ ...d, kfs: newKfs }));
+    setSelectedKfIdx((cur) => {
+      if (idx < cur) return cur - 1;
+      if (idx === cur) return Math.min(cur, newKfs.length - 1);
+      return cur;
     });
-    setSelectedKfIdx((i) => Math.max(0, Math.min(i, def.kfs.length - 2)));
+  };
+
+  const stepKeyframe = (delta: -1 | 1) => {
+    if (def.kfs.length === 0) return;
+    const next = Math.max(0, Math.min(def.kfs.length - 1, selectedKfIdx + delta));
+    setSelectedKfIdx(next);
+    setTime(def.kfs[next].t);
+    setPlaying(false);
+  };
+
+  // Ordna om KF: byt t med grannen så sorteringen flippar ordningen.
+  const moveKeyframe = (idx: number, delta: -1 | 1) => {
+    const neighbor = idx + delta;
+    if (neighbor < 0 || neighbor >= def.kfs.length) return;
+    const a = def.kfs[idx];
+    const b = def.kfs[neighbor];
+    const swapped: KF[] = def.kfs.map((k) => {
+      if (k === a) return { ...a, t: b.t };
+      if (k === b) return { ...b, t: a.t };
+      return k;
+    });
+    swapped.sort((x, y) => x.t - y.t);
+    setDef((d) => ({ ...d, kfs: swapped }));
+    if (selectedKfIdx === idx) setSelectedKfIdx(neighbor);
+    else if (selectedKfIdx === neighbor) setSelectedKfIdx(idx);
   };
 
   const mirrorCurrentPose = () => {
@@ -512,15 +559,37 @@ export function ExerciseStudio({ open, onClose }: Props) {
 
         {/* Timeline */}
         <div className="flex flex-col overflow-hidden border-l border-slate-700 bg-slate-800/60">
-          <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-700 px-3 py-2">
             <strong className="text-sm">Keyframes ({def.kfs.length})</strong>
-            <button
-              type="button"
-              onClick={addKeyframe}
-              className="flex items-center gap-1 rounded bg-emerald-700 px-2 py-1 text-xs hover:bg-emerald-600"
-            >
-              <Plus size={12} /> Lägg till
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => stepKeyframe(-1)}
+                disabled={selectedKfIdx <= 0}
+                className="grid h-7 w-7 place-items-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30"
+                aria-label="Föregående keyframe"
+                title="Föregående keyframe"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => stepKeyframe(1)}
+                disabled={selectedKfIdx >= def.kfs.length - 1}
+                className="grid h-7 w-7 place-items-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30"
+                aria-label="Nästa keyframe"
+                title="Nästa keyframe"
+              >
+                <ChevronRight size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={addKeyframe}
+                className="flex items-center gap-1 rounded bg-emerald-700 px-2 py-1 text-xs hover:bg-emerald-600"
+              >
+                <Plus size={12} /> Lägg till
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             {def.kfs.map((k, i) => (
@@ -545,6 +614,26 @@ export function ExerciseStudio({ open, onClose }: Props) {
                   onChange={(e) => updateKeyframe(i, { t: parseFloat(e.target.value) || 0 })}
                   className="w-14 rounded bg-slate-700 px-1 py-0.5 font-mono"
                 />
+                <button
+                  type="button"
+                  onClick={() => moveKeyframe(i, -1)}
+                  disabled={i === 0}
+                  className="grid h-6 w-6 place-items-center rounded hover:bg-slate-600 disabled:opacity-30"
+                  aria-label="Flytta upp"
+                  title="Flytta upp"
+                >
+                  <ArrowUp size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveKeyframe(i, 1)}
+                  disabled={i === def.kfs.length - 1}
+                  className="grid h-6 w-6 place-items-center rounded hover:bg-slate-600 disabled:opacity-30"
+                  aria-label="Flytta ner"
+                  title="Flytta ner"
+                >
+                  <ArrowDown size={12} />
+                </button>
                 <button
                   type="button"
                   onClick={() => duplicateKeyframe(i)}
