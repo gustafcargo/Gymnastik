@@ -47,12 +47,12 @@ const TORSO_PROFILE: THREE.Vector2[] = [
   new THREE.Vector2(1.06 * R_BODY, 0.10 * H_TORSO), // bredaste höft
   new THREE.Vector2(0.95 * R_BODY, 0.20 * H_TORSO),
   new THREE.Vector2(0.74 * R_BODY, 0.36 * H_TORSO), // smalaste midja
-  new THREE.Vector2(0.86 * R_BODY, 0.50 * H_TORSO),
-  new THREE.Vector2(1.08 * R_BODY, 0.62 * H_TORSO),
-  new THREE.Vector2(1.24 * R_BODY, 0.74 * H_TORSO), // bredaste bröstkorg (bredare)
-  new THREE.Vector2(1.22 * R_BODY, 0.82 * H_TORSO), // breda axelpartiet
-  new THREE.Vector2(0.95 * R_BODY, 0.92 * H_TORSO),
-  new THREE.Vector2(0.55 * R_BODY, 0.97 * H_TORSO),
+  new THREE.Vector2(0.88 * R_BODY, 0.50 * H_TORSO),
+  new THREE.Vector2(1.15 * R_BODY, 0.62 * H_TORSO),
+  new THREE.Vector2(1.38 * R_BODY, 0.74 * H_TORSO), // bredaste bröstkorg
+  new THREE.Vector2(1.42 * R_BODY, 0.82 * H_TORSO), // axelparti – bredast
+  new THREE.Vector2(1.22 * R_BODY, 0.90 * H_TORSO), // axel-slope mot hals
+  new THREE.Vector2(0.60 * R_BODY, 0.97 * H_TORSO),
   new THREE.Vector2(0.001,        1.00 * H_TORSO),  // stängd topp (möter halsen)
 ];
 
@@ -220,12 +220,13 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshPhysicalMaterial color="#0a0a0a" roughness={0.15} metalness={0.3} />
       </mesh>
 
-      {/* Ljusreflex i ögon – symmetriska små vita prickar uppe-inåt på varje öga */}
-      <mesh position={[-H_HEAD * 0.29, H_HEAD * 0.11, -H_HEAD * 0.918]}>
+      {/* Ljusreflex i ögon – rakt ovan pupillen (x=±0.32 samma som pupil).
+          Tidigare x=±0.29 skapade skelögd look (reflex förskjuten inåt mot näsan). */}
+      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.11, -H_HEAD * 0.918]}>
         <sphereGeometry args={[0.0032, 6, 5]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
-      <mesh position={[ H_HEAD * 0.29, H_HEAD * 0.11, -H_HEAD * 0.918]}>
+      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.11, -H_HEAD * 0.918]}>
         <sphereGeometry args={[0.0032, 6, 5]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
@@ -240,17 +241,18 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshPhysicalMaterial color="#1a0f06" roughness={0.55} metalness={0.1} />
       </mesh>
 
-      {/* Ögonbryn – tunna horisontella streck, lite tjockare (r 0.0020→0.0028)
-          och längre (0.018→0.022) så de faktiskt syns. Rotation Z=π/2 ger
-          horisontal; ±0.06π tilt ger en liten båge. */}
-      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.23, -H_HEAD * 0.86]}
-            rotation={[P * 0.08, 0, P * 0.5 - P * 0.06]} castShadow>
-        <capsuleGeometry args={[0.0028, 0.022, 4, 8]} />
+      {/* Ögonbryn – långa tunna horisontella streck. Endast Z-rotation π/2
+          så de ligger horisontellt i ansiktsplanet (ingen X-rotation som
+          tidigare tippade bort dem från kameran → såg ut som prickar).
+          Liten ±0.05π tilt i Z ger naturlig båge (inre lägre än yttre). */}
+      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.23, -H_HEAD * 0.89]}
+            rotation={[0, 0, P * 0.5 - P * 0.05]} castShadow>
+        <capsuleGeometry args={[0.0022, 0.030, 4, 8]} />
         <meshPhysicalMaterial color="#2a1810" roughness={0.78} metalness={0.04} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.23, -H_HEAD * 0.86]}
-            rotation={[P * 0.08, 0, P * 0.5 + P * 0.06]} castShadow>
-        <capsuleGeometry args={[0.0028, 0.022, 4, 8]} />
+      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.23, -H_HEAD * 0.89]}
+            rotation={[0, 0, P * 0.5 + P * 0.05]} castShadow>
+        <capsuleGeometry args={[0.0022, 0.030, 4, 8]} />
         <meshPhysicalMaterial color="#2a1810" roughness={0.78} metalness={0.04} />
       </mesh>
 
@@ -270,15 +272,13 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshBasicMaterial color="#3a1a10" />
       </mesh>
 
-      {/* Mun – tydligare leende (bredare och tjockare) */}
-      <mesh position={[0, -H_HEAD * 0.36, -H_HEAD * 0.91]} rotation={[P * 0.5, 0, 0]} castShadow>
-        <torusGeometry args={[0.028, 0.0055, 8, 16, P * 0.8]} />
+      {/* Mun – glad smiley-båge. Torus i XY-plan (inget X-rot), Z-rotation π
+          vänder default-arcen (från +X via +Y till −X, dvs uppåt-båge/frown)
+          till en smile (från −X via −Y till +X). thetaLength=π (halv cirkel).
+          Tuben ligger längs Z så hela munnen ligger platt mot ansiktet. */}
+      <mesh position={[0, -H_HEAD * 0.34, -H_HEAD * 0.91]} rotation={[0, 0, P]} castShadow>
+        <torusGeometry args={[0.028, 0.006, 10, 20, P]} />
         <meshPhysicalMaterial color="#c24050" roughness={0.38} metalness={0.05} clearcoat={0.5} clearcoatRoughness={0.2} />
-      </mesh>
-      {/* Underläpp-accent – liten skugg-kurva under munnen för djup */}
-      <mesh position={[0, -H_HEAD * 0.42, -H_HEAD * 0.90]} rotation={[P * 0.5, 0, 0]}>
-        <torusGeometry args={[0.022, 0.002, 6, 12, P * 0.65]} />
-        <meshPhysicalMaterial color="#8a3038" roughness={0.60} metalness={0} transparent opacity={0.55} />
       </mesh>
 
       {/* Kinder – subtilt rosa, mindre och mer inflyttade (var förr för stora
