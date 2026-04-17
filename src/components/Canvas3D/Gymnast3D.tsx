@@ -132,17 +132,29 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
     ],
   },
 
-  // Enkel sving räck – pendel från händerna
-  "high-bar:swing": { kfs: (() => {
-    const a = P * 0.30;
-    const fwd: Pose = { ...HANG_STRAIGHT, rootRotX:  a, lHipX:  P*0.1,  rHipX:  P*0.1,  spineX: -P*0.015, ...pend( a) };
-    const bak: Pose = { ...HANG_STRAIGHT, rootRotX: -a, lHipX: -P*0.08, rHipX: -P*0.08, spineX:  P*0.015, ...pend(-a) };
-    return [
-      { t: 0.0, pose: fwd },
-      { t: 0.9, pose: bak },
-      { t: 1.8, pose: fwd },
-    ];
-  })() },
+  // Enkel sving räck – 3 KFs importerade från studion. lockMode: hands
+  // håller greppet vid stången, rootRotX driver själva pendeln och spineX +
+  // hipX ger liten kroppsaktivering i topparna.
+  "high-bar:swing": {
+    lockMode: "hands",
+    kfs: [
+      { t: 0, pose: { ...HANG_STRAIGHT,
+        spineX: -0.443185307179586,
+        lHipX: 0.3141592653589793, rHipX: 0.3141592653589793,
+        rootY: 0.10380186235280231, rootZ: -0.4599845049891373,
+        rootRotX: 0.9424777960769379 } },
+      { t: 0.9, pose: { ...HANG_STRAIGHT,
+        spineX: 0.296814692820414,
+        lHipX: -0.25132741228718347, rHipX: -0.25132741228718347,
+        rootY: 0.15472014925722882, rootZ: 0.5700257767912621,
+        rootRotX: -0.9424777960769379 } },
+      { t: 1.8, pose: { ...HANG_STRAIGHT,
+        spineX: -0.047123889803846894,
+        lHipX: 0.3141592653589793, rHipX: 0.3141592653589793,
+        rootY: 0.31, rootZ: -0.73,
+        rootRotX: 0.9424777960769379 } },
+    ],
+  },
 
   // ── Barr ───────────────────────────────────────────────────────────────────
 
