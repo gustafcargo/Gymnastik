@@ -21,7 +21,33 @@ import {
   type Pose, type KF, type ExerciseDef,
   ZERO, POSE_KEYS, evalKF,
 } from "../../types/pose";
+import { HANG_DIST, H_THIGH, H_SHIN } from "../Canvas3D/GymnastBody";
 import { BUILT_IN_EXERCISES } from "../Canvas3D/Gymnast3D";
+
+// Benens totala längd – används av fot-låset (pivot vid golvet).
+const LEG_DIST = H_THIGH + H_SHIN;
+
+type LockMode = "none" | "hands" | "feet";
+
+// Räkna ut rootY/rootZ så att händer (hang-bar) eller fötter (golvpivot)
+// förblir fasta när kroppen roterar kring X (rootRotX).
+function applyLock(pose: Pose, mode: LockMode): Pose {
+  if (mode === "hands") {
+    return {
+      ...pose,
+      rootZ: -HANG_DIST * Math.sin(pose.rootRotX),
+      rootY:  HANG_DIST * (1 - Math.cos(pose.rootRotX)),
+    };
+  }
+  if (mode === "feet") {
+    return {
+      ...pose,
+      rootZ: -LEG_DIST * Math.sin(pose.rootRotX),
+      rootY:  LEG_DIST * (Math.cos(pose.rootRotX) - 1),
+    };
+  }
+  return pose;
+}
 import { useCustomExercisesStore } from "../../store/useCustomExercisesStore";
 import { ALL_EXERCISES, type Exercise } from "../../catalog/exercises";
 
@@ -101,6 +127,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const [time, setTime] = useState(0);
   const [selectedKfIdx, setSelectedKfIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [lockMode, setLockMode] = useState<LockMode>("none");
 
   // Laddar vald övning när selectedId ändras
   useEffect(() => {
@@ -190,11 +217,26 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const updatePoseKey = (key: keyof Pose, value: number) => {
     setDef((d) => ({
       ...d,
-      kfs: d.kfs.map((k, i) =>
-        i === selectedKfIdx
-          ? { ...k, pose: { ...k.pose, [key]: value } }
-          : k,
-      ),
+      kfs: d.kfs.map((k, i) => {
+        if (i !== selectedKfIdx) return k;
+        const next: Pose = { ...k.pose, [key]: value };
+        // Vid hand/fot-lås: när rootRotX ändras, räkna automatiskt om
+        // rootY/rootZ så pivot-punkten förblir fast. Andra nycklar lämnas
+        // orörda (men applyLock kommer köras igen nästa gång rootRotX rör
+        // sig, och "Applicera på alla" snappar hela sekvensen).
+        if (lockMode !== "none" && key === "rootRotX") {
+          return { ...k, pose: applyLock(next, lockMode) };
+        }
+        return { ...k, pose: next };
+      }),
+    }));
+  };
+
+  const applyLockToAllKfs = () => {
+    if (lockMode === "none") return;
+    setDef((d) => ({
+      ...d,
+      kfs: d.kfs.map((k) => ({ ...k, pose: applyLock(k.pose, lockMode) })),
     }));
   };
 
@@ -508,7 +550,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
 
         {/* Sliders */}
         <div className="overflow-y-auto border-l border-slate-700 bg-slate-800/60 px-3 py-2">
-          <div className="mb-3 flex gap-2">
+          <div className="mb-3 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={mirrorCurrentPose}
@@ -525,6 +567,37 @@ export function ExerciseStudio({ open, onClose }: Props) {
             </button>
           </div>
 
+          <div className="mb-3 rounded border border-slate-700 bg-slate-800/60 p-2">
+            <div className="mb-1 text-[11px] font-semibold text-slate-300">
+              Lås pivot (rootY/rootZ följer rootRotX)
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              {(["none", "hands", "feet"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setLockMode(m)}
+                  className={`rounded px-2 py-1 text-[11px] ${
+                    lockMode === m
+                      ? "bg-accent text-white"
+                      : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                  }`}
+                >
+                  {m === "none" ? "Inget" : m === "hands" ? "Händer (räcke)" : "Fötter (golv)"}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={applyLockToAllKfs}
+                disabled={lockMode === "none"}
+                className="ml-auto rounded bg-emerald-700 px-2 py-1 text-[11px] hover:bg-emerald-600 disabled:opacity-30"
+                title="Snappa alla KFs rootY/rootZ mot aktuellt lås"
+              >
+                Applicera på alla
+              </button>
+            </div>
+          </div>
+
           {POSE_GROUPS.map((g) => (
             <details key={g.label} open={g.label === "Root" || g.label === "Spine"} className="mb-1">
               <summary className="cursor-pointer rounded bg-slate-700/40 px-2 py-1 text-xs font-semibold">
@@ -534,15 +607,20 @@ export function ExerciseStudio({ open, onClose }: Props) {
                 {g.keys.map((k) => {
                   const r = rangeFor(k);
                   const v = currentPose[k];
+                  // rootY/rootZ låses av pivot-låset – de räknas ut från rootRotX
+                  const locked = lockMode !== "none" && (k === "rootY" || k === "rootZ");
                   return (
-                    <label key={k} className="flex items-center gap-2 text-[11px]">
-                      <span className="w-16 font-mono text-slate-300">{k}</span>
+                    <label key={k} className={`flex items-center gap-2 text-[11px] ${locked ? "opacity-50" : ""}`}>
+                      <span className="w-16 font-mono text-slate-300" title={locked ? "Låst – följer rootRotX" : undefined}>
+                        {k}{locked ? " 🔒" : ""}
+                      </span>
                       <input
                         type="range"
                         min={r.min}
                         max={r.max}
                         step={r.step}
                         value={v}
+                        disabled={locked}
                         onChange={(e) => updatePoseKey(k, parseFloat(e.target.value))}
                         className="flex-1"
                       />
@@ -550,8 +628,9 @@ export function ExerciseStudio({ open, onClose }: Props) {
                         type="number"
                         step={r.step}
                         value={Number(v.toFixed(3))}
+                        disabled={locked}
                         onChange={(e) => updatePoseKey(k, parseFloat(e.target.value) || 0)}
-                        className="w-16 rounded bg-slate-700 px-1 py-0.5 font-mono"
+                        className="w-16 rounded bg-slate-700 px-1 py-0.5 font-mono disabled:opacity-60"
                       />
                     </label>
                   );
