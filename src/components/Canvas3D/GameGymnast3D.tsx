@@ -15,7 +15,7 @@ import {
   H_TORSO, H_UPPER, H_LOWER, H_THIGH, H_SHIN, HANG_DIST,
   type BodyRefs,
 } from "./GymnastBody";
-import { type Pose, type KF, ZERO, evalKF, pend as _pend } from "../../types/pose";
+import { type Pose, type KF, ZERO, evalKF, evalExercise, pend as _pend } from "../../types/pose";
 
 const P = Math.PI;
 
@@ -303,7 +303,7 @@ export function GameGymnast3D({
       const eq = station.equipment.find(e => e.id === eqId);
       const type = eq ? getEquipmentById(eq.typeId) : null;
       const def = lookupExercise(exerciseId);
-      pose = def ? evalKF(def.kfs, t) : evalKF(IDLE_KFS, t);
+      pose = def ? evalExercise(def, t) : evalKF(IDLE_KFS, t);
       if (def?.baseRotY) pose.rootRotY += def.baseRotY;
 
       // Advance-logik (ping-pong gång, t.ex. bom).
@@ -361,7 +361,7 @@ export function GameGymnast3D({
       // ── Fritt golv-trick (hjulning/kullerbytta/knähopp) ─────────────────
       const { exerciseId, startT, startX, startZ, startRotY } = oneShot.current;
       const def = lookupExercise(exerciseId)!;
-      pose = evalKF(def.kfs, t - startT);
+      pose = evalExercise(def, t - startT);
       if (def.baseRotY) pose.rootRotY += def.baseRotY;
       // Gymnastens yaw vid start styr vilken riktning tricket utförs åt.
       pose.rootRotY += -startRotY;

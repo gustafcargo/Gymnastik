@@ -18,48 +18,10 @@ import {
 } from "lucide-react";
 import { PosePreview } from "./PosePreview";
 import {
-  type Pose, type KF, type ExerciseDef,
-  ZERO, POSE_KEYS, evalKF,
+  type Pose, type KF, type ExerciseDef, type LockMode,
+  ZERO, POSE_KEYS, evalExercise, applyLock,
 } from "../../types/pose";
-import { HANG_DIST, H_THIGH, H_SHIN } from "../Canvas3D/GymnastBody";
 import { BUILT_IN_EXERCISES } from "../Canvas3D/Gymnast3D";
-
-// Benens totala längd – används av fot-låset (pivot vid golvet).
-const LEG_DIST = H_THIGH + H_SHIN;
-// Räckstångens radie – när gymnasten svingar förflyttas greppet runt
-// stångens omkrets, så kroppens pivot traverserar en liten cirkel med
-// denna radie istället för att sitta i en exakt punkt. Synligt framför
-// allt vid svingar runt räcket – händerna gör en "ytterst liten båge".
-const BAR_R = 0.015;
-
-type LockMode = "none" | "hands" | "feet";
-
-// Räkna ut rootY/rootZ så att händer (hang-bar) eller fötter (golvpivot)
-// förblir fasta när kroppen roterar kring X (rootRotX).
-//
-// Händer: greppunkten ligger på stångens omkrets (BAR_R från centrum) och
-// roterar med kroppen. Med greppet vid `bar_center + BAR_R·body_up` och
-// kroppen hängande HANG_DIST från greppet får vi rötter enligt formeln
-// nedan, vilket ger hand-trajektorian en äkta cirkel med radie BAR_R runt
-// stångens centrum i stället för en exakt punkt.
-function applyLock(pose: Pose, mode: LockMode): Pose {
-  if (mode === "hands") {
-    const a = pose.rootRotX;
-    return {
-      ...pose,
-      rootZ: -(HANG_DIST - BAR_R) * Math.sin(a),
-      rootY:  HANG_DIST - (HANG_DIST - BAR_R) * Math.cos(a),
-    };
-  }
-  if (mode === "feet") {
-    return {
-      ...pose,
-      rootZ: -LEG_DIST * Math.sin(pose.rootRotX),
-      rootY:  LEG_DIST * (Math.cos(pose.rootRotX) - 1),
-    };
-  }
-  return pose;
-}
 import { useCustomExercisesStore } from "../../store/useCustomExercisesStore";
 import { ALL_EXERCISES, type Exercise } from "../../catalog/exercises";
 
@@ -115,6 +77,7 @@ function cloneDef(def: ExerciseDef): ExerciseDef {
     advance: def.advance,
     range: def.range,
     baseRotY: def.baseRotY,
+    lockMode: def.lockMode,
   };
 }
 
@@ -139,7 +102,6 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const [time, setTime] = useState(0);
   const [selectedKfIdx, setSelectedKfIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [lockMode, setLockMode] = useState<LockMode>("none");
 
   // Laddar vald övning när selectedId ändras
   useEffect(() => {
@@ -161,6 +123,10 @@ export function ExerciseStudio({ open, onClose }: Props) {
     setTime(0);
   }, [selectedId, customDefs, customExercises]);
 
+  // lockMode ligger nu direkt på def så den följer med vid spara/läsning.
+  const lockMode: LockMode = def.lockMode ?? "none";
+  const setLockMode = (m: LockMode) => setDef((d) => ({ ...d, lockMode: m }));
+
   const duration = def.kfs.length ? def.kfs[def.kfs.length - 1].t : 0;
   // Studion ska inte wrappa tiden (som evalKF gör med `% dur`) – vid t ≥ dur
   // vill vi se sista KF:ns pose. Därför evaluerar vi lokalt med klampad t.
@@ -168,8 +134,8 @@ export function ExerciseStudio({ open, onClose }: Props) {
     if (def.kfs.length === 0) return ZERO;
     if (def.kfs.length === 1) return def.kfs[0].pose;
     if (time >= duration) return def.kfs[def.kfs.length - 1].pose;
-    return evalKF(def.kfs, Math.max(0, time));
-  }, [def.kfs, time, duration]);
+    return evalExercise(def, Math.max(0, time));
+  }, [def, time, duration]);
 
   // Om selectedKfIdx hamnat utanför listan (t.ex. vid laddning av en kortare
   // övning) – klämp in det igen så slidrarna redigerar en giltig KF.
@@ -408,8 +374,21 @@ export function ExerciseStudio({ open, onClose }: Props) {
   };
 
   const dumpJson = () => {
-    // eslint-disable-next-line no-console
-    console.log(JSON.stringify({ meta, def }, null, 2));
+    // Exportera övningen som .json-fil till användarens dator via en
+    // tillfällig <a download>. Samma mönster som klassisk "save file"-flöde
+    // i SPA:n; fungerar offline och kräver ingen backend.
+    const safeId = (meta.id || "exercise").replace(/[^a-z0-9_.-]+/gi, "_");
+    const blob = new Blob([JSON.stringify({ meta, def }, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (!open) return null;
@@ -473,8 +452,9 @@ export function ExerciseStudio({ open, onClose }: Props) {
           type="button"
           onClick={dumpJson}
           className="rounded bg-slate-600 px-3 py-1 text-sm hover:bg-slate-500"
+          title="Ladda ner övningen som .json-fil"
         >
-          Dumpa JSON
+          Exportera JSON
         </button>
 
         <div className="flex-1" />

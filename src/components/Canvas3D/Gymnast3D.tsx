@@ -17,13 +17,13 @@ import {
 } from "./GymnastBody";
 import {
   type Pose, type KF, type ExerciseDef,
-  ZERO, HANG_STRAIGHT, lerpPose, evalKF, pend,
+  ZERO, HANG_STRAIGHT, lerpPose, evalKF, evalExercise, pend,
 } from "../../types/pose";
 import { useCustomExercisesStore } from "../../store/useCustomExercisesStore";
 
 // Re-exporter för bakåtkompatibilitet med moduler som importerar från Gymnast3D.
 export type { Pose, KF, ExerciseDef };
-export { ZERO, HANG_STRAIGHT, lerpPose, evalKF, pend };
+export { ZERO, HANG_STRAIGHT, lerpPose, evalKF, evalExercise, pend };
 
 // ─── Animationer ──────────────────────────────────────────────────────────────
 const P = Math.PI;
@@ -702,7 +702,7 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
 
   useFrame(({ clock }) => {
     const raw = clock.getElapsedTime();
-    const p = evalKF(kfs, raw);
+    const p = evalExercise(def, raw);
 
     // Basrotation – vrider gymnasten mot redskapets längdriktning
     if (def.baseRotY) p.rootRotY += def.baseRotY;
