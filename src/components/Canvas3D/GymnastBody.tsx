@@ -196,24 +196,19 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
            • Undviker z-fighting mellan iris/pupill/ögonvita som låg inuti varandra. */}
       {([-1, 1] as number[]).map((s) => (
         <group key={`eye-${s}`} position={[s * H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.92]}>
-          {/* Ögonvita – horisontell ellips */}
-          <mesh scale={[1.45, 1.0, 1.0]}>
-            <circleGeometry args={[0.013, 24]} />
-            <meshBasicMaterial color="#fafafa" side={THREE.DoubleSide} />
+          {/* Ögonvita – tydligt liggande ellips (bredare än hög) */}
+          <mesh scale={[1.7, 0.85, 1.0]}>
+            <circleGeometry args={[0.014, 28]} />
+            <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
           </mesh>
-          {/* Iris – varm brun cirkel, centrerad */}
-          <mesh position={[0, 0, -0.0008]}>
-            <circleGeometry args={[0.0090, 20]} />
-            <meshBasicMaterial color="#5a3a12" side={THREE.DoubleSide} />
-          </mesh>
-          {/* Pupill – svart prick, perfekt centrerad på iris */}
-          <mesh position={[0, 0, -0.0016]}>
-            <circleGeometry args={[0.0038, 16]} />
+          {/* Pupill – svart prick exakt i mitten av ögonvitan */}
+          <mesh position={[0, 0, -0.0010]}>
+            <circleGeometry args={[0.0042, 20]} />
             <meshBasicMaterial color="#0a0a0a" side={THREE.DoubleSide} />
           </mesh>
-          {/* Ljusreflex – uppe-inåt */}
-          <mesh position={[s * -0.0018, 0.0032, -0.0024]}>
-            <circleGeometry args={[0.0012, 8]} />
+          {/* Ljusreflex – liten vit prick upp-inåt på pupillen */}
+          <mesh position={[s * -0.0012, 0.0018, -0.0020]}>
+            <circleGeometry args={[0.0011, 10]} />
             <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
           </mesh>
         </group>
