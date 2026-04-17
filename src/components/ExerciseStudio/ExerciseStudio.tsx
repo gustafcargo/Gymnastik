@@ -117,7 +117,9 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const [mirrorLR, setMirrorLR] = useState(false);
   // Mobile-tab: styr vilken kolumn som visas under lg-brytpunkten.
   // Desktop (lg:) ignorerar detta och visar alla tre sida vid sida.
-  const [mobileTab, setMobileTab] = useState<"preview" | "edit" | "timeline">("preview");
+  // Preview ligger alltid synlig på mobil (ovanför tabbarna), så vi
+  // har bara två tabbar kvar: Redigera/Tidslinje.
+  const [mobileTab, setMobileTab] = useState<"edit" | "timeline">("edit");
   const [metaExpanded, setMetaExpanded] = useState(false);
 
   // Laddar vald övning när selectedId ändras
@@ -617,32 +619,13 @@ export function ExerciseStudio({ open, onClose }: Props) {
         </div>
       </div>
 
-      {/* Mobile-tabbar – endast synliga under lg */}
-      <div className="flex shrink-0 border-b border-slate-700 bg-slate-800 text-xs lg:hidden">
-        {[
-          { key: "preview" as const, label: "Förhandsvisning" },
-          { key: "edit"    as const, label: "Redigera" },
-          { key: "timeline" as const, label: "Tidslinje" },
-        ].map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setMobileTab(t.key)}
-            className={`flex-1 border-b-2 px-2 py-2 font-semibold transition-colors ${
-              mobileTab === t.key
-                ? "border-emerald-500 text-emerald-300"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Main grid: preview | sliders | timeline (mobil: tabbad stack) */}
+      {/* Main grid: preview | sliders | timeline (mobil: tabbad stack,
+          med preview alltid synlig ovanför tabbarna). */}
       <div className="flex flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[1fr_360px_320px]">
-        {/* Preview */}
-        <div className={`relative ${mobileTab === "preview" ? "flex-1" : "hidden"} lg:block lg:flex-auto`}>
+        {/* Preview – alltid synlig på mobil med fixerad höjd (45vh) så
+            användaren kan se gymnasten medan hon justerar sliders eller
+            bläddrar i tidslinjen. Desktop: fyller sin grid-kolumn. */}
+        <div className="relative h-[45vh] shrink-0 lg:h-auto lg:shrink">
           <PosePreview pose={currentPose} def={def} apparatus={meta.apparatus[0]} />
           {/* Scrubber overlay */}
           <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 bg-slate-900/80 px-3 py-2">
@@ -666,6 +649,28 @@ export function ExerciseStudio({ open, onClose }: Props) {
               {time.toFixed(2)} / {duration.toFixed(2)}s
             </span>
           </div>
+        </div>
+
+        {/* Mobile-tabbar – ligger mellan preview och tab-innehåll så
+            preview fortsätter synas ovanför. Döljs på desktop. */}
+        <div className="flex shrink-0 border-b border-t border-slate-700 bg-slate-800 text-xs lg:hidden">
+          {[
+            { key: "edit"    as const, label: "Redigera" },
+            { key: "timeline" as const, label: "Tidslinje" },
+          ].map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setMobileTab(t.key)}
+              className={`flex-1 border-b-2 px-2 py-2 font-semibold transition-colors ${
+                mobileTab === t.key
+                  ? "border-emerald-500 text-emerald-300"
+                  : "border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {/* Sliders */}
