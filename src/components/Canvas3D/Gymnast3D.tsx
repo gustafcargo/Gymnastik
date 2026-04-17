@@ -846,6 +846,39 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
                        lShZ:-P*0.20, rShZ: P*0.20 } },
     { t: 1.25, pose: { ...ZERO, ...ARMS_SIDE } },
   ] },
+
+  // Språng – 5 KFs från studion. Huk → armar upp + höger ben bak i flygläge →
+  // mellanlandnings-huk → upprätt landning. rootZ driver förflyttning framåt
+  // ~1.6 m. Fungerar på golv, bom och bock.
+  "floor:leap": { kfs: [
+    { t: 0, pose: { ...ZERO } },
+    { t: 0.25, pose: { ...ZERO,
+      spineX: -0.733185307179586,
+      lShX: -0.293185307179586, lShZ: -0.223185307179586,
+      rShX: -0.293185307179586, rShZ:  0.223185307179586,
+      lHipX: 0.366814692820414, rHipX: 0.366814692820414,
+      lKnX: -0.953185307179586, rKnX: -0.953185307179586,
+      rootY: -0.011883865276343268, rootZ: 0.07,
+      rootRotX: 0.216814692820414 } },
+    { t: 0.5, pose: { ...ZERO,
+      spineX: -0.143185307179586,
+      lShX: 2.26681469282041, lShZ: -0.223185307179586,
+      rShX: -1.68318530717959,
+      lHipX: 1.82681469282041, lKnX: -0.143185307179586,
+      rHipX: -1.17318530717959, rKnX: -0.223185307179586,
+      rootY: -0.011883865276343268, rootZ: -0.91,
+      rootRotX: -0.073185307179586 } },
+    { t: 0.625, pose: { ...ZERO,
+      spineX: -0.733185307179586,
+      lShX: -0.293185307179586, lShZ: -0.223185307179586,
+      rShX: -0.293185307179586, rShZ:  0.223185307179586,
+      lHipX: 0.366814692820414, rHipX: 0.366814692820414,
+      lKnX: -0.953185307179586, rKnX: -0.953185307179586,
+      rootY: -0.011883865276343268, rootZ: -1.47,
+      rootRotX: 0.216814692820414 } },
+    { t: 0.75, pose: { ...ZERO,
+      rootZ: -1.6 } },
+  ] },
 };
 
 // Bakåtkompatibelt alias
