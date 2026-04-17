@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   X, Play, Pause, Plus, Trash2, Copy as CopyIcon,
-  ChevronLeft, ChevronRight, ArrowUp, ArrowDown,
+  ChevronLeft, ChevronRight, ArrowUp, ArrowDown, RotateCcw,
 } from "lucide-react";
 import { PosePreview } from "./PosePreview";
 import {
@@ -111,7 +111,7 @@ function speglaPose(p: Pose): Pose {
 
 function cloneDef(def: ExerciseDef): ExerciseDef {
   return {
-    kfs: def.kfs.map((k) => ({ t: k.t, pose: { ...k.pose } })),
+    kfs: def.kfs.map((k) => ({ t: k.t, pose: { ...k.pose }, locked: k.locked })),
     advance: def.advance,
     range: def.range,
     baseRotY: def.baseRotY,
@@ -233,11 +233,20 @@ export function ExerciseStudio({ open, onClose }: Props) {
         if (i !== selectedKfIdx) return k;
         const next: Pose = { ...k.pose, [key]: value };
         // Vid hand/fot-lås: när rootRotX ändras, räkna automatiskt om
-        // rootY/rootZ så pivot-punkten förblir fast. Andra nycklar lämnas
-        // orörda (men applyLock kommer köras igen nästa gång rootRotX rör
-        // sig, och "Applicera på alla" snappar hela sekvensen).
-        if (lockMode !== "none" && key === "rootRotX") {
-          return { ...k, pose: applyLock(next, lockMode) };
+        // rootY/rootZ så pivot-punkten följer rotationen. Bevara samtidigt
+        // KF:ens befintliga offset (skillnaden mellan pose.rootY/Z och
+        // rena låsvärdet), så att användarens egen position behålls medan
+        // rotationen styr pendeln. Hoppa över KFs där locked === false
+        // (släpp-moment – pose är i fritt flyg).
+        if (lockMode !== "none" && key === "rootRotX" && k.locked !== false) {
+          const oldLocked = applyLock(k.pose, lockMode);
+          const offsetY = k.pose.rootY - oldLocked.rootY;
+          const offsetZ = k.pose.rootZ - oldLocked.rootZ;
+          const newLocked = applyLock(next, lockMode);
+          return {
+            ...k,
+            pose: { ...newLocked, rootY: newLocked.rootY + offsetY, rootZ: newLocked.rootZ + offsetZ },
+          };
         }
         return { ...k, pose: next };
       }),
@@ -246,10 +255,48 @@ export function ExerciseStudio({ open, onClose }: Props) {
 
   const applyLockToAllKfs = () => {
     if (lockMode === "none") return;
+    const sel = def.kfs[selectedKfIdx];
+    if (!sel) return;
+    // Offset = aktuell KF:ens manuella justering utöver ren lås-formel.
+    // Applicera lås(a) + offset på alla KFs som är märkta som låsta.
+    // KFs med locked === false lämnas orörda (t.ex. ett "släpp"-moment
+    // mitt i en sving då gymnasten lämnar räcket).
+    const selLocked = applyLock(sel.pose, lockMode);
+    const offsetY = sel.pose.rootY - selLocked.rootY;
+    const offsetZ = sel.pose.rootZ - selLocked.rootZ;
     setDef((d) => ({
       ...d,
-      kfs: d.kfs.map((k) => ({ ...k, pose: applyLock(k.pose, lockMode) })),
+      kfs: d.kfs.map((k) => {
+        if (k.locked === false) return k;
+        const locked = applyLock(k.pose, lockMode);
+        return {
+          ...k,
+          pose: { ...locked, rootY: locked.rootY + offsetY, rootZ: locked.rootZ + offsetZ },
+        };
+      }),
     }));
+  };
+
+  const toggleKfLock = (idx: number) => {
+    setDef((d) => ({
+      ...d,
+      kfs: d.kfs.map((k, i) =>
+        i === idx ? { ...k, locked: k.locked === false ? true : false } : k,
+      ),
+    }));
+  };
+
+  // Sparad def (override eller built-in) – källa för per-slider reset.
+  // null innebär att KF:en inte har ett sparat värde → reset faller
+  // tillbaka på ZERO[key].
+  const savedDef: ExerciseDef | null = selectedId
+    ? customDefs[selectedId] ?? BUILT_IN_EXERCISES[selectedId] ?? null
+    : null;
+
+  const resetPoseKey = (key: keyof Pose) => {
+    const savedKf = savedDef?.kfs[selectedKfIdx];
+    const value = savedKf ? savedKf.pose[key] : ZERO[key];
+    updatePoseKey(key, value);
   };
 
   const addKeyframe = () => {
@@ -619,10 +666,14 @@ export function ExerciseStudio({ open, onClose }: Props) {
                 {g.keys.map((k) => {
                   const r = rangeFor(k);
                   const v = currentPose[k];
-                  // rootY/rootZ låses av pivot-låset – de räknas ut från rootRotX
-                  const locked = lockMode !== "none" && (k === "rootY" || k === "rootZ");
+                  // rootY/rootZ låses av pivot-låset om den valda KF:en är låst
+                  const selKf = def.kfs[selectedKfIdx];
+                  const kfLocked = selKf?.locked !== false;
+                  const locked = lockMode !== "none" && kfLocked && (k === "rootY" || k === "rootZ");
+                  const savedVal = savedDef?.kfs[selectedKfIdx]?.pose[k] ?? ZERO[k];
+                  const canReset = !locked && Math.abs(v - savedVal) > 1e-6;
                   return (
-                    <label key={k} className={`flex items-center gap-2 text-[11px] ${locked ? "opacity-50" : ""}`}>
+                    <label key={k} className={`flex items-center gap-1.5 text-[11px] ${locked ? "opacity-50" : ""}`}>
                       <span className="w-16 font-mono text-slate-300" title={locked ? "Låst – följer rootRotX" : undefined}>
                         {k}{locked ? " 🔒" : ""}
                       </span>
@@ -644,6 +695,16 @@ export function ExerciseStudio({ open, onClose }: Props) {
                         onChange={(e) => updatePoseKey(k, parseFloat(e.target.value) || 0)}
                         className="w-16 rounded bg-slate-700 px-1 py-0.5 font-mono disabled:opacity-60"
                       />
+                      <button
+                        type="button"
+                        onClick={() => resetPoseKey(k)}
+                        disabled={locked || !canReset}
+                        className="grid h-5 w-5 place-items-center rounded text-slate-400 hover:bg-slate-600 hover:text-slate-100 disabled:opacity-20"
+                        title={`Återställ till sparat värde (${savedVal.toFixed(3)})`}
+                        aria-label="Återställ"
+                      >
+                        <RotateCcw size={11} />
+                      </button>
                     </label>
                   );
                 })}
@@ -723,6 +784,21 @@ export function ExerciseStudio({ open, onClose }: Props) {
                   onChange={(e) => updateKeyframe(i, { t: parseFloat(e.target.value) || 0 })}
                   className="w-14 rounded bg-slate-700 px-1 py-0.5 font-mono"
                 />
+                {lockMode !== "none" && (
+                  <button
+                    type="button"
+                    onClick={() => toggleKfLock(i)}
+                    className={`grid h-6 w-6 place-items-center rounded text-xs ${
+                      k.locked === false
+                        ? "text-slate-500 hover:bg-slate-600"
+                        : "text-accent hover:bg-slate-600"
+                    }`}
+                    title={k.locked === false ? "Släppt (fritt) – klicka för att låsa" : "Låst till pivot – klicka för att släppa"}
+                    aria-label={k.locked === false ? "Lås KF" : "Släpp KF"}
+                  >
+                    {k.locked === false ? "🔓" : "🔒"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => moveKeyframe(i, -1)}

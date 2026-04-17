@@ -19,7 +19,16 @@ export type Pose = {
   rootRotX: number; rootRotY: number;
 };
 
-export type KF = { t: number; pose: Pose };
+export type KF = {
+  t: number;
+  pose: Pose;
+  /**
+   * Om false hoppar Övningsstudions pivot-lås över denna KF – t.ex. ett
+   * släpp-moment i en sving där gymnasten lämnar räcket. Runtime bryr sig
+   * inte om flaggan (lerpPose/evalKF interpolerar bara pose).
+   */
+  locked?: boolean;
+};
 
 export type ExerciseDef = {
   kfs: KF[];
