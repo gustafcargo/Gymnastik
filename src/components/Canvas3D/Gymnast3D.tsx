@@ -35,62 +35,102 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Räck ───────────────────────────────────────────────────────────────────
 
-  // Jättesving – ROOT cirkulerar runt stången i YZ-planet
-  "high-bar:giant-swing": { kfs: (() => {
-    const N = 20;
-    return Array.from({ length: N + 1 }, (_, i) => {
-      const a   = (i / N) * 2 * P;
-      const bow = Math.sin(a) * 0.04;  // minimal spineX – mer orsakar handdrift
-      return {
-        t: i * (1.6 / N),
-        pose: {
-          ...HANG_STRAIGHT,
-          spineX: bow,
-          lHipX: -Math.abs(Math.sin(a)) * 0.09,
-          rHipX: -Math.abs(Math.sin(a)) * 0.09,
-          rootRotX: a,
-          rootZ: -HANG_DIST * Math.sin(a),
-          rootY:  HANG_DIST * (1 - Math.cos(a)),
-        } satisfies Pose,
-      };
+  // Kast bakåt (jättesving) – ROOT cirkulerar runt stången i YZ-planet.
+  // 21 KFs importerade från studion. Kompakt helper (mk) undviker boilerplate
+  // då bara spineX, hipX, rootY, rootZ och rootRotX varierar per KF – armarna
+  // är sträckta (HANG_STRAIGHT) och lHipX = rHipX i hela svinget.
+  "high-bar:giant-swing": (() => {
+    const mk = (
+      t: number, spineX: number, hipX: number,
+      rootY: number, rootZ: number, rootRotX: number,
+    ): KF => ({
+      t,
+      pose: { ...HANG_STRAIGHT, spineX, lHipX: hipX, rHipX: hipX, rootY, rootZ, rootRotX },
     });
-  })() },
+    return {
+      lockMode: "hands",
+      kfs: [
+        mk(0,     0,                       0,                        -0.05,  0,                    0),
+        mk(0.08,  0.012360679774997897,   -0.027811529493745265,      0.01, -0.31,                 0.3141592653589793),
+        mk(0.16,  0.023511410091698926,   -0.05290067270632258,       0.16, -0.58,                 0.6283185307179586),
+        mk(0.24,  0.032360679774997896,   -0.07281152949374527,       0.39, -0.79,                 0.9424777960769379),
+        mk(0.32,  0.038042260651806145,   -0.08559508646656382,       0.66, -0.9,                  1.2566370614359172),
+        mk(0.4,   0.04,                   -0.09,                      0.95, -0.93,                 1.5707963267948966),
+        mk(0.48,  0.038042260651806145,   -0.08559508646656383,       1.24, -0.89,                 1.8849555921538759),
+        mk(0.56,  0.032360679774997896,   -0.07281152949374527,       1.49, -0.74,                 2.199114857512855),
+        mk(0.64,  0.02351141009169893,    -0.05290067270632259,       1.68, -0.5295945123155185,   2.5132741228718345),
+        mk(0.72,  0.0123606797749979,     -0.027811529493745275,      1.81, -0.2784243119318277,   2.827433388230814),
+        mk(0.8,   4.898587196589413e-18,  -1.1021821192326179e-17,    1.85,  0,                    3.141592653589793),
+        mk(0.88, -0.012360679774997909,   -0.027811529493745296,      1.8,   0.29,                 3.455751918948773),
+        mk(0.96, -0.023511410091698923,   -0.05290067270632257,       1.67,  0.55,                 3.7699111843077517),
+        mk(1.04, -0.032360679774997896,   -0.07281152949374525,       1.48,  0.75,                 4.084070449666731),
+        mk(1.12, -0.038042260651806145,   -0.08559508646656382,       1.22,  0.89,                 4.39822971502571),
+        mk(1.2,  -0.04,                   -0.09,                      0.93,  0.94,                 4.71238898038469),
+        mk(1.28, -0.038042260651806145,   -0.08559508646656383,       0.64,  0.9,                  5.026548245743669),
+        mk(1.36, -0.0323606797749979,     -0.07281152949374528,       0.37,  0.78,                 5.340707511102648),
+        mk(1.44, -0.023511410091698937,   -0.0529006727063226,        0.15,  0.58,                 5.654866776461628),
+        mk(1.52, -0.012360679774997907,   -0.02781152949374529,       0.01,  0.29,                 5.969026041820607),
+        mk(1.6,  -9.797174393178826e-18,  -2.2043642384652358e-17,   -0.03,  0,                    6.283185307179586),
+      ],
+    };
+  })(),
 
   // Kip – häng → pike → sving upp → stöd → häng
-  // Händer låsta vid stången via HANG_STRAIGHT + pend() under svingfaserna
-  // Konvention (ansikte −Z): positiv hipX = ben framåt, negativ knX = naturlig böjning
-  "high-bar:kip": { kfs: [
-    // Häng
-    { t: 0,    pose: { ...HANG_STRAIGHT } },
-    // Liten baksving (fötter bakåt = +Z → positiv rootRotX)
-    { t: 0.30, pose: { ...HANG_STRAIGHT,
-        rootRotX: P*0.15, ...pend(P*0.15) } },
-    // Framsving + pike (tårna fram mot stången, höfter vikta kraftigt fram)
-    { t: 0.75, pose: { ...HANG_STRAIGHT,
-        lHipX: P*0.95, rHipX: P*0.95,
-        lKnX: -P*0.05, rKnX: -P*0.05,
-        spineX: -P*0.10,
-        rootRotX: -P*0.10, ...pend(-P*0.10) } },
-    // Extension – kroppen skjuter upp (höfter öppnas, kropp över stången)
-    { t: 1.05, pose: { ...HANG_STRAIGHT,
-        lHipX: P*0.15, rHipX: P*0.15,
-        rootRotX: -P*0.25, ...pend(-P*0.25) } },
-    // Kroppen roterar över stången till stödet
-    { t: 1.25, pose: { ...HANG_STRAIGHT,
-        rootRotX: -P*0.50, ...pend(-P*0.50) } },
-    // Snabb övergång till stöd (0.15 s)
-    { t: 1.40, pose: { ...ZERO,
-        lShX: P*0.05, rShX: P*0.05,
-        lElX: P*0.08, rElX: P*0.08,
-        rootY: 1.02 } },
-    // Håll stöd
-    { t: 2.00, pose: { ...ZERO,
-        lShX: P*0.04, rShX: P*0.04,
-        lElX: P*0.06, rElX: P*0.06,
-        rootY: 1.04 } },
-    // Tillbaka till häng
-    { t: 2.50, pose: { ...HANG_STRAIGHT } },
-  ] },
+  // Definitionen nedan är editerad i Övningsstudion och importerad som-är.
+  // `lockMode: "hands"` + per-KF `locked` flaggar att greppet ska fastna vid
+  // stången genom FK under interpolation; stöd-fasen (t=2.04–2.27) markerar
+  // KFs utan `locked` så rootY/rootZ där behandlas som fritt definierade.
+  "high-bar:kip": {
+    lockMode: "hands",
+    kfs: [
+      { t: 0, pose: { ...ZERO,
+        lShX: 3.141592653589793, rShX: 3.141592653589793,
+        rootY: -0.03 } },
+      { t: 0.15, locked: true, pose: { ...ZERO,
+        spineX: 0.226814692820414,
+        lShX: 3.141592653589793, rShX: 3.141592653589793,
+        lHipX: -0.133185307179586, rHipX: -0.133,
+        rootY: 0.03, rootZ: 0.33,
+        rootRotX: -0.593185307179586 } },
+      { t: 0.3, locked: true, pose: { ...ZERO,
+        lShX: 3.14681469282041, rShX: 3.141592653589793,
+        lHipX: 0.307, rHipX: 0.307,
+        rootY: 0.17, rootZ: -0.6,
+        rootRotX: 0.676814692820414 } },
+      { t: 0.675, locked: true, pose: { ...ZERO,
+        spineX: -2.20318530717959,
+        lShX: 1.83681469282041, rShX: 1.837,
+        rootY: 0.21, rootZ: -0.28,
+        rootRotX: 3.34681469282041 } },
+      { t: 1.5875, locked: true, pose: { ...ZERO,
+        spineX: -2.20318530717959,
+        lShX: 1.83681469282041, rShX: 1.837,
+        lHipX: -1.243, rHipX: -1.24318530717959,
+        rootY: 0.43, rootZ: 0.59,
+        rootRotX: 2.06681469282041 } },
+      { t: 2.04375, pose: { ...ZERO,
+        spineX: -2.20318530717959,
+        lShX: 0.416814692820414, rShX: 0.417,
+        lHipX: -1.97318530717959, rHipX: -1.973,
+        rootY: 1.03, rootZ: 0.21,
+        rootRotX: 2.06681469282041 } },
+      { t: 2.1578125, pose: { ...ZERO,
+        spineX: -2.20318530717959,
+        lShX: 0.227, rShX: 0.226814692820414,
+        lHipX: -2.15318530717959, rHipX: -2.153,
+        rootY: 1.05, rootZ: 0.1,
+        rootRotX: 2.00681469282041 } },
+      { t: 2.271875, pose: { ...ZERO,
+        spineX: -2.20318530717959,
+        lShX: 0.416814692820414, rShX: 0.417,
+        lHipX: -1.97318530717959, rHipX: -1.973,
+        rootY: 1.03, rootZ: 0.21,
+        rootRotX: 2.06681469282041 } },
+      { t: 2.5, locked: true, pose: { ...ZERO,
+        lShX: 3.141592653589793, rShX: 3.141592653589793,
+        rootY: -0.03 } },
+    ],
+  },
 
   // Enkel sving räck – pendel från händerna
   "high-bar:swing": { kfs: (() => {
