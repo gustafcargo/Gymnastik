@@ -5,6 +5,10 @@
  * Till skillnad från `Gymnast3D` använder vi inte `useFrame` för
  * tidslinje-evaluering; posen kommer direkt som prop och refs uppdateras
  * när prop:en ändras.
+ *
+ * Renderar även ett representativt redskap (valfritt) så man kan kalibrera
+ * pose-keyframen mot stång/bom/ringar under editing. baseY justeras till
+ * samma formel som runtime-Gymnast3D använder.
  */
 import { useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
@@ -12,18 +16,57 @@ import { Environment, OrbitControls, Grid } from "@react-three/drei";
 import * as THREE from "three";
 import {
   GymnastBody,
-  H_THIGH, H_SHIN,
+  H_THIGH, H_SHIN, H_TORSO, H_UPPER, H_LOWER, HANG_DIST,
   type BodyRefs,
 } from "../Canvas3D/GymnastBody";
+import { Equipment3D } from "../Canvas3D/Equipment3D";
 import type { Pose, ExerciseDef } from "../../types/pose";
+import type { EquipmentType } from "../../types";
+import { EQUIPMENT_CATALOG } from "../../catalog/equipment";
 
 type Props = {
   pose: Pose;
   def: ExerciseDef;
+  apparatus?: string;
   color?: string;
 };
 
-function RiggedGymnast({ pose, def, color = "#c026d3" }: Props) {
+type Mount = "hang-bar" | "support-bar" | "stand-surface";
+
+// Map apparatus-taggen (från Exercise.apparatus) till en representativ
+// EquipmentType ur katalogen + hur gymnasten ska placeras relativt den.
+function equipmentForApparatus(app?: string): { type: EquipmentType; mount: Mount } | null {
+  if (!app) return null;
+  const byKind = (kind: string) => EQUIPMENT_CATALOG.find((e) => e.detail?.kind === kind);
+  switch (app) {
+    case "high-bar":      return { type: byKind("high-bar")!,      mount: "hang-bar" };
+    case "uneven-bars":   return { type: byKind("uneven-bars")!,   mount: "hang-bar" };
+    case "rings":         return { type: byKind("rings")!,         mount: "hang-bar" };
+    case "rings-free":    return { type: byKind("rings-free")!,    mount: "hang-bar" };
+    case "parallel-bars": return { type: byKind("parallel-bars")!, mount: "support-bar" };
+    case "pommel-horse":  return { type: byKind("pommel-horse")!,  mount: "support-bar" };
+    case "beam":          return { type: byKind("beam")!,          mount: "stand-surface" };
+    case "vault":         return { type: byKind("vault")!,         mount: "stand-surface" };
+    case "trampette":     return { type: byKind("trampette")!,     mount: "stand-surface" };
+    case "mini-tramp":    return { type: byKind("mini-tramp")!,    mount: "stand-surface" };
+    case "plinth":        return { type: byKind("plint")!,         mount: "stand-surface" };
+    case "buck":          return { type: byKind("bock")!,          mount: "stand-surface" };
+    default: return null;
+  }
+}
+
+// Samma formel som runtime-Gymnast3D – se baseY-beräkningen där.
+function baseYFor(app: string | undefined, pH: number, kind: string | undefined): number {
+  const m = app ? equipmentForApparatus(app)?.mount : undefined;
+  if (m === "hang-bar") {
+    if (kind === "rings" || kind === "rings-free") return pH - 0.18 - HANG_DIST;
+    return pH + 0.04 - HANG_DIST;
+  }
+  if (m === "support-bar") return pH + H_UPPER + H_LOWER - H_TORSO * 0.85;
+  return H_THIGH + H_SHIN;
+}
+
+function RiggedGymnast({ pose, def, apparatus, color = "#c026d3" }: Props) {
   const rootRef = useRef<THREE.Group>(null);
   const bodyRefs: BodyRefs = {
     spineRef: useRef<THREE.Group>(null),
@@ -38,8 +81,8 @@ function RiggedGymnast({ pose, def, color = "#c026d3" }: Props) {
     rKnRef:   useRef<THREE.Group>(null),
   };
 
-  // Bas-Y så fötterna står på golvet (stand-surface default).
-  const baseY = H_THIGH + H_SHIN;
+  const eq = equipmentForApparatus(apparatus);
+  const baseY = baseYFor(apparatus, eq?.type.physicalHeightM ?? 0, eq?.type.detail?.kind);
 
   useEffect(() => {
     const p = { ...pose };
@@ -64,17 +107,29 @@ function RiggedGymnast({ pose, def, color = "#c026d3" }: Props) {
   }, [pose, def.baseRotY, baseY, bodyRefs]);
 
   return (
-    <group ref={rootRef} position={[0, baseY, 0]}>
-      <GymnastBody color={color} skin="#E8C99A" hair="#2d1a08" refs={bodyRefs} />
-    </group>
+    <>
+      {eq && <Equipment3D type={eq.type} />}
+      <group ref={rootRef} position={[0, baseY, 0]}>
+        <GymnastBody color={color} skin="#E8C99A" hair="#2d1a08" refs={bodyRefs} />
+      </group>
+    </>
   );
 }
 
-export function PosePreview({ pose, def, color }: Props) {
+export function PosePreview({ pose, def, apparatus, color }: Props) {
+  const eq = equipmentForApparatus(apparatus);
+  // Sikta kameran lite ovanför mitten för bar-exercises så hela
+  // redskapet + hängande kropp syns. För golv-tricks låg mitt.
+  const target: [number, number, number] = eq?.mount === "hang-bar"
+    ? [0, (eq.type.physicalHeightM - 0.5), 0]
+    : eq?.mount === "support-bar"
+    ? [0, eq.type.physicalHeightM * 0.75, 0]
+    : [0, 0.9, 0];
+
   return (
     <Canvas
       shadows
-      camera={{ position: [1.8, 1.5, 2.4], fov: 40 }}
+      camera={{ position: [2.6, 1.8, 3.2], fov: 40 }}
       style={{ background: "#f1f5f9", width: "100%", height: "100%" }}
     >
       <ambientLight intensity={0.55} />
@@ -99,12 +154,12 @@ export function PosePreview({ pose, def, color }: Props) {
         <planeGeometry args={[20, 20]} />
         <shadowMaterial opacity={0.25} />
       </mesh>
-      <RiggedGymnast pose={pose} def={def} color={color} />
+      <RiggedGymnast pose={pose} def={def} apparatus={apparatus} color={color} />
       <OrbitControls
         enablePan={false}
         minDistance={1.5}
-        maxDistance={6}
-        target={[0, 0.9, 0]}
+        maxDistance={8}
+        target={target}
       />
     </Canvas>
   );

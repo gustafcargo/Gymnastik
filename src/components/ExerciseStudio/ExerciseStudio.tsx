@@ -26,17 +26,29 @@ import { BUILT_IN_EXERCISES } from "../Canvas3D/Gymnast3D";
 
 // Benens totala längd – används av fot-låset (pivot vid golvet).
 const LEG_DIST = H_THIGH + H_SHIN;
+// Räckstångens radie – när gymnasten svingar förflyttas greppet runt
+// stångens omkrets, så kroppens pivot traverserar en liten cirkel med
+// denna radie istället för att sitta i en exakt punkt. Synligt framför
+// allt vid svingar runt räcket – händerna gör en "ytterst liten båge".
+const BAR_R = 0.015;
 
 type LockMode = "none" | "hands" | "feet";
 
 // Räkna ut rootY/rootZ så att händer (hang-bar) eller fötter (golvpivot)
 // förblir fasta när kroppen roterar kring X (rootRotX).
+//
+// Händer: greppunkten ligger på stångens omkrets (BAR_R från centrum) och
+// roterar med kroppen. Med greppet vid `bar_center + BAR_R·body_up` och
+// kroppen hängande HANG_DIST från greppet får vi rötter enligt formeln
+// nedan, vilket ger hand-trajektorian en äkta cirkel med radie BAR_R runt
+// stångens centrum i stället för en exakt punkt.
 function applyLock(pose: Pose, mode: LockMode): Pose {
   if (mode === "hands") {
+    const a = pose.rootRotX;
     return {
       ...pose,
-      rootZ: -HANG_DIST * Math.sin(pose.rootRotX),
-      rootY:  HANG_DIST * (1 - Math.cos(pose.rootRotX)),
+      rootZ: -(HANG_DIST - BAR_R) * Math.sin(a),
+      rootY:  HANG_DIST - (HANG_DIST - BAR_R) * Math.cos(a),
     };
   }
   if (mode === "feet") {
@@ -523,7 +535,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
       <div className="grid flex-1 grid-cols-[1fr_360px_320px] overflow-hidden">
         {/* Preview */}
         <div className="relative">
-          <PosePreview pose={currentPose} def={def} />
+          <PosePreview pose={currentPose} def={def} apparatus={meta.apparatus[0]} />
           {/* Scrubber overlay */}
           <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 bg-slate-900/80 px-3 py-2">
             <button
