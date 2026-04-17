@@ -189,47 +189,35 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
 
       {/* ── Ansikte (−Z) ─────────────────────────────────────────────── */}
 
-      {/* Ögonvitor – mandelformade (horisontellt ovala) + FLATA i Z (scale 0.4)
-          så iris/pupill inte göms INNE i vitans z-djup. */}
-      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow scale={[1.35, 0.95, 0.4]}>
-        <sphereGeometry args={[0.015, 16, 10]} />
-        <meshPhysicalMaterial color="#fafafa" roughness={0.2} metalness={0} />
-      </mesh>
-      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow scale={[1.35, 0.95, 0.4]}>
-        <sphereGeometry args={[0.015, 16, 10]} />
-        <meshPhysicalMaterial color="#fafafa" roughness={0.2} metalness={0} />
-      </mesh>
-
-      {/* Iris – varm brun, större (fyller mer av ögonvitan) */}
-      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.895]} castShadow>
-        <sphereGeometry args={[0.0115, 14, 10]} />
-        <meshPhysicalMaterial color="#4a2a0a" roughness={0.25} metalness={0.2} clearcoat={0.8} clearcoatRoughness={0.15} />
-      </mesh>
-      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.895]} castShadow>
-        <sphereGeometry args={[0.0115, 14, 10]} />
-        <meshPhysicalMaterial color="#4a2a0a" roughness={0.25} metalness={0.2} clearcoat={0.8} clearcoatRoughness={0.15} />
-      </mesh>
-
-      {/* Pupiller – större (tidigare 0.005, nästan osynliga) */}
-      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.908]} castShadow>
-        <sphereGeometry args={[0.0065, 10, 8]} />
-        <meshPhysicalMaterial color="#0a0a0a" roughness={0.15} metalness={0.3} />
-      </mesh>
-      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.908]} castShadow>
-        <sphereGeometry args={[0.0065, 10, 8]} />
-        <meshPhysicalMaterial color="#0a0a0a" roughness={0.15} metalness={0.3} />
-      </mesh>
-
-      {/* Ljusreflex i ögon – rakt ovan pupillen (x=±0.32 samma som pupil).
-          Tidigare x=±0.29 skapade skelögd look (reflex förskjuten inåt mot näsan). */}
-      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.11, -H_HEAD * 0.918]}>
-        <sphereGeometry args={[0.0032, 6, 5]} />
-        <meshBasicMaterial color="#ffffff" />
-      </mesh>
-      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.11, -H_HEAD * 0.918]}>
-        <sphereGeometry args={[0.0032, 6, 5]} />
-        <meshBasicMaterial color="#ffffff" />
-      </mesh>
+      {/* ── Ögon ──────────────────────────────────────────────────────
+          Flata cirklar stackade i Z istället för 3D-sfärer. Detta:
+           • Garanterar att pupillen är exakt centrerad (ingen sfär-skuggning
+             som flyttar det visuella centrumet),
+           • Undviker z-fighting mellan iris/pupill/ögonvita som låg inuti varandra. */}
+      {([-1, 1] as number[]).map((s) => (
+        <group key={`eye-${s}`} position={[s * H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.92]}>
+          {/* Ögonvita – horisontell ellips */}
+          <mesh scale={[1.45, 1.0, 1.0]}>
+            <circleGeometry args={[0.013, 24]} />
+            <meshBasicMaterial color="#fafafa" side={THREE.DoubleSide} />
+          </mesh>
+          {/* Iris – varm brun cirkel, centrerad */}
+          <mesh position={[0, 0, -0.0008]}>
+            <circleGeometry args={[0.0090, 20]} />
+            <meshBasicMaterial color="#5a3a12" side={THREE.DoubleSide} />
+          </mesh>
+          {/* Pupill – svart prick, perfekt centrerad på iris */}
+          <mesh position={[0, 0, -0.0016]}>
+            <circleGeometry args={[0.0038, 16]} />
+            <meshBasicMaterial color="#0a0a0a" side={THREE.DoubleSide} />
+          </mesh>
+          {/* Ljusreflex – uppe-inåt */}
+          <mesh position={[s * -0.0018, 0.0032, -0.0024]}>
+            <circleGeometry args={[0.0012, 8]} />
+            <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+          </mesh>
+        </group>
+      ))}
 
       {/* Ögonfransar – tunn mörk båge precis ovanför ögat, längre arc för synlighet */}
       <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.14, -H_HEAD * 0.87]} rotation={[P * 0.5, 0, 0]} castShadow>
@@ -277,8 +265,8 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
           till en smile (från −X via −Y till +X). thetaLength=π (halv cirkel).
           Tuben ligger längs Z så hela munnen ligger platt mot ansiktet. */}
       <mesh position={[0, -H_HEAD * 0.34, -H_HEAD * 0.91]} rotation={[0, 0, P]} castShadow>
-        <torusGeometry args={[0.028, 0.006, 10, 20, P]} />
-        <meshPhysicalMaterial color="#c24050" roughness={0.38} metalness={0.05} clearcoat={0.5} clearcoatRoughness={0.2} />
+        <torusGeometry args={[0.026, 0.0022, 8, 28, P]} />
+        <meshPhysicalMaterial color="#b23a48" roughness={0.40} metalness={0.04} clearcoat={0.4} clearcoatRoughness={0.25} />
       </mesh>
 
       {/* Kinder – subtilt rosa, mindre och mer inflyttade (var förr för stora
