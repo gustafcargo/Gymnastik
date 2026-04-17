@@ -1,4 +1,5 @@
 /** Katalog över övningar per redskapstyp. */
+import { useCustomExercisesStore } from "../store/useCustomExercisesStore";
 
 export type Exercise = {
   id: string;
@@ -31,6 +32,9 @@ export const ALL_EXERCISES: Exercise[] = [
   // ── Fristående ──────────────────────────────────────────────────────────
   { id: "floor:handstand",        label: "Handvåg",      apparatus: ["floor"], speed: 3.0 },
   { id: "floor:stand",            label: "Stå",          apparatus: ["floor"], speed: 4.0 },
+  { id: "floor:cartwheel",        label: "Hjulning",     apparatus: ["floor"], speed: 1.8 },
+  { id: "floor:forward-roll",     label: "Kullerbytta",  apparatus: ["floor"], speed: 1.8 },
+  { id: "floor:tuck-jump",        label: "Knähopp",      apparatus: ["floor"], speed: 1.25 },
   // ── Bygelhäst ───────────────────────────────────────────────────────────
   { id: "pommel-horse:scissors",  label: "Saxpendel",    apparatus: ["pommel-horse"], speed: 1.4 },
   // ── Hoppbord ────────────────────────────────────────────────────────────
@@ -41,7 +45,26 @@ export const ALL_EXERCISES: Exercise[] = [
   { id: "plinth:stand",           label: "Stå på plint", apparatus: ["plinth", "buck"], speed: 4.0 },
 ];
 
+/** Built-ins + användarens egna övningar (från useCustomExercisesStore).
+ *  Läser en snapshot – för reaktivitet, prenumerera på storen i komponenten
+ *  (se `useExercisesForKind`). */
+export function allExercises(): Exercise[] {
+  const custom = useCustomExercisesStore.getState().customExercises;
+  const builtInIds = new Set(ALL_EXERCISES.map((e) => e.id));
+  const extras = custom.filter((e) => !builtInIds.has(e.id));
+  return [...ALL_EXERCISES, ...extras];
+}
+
+/** Reaktiv hook – samma som `exercisesForKind` men triggar re-render när
+ *  storen uppdateras. Använd i UI-komponenter. */
+export function useExercisesForKind(kind: string): Exercise[] {
+  const custom = useCustomExercisesStore((s) => s.customExercises);
+  const builtInIds = new Set(ALL_EXERCISES.map((e) => e.id));
+  const extras = custom.filter((e) => !builtInIds.has(e.id));
+  return [...ALL_EXERCISES, ...extras].filter((e) => e.apparatus.includes(kind));
+}
+
 /** Alla övningar tillgängliga för ett givet redskapsslag. */
 export function exercisesForKind(kind: string): Exercise[] {
-  return ALL_EXERCISES.filter((e) => e.apparatus.includes(kind));
+  return allExercises().filter((e) => e.apparatus.includes(kind));
 }

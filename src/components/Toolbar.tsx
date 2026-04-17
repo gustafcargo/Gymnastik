@@ -12,6 +12,7 @@ import {
   Plus,
   Redo2,
   Save,
+  Sliders,
   Square,
   MessageSquare,
   Tag,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { useStore } from "zustand";
 import { usePlanStore, useTemporalStore } from "../store/usePlanStore";
+import { useStudioStore } from "../store/useStudioStore";
 import { HALL_TEMPLATES } from "../catalog/halls";
 import type Konva from "konva";
 import { exportStageAsPng } from "../lib/exportPng";
@@ -45,6 +47,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   const toggleLabels = usePlanStore((s) => s.toggleLabels);
   const showNotes = usePlanStore((s) => s.showNotes);
   const toggleNotes = usePlanStore((s) => s.toggleNotes);
+  const toggleStudio = useStudioStore((s) => s.toggle);
 
   // Viktigt: välj primitiva fält var för sig så att Zustand 5 inte
   // kräver egen equality-funktion (annars → "getSnapshot should be cached").
@@ -191,6 +194,17 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
         >
           {viewMode === "3D" ? <Box size={14} /> : <Square size={14} />}
           <span>{viewMode}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleStudio}
+          className="flex h-9 items-center gap-1 rounded-md bg-surface-2 px-2 text-xs font-semibold text-slate-700 transition hover:bg-surface-3"
+          title="Öppna Övningsstudio"
+          aria-label="Öppna Övningsstudio"
+        >
+          <Sliders size={14} />
+          <span className="hidden sm:inline">Studio</span>
         </button>
 
         {viewMode === "3D" && (

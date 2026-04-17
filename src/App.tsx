@@ -10,6 +10,8 @@ import { CommandPalette } from "./components/CommandPalette";
 import { BottomSheet } from "./components/Mobile/BottomSheet";
 import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
 import { GymnastTuningPanel } from "./components/GymnastTuningPanel";
+import { ExerciseStudio } from "./components/ExerciseStudio/ExerciseStudio";
+import { useStudioStore } from "./store/useStudioStore";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { usePlanStore } from "./store/usePlanStore";
@@ -70,6 +72,9 @@ export default function App() {
   const viewMode = usePlanStore((s) => s.viewMode);
   const gameMode = usePlanStore((s) => s.gameMode);
   const is3D = viewMode === "3D";
+
+  const studioOpen = useStudioStore((s) => s.open);
+  const setStudioOpen = useStudioStore((s) => s.setOpen);
 
   const plan = usePlanStore((s) => s.plan);
   const selectedEq = selectedId
@@ -155,6 +160,7 @@ export default function App() {
           {canvasArea}
         </main>
         <GymnastTuningPanel />
+        <ExerciseStudio open={studioOpen} onClose={() => setStudioOpen(false)} />
       </div>
     );
   }
@@ -295,6 +301,7 @@ export default function App() {
       )}
 
       <GymnastTuningPanel />
+      <ExerciseStudio open={studioOpen} onClose={() => setStudioOpen(false)} />
     </div>
   );
 }

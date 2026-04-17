@@ -295,7 +295,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
                 ? "rgba(239,68,68,0.85)"
                 : nearEquipment
                   ? "rgba(59,130,246,0.85)"
-                  : "rgba(255,255,255,0.15)",
+                  : "rgba(34,197,94,0.85)",
               border: "2px solid rgba(255,255,255,0.30)",
               borderRadius: "50%",
               color: "#fff", fontSize: 11, fontWeight: 700,
@@ -305,7 +305,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
               lineHeight: 1.3,
             }}
           >
-            {mountedExerciseInfo ? "Hoppa\nav" : nearEquipment ? "Hoppa\nupp" : "–"}
+            {mountedExerciseInfo ? "Hoppa\nav" : nearEquipment ? "Hoppa\nupp" : "Trick"}
           </button>
         </>
       )}
