@@ -123,7 +123,14 @@ export function ExerciseStudio({ open, onClose }: Props) {
   }, [selectedId, customDefs, customExercises]);
 
   const duration = def.kfs.length ? def.kfs[def.kfs.length - 1].t : 0;
-  const currentPose: Pose = useMemo(() => evalKF(def.kfs, time), [def.kfs, time]);
+  // Studion ska inte wrappa tiden (som evalKF gör med `% dur`) – vid t ≥ dur
+  // vill vi se sista KF:ns pose. Därför evaluerar vi lokalt med klampad t.
+  const currentPose: Pose = useMemo(() => {
+    if (def.kfs.length === 0) return ZERO;
+    if (def.kfs.length === 1) return def.kfs[0].pose;
+    if (time >= duration) return def.kfs[def.kfs.length - 1].pose;
+    return evalKF(def.kfs, Math.max(0, time));
+  }, [def.kfs, time, duration]);
 
   // Om selectedKfIdx hamnat utanför listan (t.ex. vid laddning av en kortare
   // övning) – klämp in det igen så slidrarna redigerar en giltig KF.
@@ -132,6 +139,12 @@ export function ExerciseStudio({ open, onClose }: Props) {
       setSelectedKfIdx(Math.max(0, def.kfs.length - 1));
     }
   }, [def.kfs.length, selectedKfIdx]);
+
+  // Klampa scrubber-tiden när duration krymper (t.ex. efter delete av sista KF),
+  // annars fastnar slidern visuellt i slutet och evalKF wrap:ar till första KF.
+  useEffect(() => {
+    if (time > duration) setTime(duration);
+  }, [duration, time]);
 
   // Play-loop
   const rafRef = useRef<number | null>(null);
@@ -197,7 +210,12 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const duplicateKeyframe = (idx: number) => {
     const src = def.kfs[idx];
     if (!src) return;
-    const newKf: KF = { t: src.t + 0.25, pose: { ...src.pose } };
+    // Lägg dubbletten direkt efter källan: mitt emellan src och nästa KF
+    // (eller src.t + 0.25 om src är sist). Så den hamnar som nästa frame
+    // i listan, inte längst ner.
+    const next = def.kfs[idx + 1];
+    const newT = next ? (src.t + next.t) / 2 : src.t + 0.25;
+    const newKf: KF = { t: newT, pose: { ...src.pose } };
     const newKfs = [...def.kfs, newKf].sort((a, b) => a.t - b.t);
     setDef((d) => ({ ...d, kfs: newKfs }));
     setSelectedKfIdx(newKfs.indexOf(newKf));
