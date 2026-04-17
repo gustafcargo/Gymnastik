@@ -501,6 +501,20 @@ export function GameGymnast3D({
     if (r.lKnRef.current)     r.lKnRef.current.rotation.x  = pose.lKnX;
     if (r.rHipRef.current)  { r.rHipRef.current.rotation.x = pose.rHipX; r.rHipRef.current.rotation.z = pose.rHipZ; }
     if (r.rKnRef.current)     r.rKnRef.current.rotation.x  = pose.rKnX;
+
+    // ── Golv-clamp för one-shot-tricks ────────────────────────────────
+    // Studions PosePreview har samma logik. Vissa floor-KFs har negativa
+    // rootY-värden (-1.81 för forward-roll etc.) som förutsätter att
+    // gymnasten "sitter på golvet" under rullningen. Utan clamp sjunker
+    // hela kroppen under golvytan och animationen ser trasig ut.
+    // Körs bara under one-shot (mount/walk är välkalibrerade).
+    if (oneShot.current && rootRef.current) {
+      rootRef.current.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(rootRef.current);
+      if (isFinite(box.min.y) && box.min.y < 0) {
+        rootRef.current.position.y -= box.min.y;
+      }
+    }
   });
 
   return (
