@@ -598,9 +598,11 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
     { t: 1.80, pose: { ...ZERO, ...ARMS_SIDE, rootZ: -0.65 } },
   ] },
 
-  // Hjulning – 7 KFs importerade från studion. rootRotZ driver sid-rotationen
+  // Hjulning – 8 KFs importerade från studion. rootRotZ driver sid-rotationen
   // kring gymnastens längdaxel (hela kroppen roterar som en enhet) medan
-  // spineZ + hipZ öppnar armar/ben i sida-läge. rootX för förflyttning.
+  // spineZ + hipZ öppnar armar/ben i sido-läget. rootX driver förflyttning
+  // ~2.47 m åt vänster. Sista KFs (t=1, 1.125, 1.25) drar ner armarna i
+  // tre steg från utsträckta → mellanläge → utgångsläge.
   "floor:cartwheel": { kfs: [
     { t: 0, pose: { ...ZERO,
       lShX: -3.16318530717959, lShZ: -0.47123889803846897,
@@ -632,20 +634,25 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
     { t: 0.75, pose: { ...ZERO,
       spineZ: 0.966814692820414,
       lShX: -3.16318530717959, lShZ: -1.14318530717959,
-      rShX: -3.34318530717959, rShZ:  0.596814692820414,
+      rShX: -3.34318530717959, rShZ:  1.87681469282041,
       lHipZ: 0.316814692820414,
       rHipZ: 1.60681469282041,
       rootX: -1.95, rootY: 0.07,
       rootRotZ: 4.17681469282041 } },
     { t: 1, pose: { ...ZERO,
-      lShX: -3.16318530717959, lShZ: -0.47123889803846897,
-      rShX: -3.16318530717959, rShZ:  0.47123889803846897,
-      rootX: -2.65,
+      lShX: -3.16318530717959, lShZ: -2.89318530717959,
+      rShX: -3.16318530717959, rShZ:  2.79681469282041,
+      rootX: -2.47,
+      rootRotZ: 6.27681469282041 } },
+    { t: 1.125, pose: { ...ZERO,
+      lShX: -3.16318530717959, lShZ: -1.877,
+      rShX: -3.16318530717959, rShZ:  1.87681469282041,
+      rootX: -2.47,
       rootRotZ: 6.27681469282041 } },
     { t: 1.25, pose: { ...ZERO,
       lShX: -3.16318530717959, lShZ: -0.47123889803846897,
       rShX: -3.16318530717959, rShZ:  0.47123889803846897,
-      rootX: -2.65,
+      rootX: -2.47,
       rootRotZ: 6.27681469282041 } },
   ] },
 
