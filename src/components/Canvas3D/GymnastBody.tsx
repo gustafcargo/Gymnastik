@@ -154,14 +154,6 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
           clearcoat={0.35} clearcoatRoughness={0.30} />
       </mesh>
 
-      {/* 3) Snedlugg – liten bulle som bryter hårlinjen över pannan */}
-      <mesh position={[-H_HEAD * 0.10, H_HEAD * 0.34, -H_HEAD * 0.80]}
-            rotation={[P * 0.22, P * 0.04, P * 0.05]} castShadow scale={[1.6, 0.38, 0.75]}>
-        <sphereGeometry args={[H_HEAD * 0.34, 16, 12]} />
-        <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
-          clearcoat={0.35} clearcoatRoughness={0.30} />
-      </mesh>
-
       {/* Hårknut (bun) – placerad i nacken, mindre och mer kompakt */}
       <mesh position={[0, H_HEAD * 0.15, H_HEAD * 1.08]} castShadow>
         <sphereGeometry args={[H_HEAD * 0.42, 20, 16]} />
@@ -271,14 +263,15 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshPhysicalMaterial color="#c24a55" roughness={0.40} metalness={0.05} clearcoat={0.5} clearcoatRoughness={0.2} />
       </mesh>
 
-      {/* Kinder – subtilt rosa */}
-      <mesh position={[-H_HEAD * 0.62, -H_HEAD * 0.15, -H_HEAD * 0.66]}>
-        <sphereGeometry args={[0.013, 10, 8]} />
-        <meshPhysicalMaterial color="#f5a5b5" roughness={0.80} metalness={0} transparent opacity={0.50} />
+      {/* Kinder – subtilt rosa, mindre och mer inflyttade (var förr för stora
+          och satt på yttre kanten av huvudet vilket såg ut som öronljud). */}
+      <mesh position={[-H_HEAD * 0.48, -H_HEAD * 0.18, -H_HEAD * 0.78]}>
+        <sphereGeometry args={[0.008, 10, 8]} />
+        <meshPhysicalMaterial color="#f2a4b0" roughness={0.80} metalness={0} transparent opacity={0.35} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.62, -H_HEAD * 0.15, -H_HEAD * 0.66]}>
-        <sphereGeometry args={[0.013, 10, 8]} />
-        <meshPhysicalMaterial color="#f5a5b5" roughness={0.80} metalness={0} transparent opacity={0.50} />
+      <mesh position={[ H_HEAD * 0.48, -H_HEAD * 0.18, -H_HEAD * 0.78]}>
+        <sphereGeometry args={[0.008, 10, 8]} />
+        <meshPhysicalMaterial color="#f2a4b0" roughness={0.80} metalness={0} transparent opacity={0.35} />
       </mesh>
     </>
   );
