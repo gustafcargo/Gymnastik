@@ -9,6 +9,7 @@ import { HallStage } from "./components/Canvas/HallStage";
 import { CommandPalette } from "./components/CommandPalette";
 import { BottomSheet } from "./components/Mobile/BottomSheet";
 import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
+import { GymnastTuningPanel } from "./components/GymnastTuningPanel";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { usePlanStore } from "./store/usePlanStore";
@@ -153,6 +154,7 @@ export default function App() {
         <main className="relative flex min-w-0 flex-1 flex-col">
           {canvasArea}
         </main>
+        <GymnastTuningPanel />
       </div>
     );
   }
@@ -291,6 +293,8 @@ export default function App() {
           </BottomSheet>
         </>
       )}
+
+      <GymnastTuningPanel />
     </div>
   );
 }
