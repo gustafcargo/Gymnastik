@@ -6,7 +6,7 @@ import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { getEquipmentById } from "../../catalog/equipment";
 import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
 import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
-import { exercisesForKind } from "../../catalog/exercises";
+import { useExercisesForKind } from "../../catalog/exercises";
 import type { Exercise } from "../../catalog/exercises";
 import { formatMeters } from "../../lib/geometry";
 import type { CustomEquipmentPart, GymnastConfig, EquipmentType } from "../../types";
@@ -38,6 +38,8 @@ export function PropertyPanel({ onClose }: Props) {
   const station = plan.stations.find((s) => s.id === plan.activeStationId);
   const selected = station?.equipment.find((e) => e.id === selectedId) ?? null;
   const type = selected ? (getEquipmentById(selected.typeId) ?? null) : null;
+  // Hook måste kallas ovillkorligt (Rules of Hooks).
+  const exercises = useExercisesForKind(type?.detail?.kind ?? "");
 
   if (!selected || !type) {
     return (
@@ -312,8 +314,6 @@ export function PropertyPanel({ onClose }: Props) {
         )}
 
         {(() => {
-          const kind = type.detail?.kind ?? "";
-          const exercises = kind ? exercisesForKind(kind) : [];
           if (exercises.length === 0) return null;
           return (
             <GymnastsSection

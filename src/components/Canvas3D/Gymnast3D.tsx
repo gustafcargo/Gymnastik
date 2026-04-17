@@ -15,81 +15,15 @@ import {
   H_TORSO, H_UPPER, H_LOWER, H_THIGH, H_SHIN, HANG_DIST,
   type BodyRefs,
 } from "./GymnastBody";
+import {
+  type Pose, type KF, type ExerciseDef,
+  ZERO, HANG_STRAIGHT, lerpPose, evalKF, pend,
+} from "../../types/pose";
+import { useCustomExercisesStore } from "../../store/useCustomExercisesStore";
 
-// ─── Pose ─────────────────────────────────────────────────────────────────────
-type Pose = {
-  spineX: number; spineZ: number;
-  headX:  number; headZ:  number;
-  lShX: number; lShZ: number; lElX: number;
-  rShX: number; rShZ: number; rElX: number;
-  lHipX: number; lKnX: number;
-  rHipX: number; rKnX: number;
-  rootX: number; rootY: number; rootZ: number;
-  rootRotX: number; rootRotY: number;
-};
-
-const ZERO: Pose = {
-  spineX: 0, spineZ: 0, headX: 0, headZ: 0,
-  lShX: 0,  lShZ: 0,  lElX: 0,
-  rShX: 0,  rShZ: 0,  rElX: 0,
-  lHipX: 0, lKnX: 0,
-  rHipX: 0, rKnX: 0,
-  rootX: 0, rootY: 0, rootZ: 0,
-  rootRotX: 0, rootRotY: 0,
-};
-
-// ─── Övningsdefinition med valfri framåtrörelse ──────────────────────────────
-type ExerciseDef = {
-  kfs: KF[];
-  advance?: number;   // meter framåt per cykel
-  range?: number;     // ping-pong-avstånd i meter
-  baseRotY?: number;  // basrotation kring Y – vrider gymnasten mot redskapets längdriktning
-};
-
-// Armar sträckta uppåt (+π vrider neråt-segmentet upp via framsidan,
-// så att nedgång till stöd/häng rör sig framför kroppen – inte bakåt).
-const HANG_STRAIGHT: Pose = { ...ZERO, lShX: Math.PI, rShX: Math.PI };
-
-// ─── Keyframe-hjälpare ────────────────────────────────────────────────────────
-type KF = { t: number; pose: Pose };
-
-function lerpPose(a: Pose, b: Pose, alpha: number): Pose {
-  const l = (k: keyof Pose) =>
-    (a[k] as number) + ((b[k] as number) - (a[k] as number)) * alpha;
-  return {
-    spineX: l("spineX"), spineZ: l("spineZ"),
-    headX: l("headX"), headZ: l("headZ"),
-    lShX:  l("lShX"),  lShZ:  l("lShZ"),  lElX:  l("lElX"),
-    rShX:  l("rShX"),  rShZ:  l("rShZ"),  rElX:  l("rElX"),
-    lHipX: l("lHipX"), lKnX:  l("lKnX"),
-    rHipX: l("rHipX"), rKnX:  l("rKnX"),
-    rootX: l("rootX"), rootY: l("rootY"), rootZ: l("rootZ"),
-    rootRotX: l("rootRotX"), rootRotY: l("rootRotY"),
-  };
-}
-
-function evalKF(kfs: KF[], t: number): Pose {
-  if (!kfs.length) return ZERO;
-  if (kfs.length === 1) return kfs[0].pose;
-  const dur = kfs[kfs.length - 1].t;
-  const tn  = t % dur;
-  for (let i = 0; i < kfs.length - 1; i++) {
-    if (tn >= kfs[i].t && tn < kfs[i + 1].t) {
-      const a = (tn - kfs[i].t) / (kfs[i + 1].t - kfs[i].t);
-      return lerpPose(kfs[i].pose, kfs[i + 1].pose, a);
-    }
-  }
-  return kfs[kfs.length - 1].pose;
-}
-
-// Pendel-förskjutning: håller händerna vid stången vid vinkel a
-// rootZ måste vara NEGATIV sin(a) för att kompensera rotationens förskjutning
-function pend(a: number) {
-  return {
-    rootZ: -HANG_DIST * Math.sin(a),
-    rootY:  HANG_DIST * (1 - Math.cos(a)),
-  };
-}
+// Re-exporter för bakåtkompatibilitet med moduler som importerar från Gymnast3D.
+export type { Pose, KF, ExerciseDef };
+export { ZERO, HANG_STRAIGHT, lerpPose, evalKF, pend };
 
 // ─── Animationer ──────────────────────────────────────────────────────────────
 const P = Math.PI;
@@ -97,7 +31,7 @@ const P = Math.PI;
 // Armar ut åt sidan för balans (bom-stil)
 const ARMS_SIDE: Partial<Pose> = { lShZ: -P * 0.28, rShZ: P * 0.28, lElX: P * 0.05, rElX: P * 0.05 };
 
-export const EXERCISES: Record<string, ExerciseDef> = {
+export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Räck ───────────────────────────────────────────────────────────────────
 
@@ -585,7 +519,123 @@ export const EXERCISES: Record<string, ExerciseDef> = {
     { t: 2.0, pose: { ...ZERO, spineX:P*0.015, lShZ: 0.04, rShZ:-0.04, rootY:0.008 } },
     { t: 4.0, pose: { ...ZERO, lShZ:-0.06, rShZ: 0.06, lElX:P*0.04, rElX:P*0.04 } },
   ] },
+
+  // ── Fristående golv-tricks ─────────────────────────────────────────────────
+  //   Seed-KFs. Riggen saknar root-roll (ingen rotRotZ) så hjulning
+  //   approximeras via spineZ + rootY-båge + rootRotY-vändning. Användaren
+  //   finjusterar via studion (override).
+
+  // Kullerbytta – hukande → huvud ner → rullning → resning
+  "floor:forward-roll": { kfs: [
+    { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
+    // Huk förbered
+    { t: 0.25, pose: { ...ZERO,
+        lHipX: P*0.65, rHipX: P*0.65, lKnX: -P*0.75, rKnX: -P*0.75,
+        spineX: -P*0.20, rootY: -0.25,
+        lShX: -P*0.70, rShX: -P*0.70, lElX: P*0.10, rElX: P*0.10 } },
+    // Huvud mot mattan, händer i golvet
+    { t: 0.55, pose: { ...ZERO,
+        lHipX: P*0.85, rHipX: P*0.85, lKnX: -P*0.85, rKnX: -P*0.85,
+        spineX: -P*0.60, headX: P*0.45,
+        rootY: -0.55, rootZ: -0.20,
+        lShX: -P*0.80, rShX: -P*0.80, lElX: P*0.05, rElX: P*0.05 } },
+    // Full rullning – gymnasten upp och ner (rootRotX = π)
+    { t: 0.90, pose: { ...ZERO,
+        lHipX: P*0.90, rHipX: P*0.90, lKnX: -P*0.95, rKnX: -P*0.95,
+        spineX: -P*0.30,
+        rootRotX: P, rootY: -0.70, rootZ: -0.40,
+        lShX: -P*0.15, rShX: -P*0.15, lElX: P*0.55, rElX: P*0.55 } },
+    // Landning hukande, ansiktet framåt igen
+    { t: 1.25, pose: { ...ZERO,
+        lHipX: P*0.60, rHipX: P*0.60, lKnX: -P*0.70, rKnX: -P*0.70,
+        spineX: -P*0.20, rootY: -0.25, rootZ: -0.60,
+        lShX: -P*0.45, rShX: -P*0.45, lElX: P*0.15, rElX: P*0.15 } },
+    // Res upp
+    { t: 1.55, pose: { ...ZERO, ...ARMS_SIDE, rootZ: -0.65 } },
+    { t: 1.80, pose: { ...ZERO, ...ARMS_SIDE, rootZ: -0.65 } },
+  ] },
+
+  // Hjulning – pga saknad root-roll approximerar vi via spineZ-vridning,
+  // rootY-båge och kraftig rootRotY-vändning i mitten (gymnasten vänder
+  // ryggen mot kameran på toppen).
+  "floor:cartwheel": { kfs: [
+    { t: 0,    pose: { ...ZERO, lShX: -P*0.9, rShX: -P*0.9, lShZ: -P*0.15, rShZ: P*0.15 } },
+    // Framåtlutning mot sida
+    { t: 0.30, pose: { ...ZERO,
+        spineX: -P*0.30, spineZ: P*0.35,
+        lShX: -P*0.95, rShX: -P*0.20,
+        lShZ: -P*0.25, rShZ: P*0.50,
+        lHipX: -P*0.10, rHipX: P*0.40, rKnX: -P*0.10,
+        rootX: 0.20, rootY: -0.05 } },
+    // Handstand i sidled (rot kring Y → gymnasten vänd 90°)
+    { t: 0.60, pose: { ...ZERO,
+        lShX: -P, rShX: -P, spineZ: P*0.10,
+        lHipX: -P*0.05, rHipX: -P*0.05,
+        lShZ: -P*0.05, rShZ: P*0.05,
+        rootRotX: P, rootRotY: P*0.5,
+        rootX: 0.45, rootY: 0.12 } },
+    // Fortsatt rotation (gymnasten 180°)
+    { t: 0.90, pose: { ...ZERO,
+        lShX: -P, rShX: -P,
+        spineZ: -P*0.10,
+        rootRotX: P, rootRotY: P,
+        rootX: 0.70, rootY: 0.10 } },
+    // Fot ner på andra sidan
+    { t: 1.20, pose: { ...ZERO,
+        spineX: -P*0.25, spineZ: -P*0.35,
+        lShX: -P*0.20, rShX: -P*0.95,
+        lShZ: -P*0.50, rShZ: P*0.25,
+        lHipX: P*0.40, rHipX: -P*0.10, lKnX: -P*0.10,
+        rootRotY: P*1.5,
+        rootX: 0.95, rootY: -0.05 } },
+    // Res upp, armar upp, landning
+    { t: 1.50, pose: { ...ZERO,
+        lShX: -P*0.9, rShX: -P*0.9, lShZ: -P*0.15, rShZ: P*0.15,
+        rootRotY: P*2,
+        rootX: 1.15 } },
+    { t: 1.80, pose: { ...ZERO,
+        lShZ: -P*0.28, rShZ: P*0.28, lElX: P*0.05, rElX: P*0.05,
+        rootRotY: P*2,
+        rootX: 1.15 } },
+  ] },
+
+  // Knähopp fristående (som beam:tuck-jump men på golv utan baseRotY)
+  "floor:tuck-jump": { kfs: [
+    { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
+    { t: 0.20, pose: { ...ZERO, lHipX: P*0.20, rHipX: P*0.20, lKnX:-P*0.32, rKnX:-P*0.32,
+                       spineX:-P*0.08, rootY:-0.07,
+                       lShZ:-P*0.18, rShZ:P*0.18 } },
+    { t: 0.40, pose: { ...ZERO, rootY: 0.30,
+                       lShX:-P*0.5, rShX:-P*0.5, lShZ:-P*0.06, rShZ:P*0.06,
+                       spineX:-P*0.03 } },
+    // Tuck
+    { t: 0.55, pose: { ...ZERO, lHipX: P*0.85, rHipX: P*0.85, lKnX:-P*0.95, rKnX:-P*0.95,
+                       spineX:-P*0.18, rootY: 0.34,
+                       lShX:-P*0.30, rShX:-P*0.30, lElX: P*0.45, rElX: P*0.45 } },
+    { t: 0.75, pose: { ...ZERO, rootY: 0.15,
+                       lShX:-P*0.3, rShX:-P*0.3, lShZ:-P*0.12, rShZ: P*0.12 } },
+    // Landning
+    { t: 0.95, pose: { ...ZERO, lHipX: P*0.18, rHipX: P*0.18, lKnX:-P*0.28, rKnX:-P*0.28,
+                       spineX:-P*0.06, rootY:-0.05,
+                       lShZ:-P*0.20, rShZ: P*0.20 } },
+    { t: 1.25, pose: { ...ZERO, ...ARMS_SIDE } },
+  ] },
 };
+
+// Bakåtkompatibelt alias
+export const EXERCISES = BUILT_IN_EXERCISES;
+
+/**
+ * Hook som slår ihop built-in-övningar med eventuella custom overrides
+ * från `useCustomExercisesStore`. Custom vinner när id:t matchar ett
+ * built-in-id, så användaren kan justera t.ex. bom-stegserien utan att
+ * röra koden.
+ */
+export function useExerciseDef(id: string): ExerciseDef | undefined {
+  const customDef = useCustomExercisesStore((s) => s.customDefs[id]);
+  if (customDef) return customDef;
+  return BUILT_IN_EXERCISES[id];
+}
 
 // ─── Mount-typ ────────────────────────────────────────────────────────────────
 type MountType = "hang-bar" | "stand-surface" | "support-bar";
@@ -614,7 +664,9 @@ type Props = {
 export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Props) {
   const SKIN = "#E8C99A";
   const HAIR = "#2d1a08";
-  const def  = EXERCISES[exerciseId] ?? EXERCISES["floor:stand"]!;
+  const customDef = useExerciseDef(exerciseId);
+  const fallback  = BUILT_IN_EXERCISES["floor:stand"]!;
+  const def  = customDef ?? fallback;
   const kfs  = def.kfs;
   const mt   = mountType(exerciseId);
   const pH   = equipmentType.physicalHeightM;

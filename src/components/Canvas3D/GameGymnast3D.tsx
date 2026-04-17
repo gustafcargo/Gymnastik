@@ -7,61 +7,22 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Station } from "../../types";
 import { getEquipmentById } from "../../catalog/equipment";
-import { exercisesForKind, type Exercise } from "../../catalog/exercises";
-import { EXERCISES } from "./Gymnast3D";
+import { exercisesForKind, allExercises, type Exercise } from "../../catalog/exercises";
+import { BUILT_IN_EXERCISES } from "./Gymnast3D";
+import { useCustomExercisesStore } from "../../store/useCustomExercisesStore";
 import {
   GymnastBody,
   H_TORSO, H_UPPER, H_LOWER, H_THIGH, H_SHIN, HANG_DIST,
   type BodyRefs,
 } from "./GymnastBody";
+import { type Pose, type KF, ZERO, evalKF, pend as _pend } from "../../types/pose";
 
 const P = Math.PI;
 
-type Pose = {
-  spineX: number; spineZ: number;
-  headX: number;  headZ: number;
-  lShX: number; lShZ: number; lElX: number;
-  rShX: number; rShZ: number; rElX: number;
-  lHipX: number; lKnX: number;
-  rHipX: number; rKnX: number;
-  rootX: number; rootY: number; rootZ: number;
-  rootRotX: number; rootRotY: number;
-};
-
-const ZERO: Pose = {
-  spineX:0,spineZ:0,headX:0,headZ:0,
-  lShX:0,lShZ:0,lElX:0,rShX:0,rShZ:0,rElX:0,
-  lHipX:0,lKnX:0,rHipX:0,rKnX:0,
-  rootX:0,rootY:0,rootZ:0,rootRotX:0,rootRotY:0,
-};
-
-// ─── Gångcykel (fria rörelsecykeln, rootX/Z styrs externt) ───────────────────
-type KF = { t: number; pose: Pose };
-
-function lerpPose(a: Pose, b: Pose, alpha: number): Pose {
-  const l = (k: keyof Pose) => (a[k] as number) + ((b[k] as number) - (a[k] as number)) * alpha;
-  return {
-    spineX:l("spineX"),spineZ:l("spineZ"),headX:l("headX"),headZ:l("headZ"),
-    lShX:l("lShX"),lShZ:l("lShZ"),lElX:l("lElX"),
-    rShX:l("rShX"),rShZ:l("rShZ"),rElX:l("rElX"),
-    lHipX:l("lHipX"),lKnX:l("lKnX"),rHipX:l("rHipX"),rKnX:l("rKnX"),
-    rootX:l("rootX"),rootY:l("rootY"),rootZ:l("rootZ"),
-    rootRotX:l("rootRotX"),rootRotY:l("rootRotY"),
-  };
-}
-
-function evalKF(kfs: KF[], t: number): Pose {
-  if (!kfs.length) return ZERO;
-  if (kfs.length === 1) return kfs[0].pose;
-  const dur = kfs[kfs.length - 1].t;
-  const tn  = t % dur;
-  for (let i = 0; i < kfs.length - 1; i++) {
-    if (tn >= kfs[i].t && tn < kfs[i+1].t) {
-      const a = (tn - kfs[i].t) / (kfs[i+1].t - kfs[i].t);
-      return lerpPose(kfs[i].pose, kfs[i+1].pose, a);
-    }
-  }
-  return kfs[kfs.length - 1].pose;
+// Uppslag som respekterar användarens overrides från useCustomExercisesStore.
+function lookupExercise(id: string) {
+  const custom = useCustomExercisesStore.getState().customDefs[id];
+  return custom ?? BUILT_IN_EXERCISES[id];
 }
 
 // Gångcykel – 4 nyckelbilder, 0.6 s/cykel
@@ -83,9 +44,8 @@ const IDLE_KFS: KF[] = [
   { t:4.0, pose:{...ZERO,lShZ:-0.05,rShZ:0.05} },
 ];
 
-function pend(a: number) {
-  return { rootZ:-HANG_DIST*Math.sin(a), rootY:HANG_DIST*(1-Math.cos(a)) };
-}
+// Re-export bakåtkompatibel pend (shim mot delad helper).
+const pend = _pend;
 
 // ─── Huvud-komponent ──────────────────────────────────────────────────────────
 export type MountedExerciseInfo = {
@@ -131,6 +91,15 @@ export function GameGymnast3D({
   const camYaw = useRef(0);  // kamerans yaw – lerpar mot rotY med fördröjning
   const mounted = useRef<null | { eqId: string; exerciseId: string; baseY: number }>(null);
   const nearEq  = useRef<null | { id: string; name: string }>(null);
+  // One-shot floor-trick (hjulning/kullerbytta/etc.) – spelas en gång när
+  // användaren trycker trick-knappen i fritt läge.
+  const oneShot = useRef<null | {
+    exerciseId: string;
+    startT: number;
+    startX: number;
+    startZ: number;
+    startRotY: number;
+  }>(null);
   const onMountedExercisesRef = useRef(onMountedExercises);
   onMountedExercisesRef.current = onMountedExercises;
   const onExitRef = useRef(onExit);
@@ -250,6 +219,29 @@ export function GameGymnast3D({
         // Rensa proximity-state så etiketten försvinner
         nearEq.current = null;
         onNearEquipment(null);
+      } else if (!nearEq.current) {
+        // Fritt läge → random floor-trick (men inte samma ID två gånger i rad,
+        // om det finns fler att välja mellan).
+        const floorTricks = allExercises().filter(
+          (e) =>
+            e.apparatus.includes("floor") &&
+            e.id !== "floor:stand" &&
+            e.id !== "floor:handstand",
+        );
+        if (floorTricks.length) {
+          const prev = oneShot.current?.exerciseId;
+          const pool = floorTricks.length > 1 && prev
+            ? floorTricks.filter((e) => e.id !== prev)
+            : floorTricks;
+          const pick = pool[Math.floor(Math.random() * pool.length)];
+          oneShot.current = {
+            exerciseId: pick.id,
+            startT: t,
+            startX: pos.current.x,
+            startZ: pos.current.z,
+            startRotY: rotY.current,
+          };
+        }
       } else if (nearEq.current) {
         const eq = station.equipment.find(e => e.id === nearEq.current!.id);
         const type = eq ? getEquipmentById(eq.typeId) : null;
@@ -296,12 +288,21 @@ export function GameGymnast3D({
 
     let pose: Pose;
 
+    // ── Avbryt one-shot om monterad (mount prioriteras)
+    if (mounted.current && oneShot.current) oneShot.current = null;
+    // ── Avbryt one-shot om tiden passerat
+    if (oneShot.current) {
+      const def = lookupExercise(oneShot.current.exerciseId);
+      const dur = def?.kfs.length ? def.kfs[def.kfs.length - 1].t : 0;
+      if (!def || t - oneShot.current.startT >= dur) oneShot.current = null;
+    }
+
     if (mounted.current) {
       // ── Monterad: spela övningsanimation ────────────────────────────────
       const { eqId, exerciseId, baseY: mountBaseY } = mounted.current;
       const eq = station.equipment.find(e => e.id === eqId);
       const type = eq ? getEquipmentById(eq.typeId) : null;
-      const def = EXERCISES[exerciseId];
+      const def = lookupExercise(exerciseId);
       pose = def ? evalKF(def.kfs, t) : evalKF(IDLE_KFS, t);
       if (def?.baseRotY) pose.rootRotY += def.baseRotY;
 
@@ -355,6 +356,41 @@ export function GameGymnast3D({
         const target = center.clone().add(offset);
         camPos.current.lerp(target, 0.04);
         camLook.current.lerp(center, 0.06);
+      }
+    } else if (oneShot.current) {
+      // ── Fritt golv-trick (hjulning/kullerbytta/knähopp) ─────────────────
+      const { exerciseId, startT, startX, startZ, startRotY } = oneShot.current;
+      const def = lookupExercise(exerciseId)!;
+      pose = evalKF(def.kfs, t - startT);
+      if (def.baseRotY) pose.rootRotY += def.baseRotY;
+      // Gymnastens yaw vid start styr vilken riktning tricket utförs åt.
+      pose.rootRotY += -startRotY;
+      const baseY = H_THIGH + H_SHIN;
+      pose.rootY += baseY;
+      // rootX/rootZ är lokala offsets från gymnastens startposition (i dess
+      // frame). Rotera dem till världen och addera till startposen.
+      const c = Math.cos(-startRotY);
+      const s = Math.sin(-startRotY);
+      const wx = pose.rootX * c - pose.rootZ * s;
+      const wz = pose.rootX * s + pose.rootZ * c;
+      pos.current.x = startX + wx;
+      pos.current.z = startZ + wz;
+      pose.rootX = 0;
+      pose.rootZ = 0;
+      // Kamera som i fri rörelse
+      if (!freeCamRef.current) {
+        const orbit = cameraOrbitRef.current;
+        const yawC = camYaw.current + orbit.yaw;
+        const sx = Math.sin(yawC);
+        const sz = -Math.cos(yawC);
+        const dist = CAM_DIST * orbit.distScale;
+        const horiz = dist * Math.cos(orbit.pitch);
+        const vert  = CAM_HEIGHT + dist * Math.sin(orbit.pitch);
+        const gymnPos = new THREE.Vector3(pos.current.x, baseY + 0.8, pos.current.z);
+        const camTarget = gymnPos.clone().add(new THREE.Vector3(-sx * horiz, vert, -sz * horiz));
+        const lookTarget = gymnPos.clone().add(new THREE.Vector3(0, 0.2, 0));
+        camPos.current.lerp(camTarget, 0.06);
+        camLook.current.lerp(lookTarget, 0.08);
       }
     } else {
       // ── Fri rörelse ───────────────────────────────────────────────────────
