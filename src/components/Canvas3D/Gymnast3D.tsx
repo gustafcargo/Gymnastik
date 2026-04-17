@@ -502,17 +502,29 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Fristående ─────────────────────────────────────────────────────────────
 
-  "floor:handstand": { kfs: [
-    { t: 0,   pose: { ...ZERO,
-        lShX: -P, rShX: -P,
-        rootRotX: P, rootY: 0.17, spineX: -P*0.03 } },
-    { t: 1.5, pose: { ...ZERO,
-        lShX: -P, rShX: -P,
-        rootRotX: P, rootY: 0.19, spineX: P*0.03, headX: P*0.04 } },
-    { t: 3.0, pose: { ...ZERO,
-        lShX: -P, rShX: -P,
-        rootRotX: P, rootY: 0.17, spineX: -P*0.03 } },
-  ] },
+  // Handstående – 3 KFs importerade från studion. lockMode: hands håller
+  // händerna mot golvet så kroppen balanserar upp-och-ned. Liten
+  // spineX-oscillation ger en levande "vågning".
+  "floor:handstand": {
+    lockMode: "hands",
+    kfs: [
+      { t: 0, pose: { ...ZERO,
+        spineX: -0.073185307179586,
+        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        rootY: 0.03,
+        rootRotX: 3.141592653589793 } },
+      { t: 0.25, pose: { ...ZERO,
+        spineX: 0.076814692820414,
+        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        rootY: 0.029756551564592337, rootZ: 0.13415392700899345,
+        rootRotX: 3.141592653589793 } },
+      { t: 0.5, pose: { ...ZERO,
+        spineX: -0.073185307179586,
+        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        rootY: 0.03,
+        rootRotX: 3.141592653589793 } },
+    ],
+  },
 
   "floor:stand": { kfs: [
     { t: 0,   pose: { ...ZERO, lShZ:-0.05, rShZ: 0.05, lElX:P*0.04, rElX:P*0.04 } },
