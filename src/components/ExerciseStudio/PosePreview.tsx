@@ -92,6 +92,7 @@ function RiggedGymnast({ pose, def, apparatus, color = "#c026d3" }: Props) {
       rootRef.current.position.set(p.rootX, baseY + p.rootY, p.rootZ);
       rootRef.current.rotation.x = p.rootRotX;
       rootRef.current.rotation.y = p.rootRotY;
+      rootRef.current.rotation.z = p.rootRotZ;
     }
     const r = bodyRefs;
     if (r.spineRef.current) { r.spineRef.current.rotation.x = p.spineX; r.spineRef.current.rotation.z = p.spineZ; }

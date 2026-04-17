@@ -757,6 +757,7 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
       rootRef.current.position.set(p.rootX, baseY + p.rootY, p.rootZ);
       rootRef.current.rotation.x = p.rootRotX;
       rootRef.current.rotation.y = p.rootRotY;
+      rootRef.current.rotation.z = p.rootRotZ;
     }
     const r = bodyRefs;
     if (r.spineRef.current) { r.spineRef.current.rotation.x = p.spineX; r.spineRef.current.rotation.z = p.spineZ; }

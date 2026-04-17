@@ -38,7 +38,7 @@ const ALL_APPARATUS = [
 
 // Grupper för slider-UI
 const POSE_GROUPS: { label: string; keys: (keyof Pose)[] }[] = [
-  { label: "Root",   keys: ["rootX", "rootY", "rootZ", "rootRotX", "rootRotY"] },
+  { label: "Root",   keys: ["rootX", "rootY", "rootZ", "rootRotX", "rootRotY", "rootRotZ"] },
   { label: "Spine",  keys: ["spineX", "spineZ"] },
   { label: "Head",   keys: ["headX", "headZ"] },
   { label: "L-arm",  keys: ["lShX", "lShZ", "lElX"] },

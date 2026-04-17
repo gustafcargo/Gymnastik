@@ -485,6 +485,7 @@ export function GameGymnast3D({
       rootRef.current.position.set(pos.current.x, pose.rootY, pos.current.z);
       rootRef.current.rotation.x = pose.rootRotX;
       rootRef.current.rotation.y = pose.rootRotY;
+      rootRef.current.rotation.z = pose.rootRotZ;
     }
     const r = bodyRefs;
     if (r.spineRef.current) { r.spineRef.current.rotation.x = pose.spineX; r.spineRef.current.rotation.z = pose.spineZ; }
