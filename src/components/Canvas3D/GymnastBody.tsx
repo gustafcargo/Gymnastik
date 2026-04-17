@@ -190,29 +190,39 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
       {/* ── Ansikte (−Z) ─────────────────────────────────────────────── */}
 
       {/* ── Ögon ──────────────────────────────────────────────────────
-          Flata cirklar stackade i Z istället för 3D-sfärer. Detta:
-           • Garanterar att pupillen är exakt centrerad (ingen sfär-skuggning
-             som flyttar det visuella centrumet),
-           • Undviker z-fighting mellan iris/pupill/ögonvita som låg inuti varandra. */}
-      {([-1, 1] as number[]).map((s) => (
-        <group key={`eye-${s}`} position={[s * H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.92]}>
-          {/* Ögonvita – tydligt liggande ellips (bredare än hög) */}
-          <mesh scale={[1.7, 0.85, 1.0]}>
-            <circleGeometry args={[0.014, 28]} />
-            <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
-          </mesh>
-          {/* Pupill – svart prick exakt i mitten av ögonvitan */}
-          <mesh position={[0, 0, -0.0010]}>
-            <circleGeometry args={[0.0042, 20]} />
-            <meshBasicMaterial color="#0a0a0a" side={THREE.DoubleSide} />
-          </mesh>
-          {/* Ljusreflex – liten vit prick upp-inåt på pupillen */}
-          <mesh position={[s * -0.0012, 0.0018, -0.0020]}>
-            <circleGeometry args={[0.0011, 10]} />
-            <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
-          </mesh>
-        </group>
-      ))}
+          Flata cirklar PROJICERADE på huvudsfären: varje ögongrupp placeras
+          på sfärytan (radie H_HEAD·1.006) vid azimut ±18° från ansikts-axeln
+          och roteras kring Y med −s·azimut så att gruppens lokala −Z pekar
+          längs sfärens utåt-normal. Därmed ligger ögondisken tangent mot
+          sfären och klipps INTE av huvudets kurvatur. */}
+      {([-1, 1] as number[]).map((s) => {
+        const EYE_AZ = P / 10;                         // 18° från ansiktsaxeln
+        const EYE_R  = H_HEAD * 1.006;                 // precis utanför skinnet
+        const EYE_Y  = H_HEAD * 0.08;
+        return (
+          <group
+            key={`eye-${s}`}
+            position={[s * Math.sin(EYE_AZ) * EYE_R, EYE_Y, -Math.cos(EYE_AZ) * EYE_R]}
+            rotation={[0, -s * EYE_AZ, 0]}
+          >
+            {/* Ögonvita – tydligt liggande ellips (bredare än hög) */}
+            <mesh scale={[1.75, 0.85, 1.0]}>
+              <circleGeometry args={[0.012, 28]} />
+              <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+            </mesh>
+            {/* Pupill – svart prick mitt på ögonvitan (lokal −Z = framåt) */}
+            <mesh position={[0, 0, -0.0010]}>
+              <circleGeometry args={[0.0038, 20]} />
+              <meshBasicMaterial color="#0a0a0a" side={THREE.DoubleSide} />
+            </mesh>
+            {/* Ljusreflex – liten vit prick upp-inåt på pupillen */}
+            <mesh position={[s * -0.0010, 0.0016, -0.0020]}>
+              <circleGeometry args={[0.0010, 10]} />
+              <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+            </mesh>
+          </group>
+        );
+      })}
 
       {/* Ögonfransar – tunn mörk båge precis ovanför ögat, längre arc för synlighet */}
       <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.14, -H_HEAD * 0.87]} rotation={[P * 0.5, 0, 0]} castShadow>
