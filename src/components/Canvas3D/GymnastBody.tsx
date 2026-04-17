@@ -15,8 +15,9 @@
  *          → lHipRef → lKnRef
  *          → rHipRef → rKnRef
  */
-import { forwardRef } from "react";
+import { forwardRef, useMemo } from "react";
 import * as THREE from "three";
+import { useGymnastTuning, type GymnastTuning } from "../../store/useGymnastTuning";
 
 // ─── Proportioner (meter) ─────────────────────────────────────────────────────
 export const H_HEAD  = 0.09;
@@ -40,21 +41,24 @@ const P = Math.PI;
 // ─── Bål-profil för LatheGeometry ─────────────────────────────────────────────
 // (radius, height) sett från sidan. Roteras runt Y-axeln vid render.
 // Kvinnlig kontur: bred höft → smal midja → bred bröstkorg/axelparti → smal hals.
-// Stängd vid topp och botten (x=0.001) så det inte syns hål in i bålen.
-const TORSO_PROFILE: THREE.Vector2[] = [
-  new THREE.Vector2(0.001,        0.00 * H_TORSO),  // stängd botten
-  new THREE.Vector2(0.95 * R_BODY, 0.005 * H_TORSO),
-  new THREE.Vector2(1.06 * R_BODY, 0.10 * H_TORSO), // bredaste höft
-  new THREE.Vector2(0.95 * R_BODY, 0.20 * H_TORSO),
-  new THREE.Vector2(0.74 * R_BODY, 0.36 * H_TORSO), // smalaste midja
-  new THREE.Vector2(0.88 * R_BODY, 0.50 * H_TORSO),
-  new THREE.Vector2(1.15 * R_BODY, 0.62 * H_TORSO),
-  new THREE.Vector2(1.38 * R_BODY, 0.74 * H_TORSO), // bredaste bröstkorg
-  new THREE.Vector2(1.42 * R_BODY, 0.82 * H_TORSO), // axelparti – bredast
-  new THREE.Vector2(1.22 * R_BODY, 0.90 * H_TORSO), // axel-slope mot hals
-  new THREE.Vector2(0.60 * R_BODY, 0.97 * H_TORSO),
-  new THREE.Vector2(0.001,        1.00 * H_TORSO),  // stängd topp (möter halsen)
-];
+// Stängd vid topp och botten (x=0.001) så det inte syns hål in i bålen. Byggs
+// från runtime-tuning så panelen kan justera hip/midja/bröst/axel-bredd.
+function buildTorsoProfile(t: GymnastTuning["torso"]): THREE.Vector2[] {
+  return [
+    new THREE.Vector2(0.001,                  0.00 * H_TORSO),
+    new THREE.Vector2(0.95 * R_BODY,          0.005 * H_TORSO),
+    new THREE.Vector2(t.hipWidth * R_BODY,    0.10 * H_TORSO),
+    new THREE.Vector2(0.95 * R_BODY,          0.20 * H_TORSO),
+    new THREE.Vector2(t.waistNarrow * R_BODY, 0.36 * H_TORSO),
+    new THREE.Vector2(0.88 * R_BODY,          0.50 * H_TORSO),
+    new THREE.Vector2(1.15 * R_BODY,          0.62 * H_TORSO),
+    new THREE.Vector2(t.chestWidth * R_BODY,  0.74 * H_TORSO),
+    new THREE.Vector2(t.shoulderWidth * R_BODY, 0.82 * H_TORSO),
+    new THREE.Vector2(1.22 * R_BODY,          0.90 * H_TORSO),
+    new THREE.Vector2(0.60 * R_BODY,          0.97 * H_TORSO),
+    new THREE.Vector2(0.001,                  1.00 * H_TORSO),
+  ];
+}
 
 // ─── Refs ─────────────────────────────────────────────────────────────────────
 export type BodyRefs = {
@@ -111,11 +115,17 @@ function Joint({ r, color, leotard = false }: {
 }
 
 // ─── Huvud – ansiktsdetaljer mot −Z ───────────────────────────────────────────
-function Head({ skin, hair, ribbon = "#ff6fa0" }: {
-  skin: string; hair: string; ribbon?: string;
-}) {
-  // Använd `skin` som bas och blanda till en något varmare ton i ansiktet
-  const skinWarm = skin || "#f2d1ae";
+function Head() {
+  // All färg/form kommer från tuning-store så Leva-panelen kan live-justera.
+  const colors   = useGymnastTuning((s) => s.colors);
+  const eyes     = useGymnastTuning((s) => s.eyes);
+  const brows    = useGymnastTuning((s) => s.eyebrows);
+  const mouthT   = useGymnastTuning((s) => s.mouth);
+  const noseT    = useGymnastTuning((s) => s.nose);
+  const hairT    = useGymnastTuning((s) => s.hair);
+  const skinWarm = colors.skin;
+  const hair     = colors.hair;
+  const ribbon   = colors.ribbon;
   return (
     <>
       {/* Huvud – lätt ovalt via icke-uniform skala */}
@@ -141,8 +151,8 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
              VIKTIG skala Y=1.12 (> head Y-scale 1.08) annars poppar hjässans hud
              upp genom hårstrukturen (ser ut som skallig fläck).
              Clearcoat sänkt så håret inte får blanka specular-fläckar. */}
-      <mesh position={[0, 0, H_HEAD * 0.02]} castShadow scale={[1.08, 1.12, 1.10]}>
-        <sphereGeometry args={[H_HEAD * 1.01, 32, 18, 0, P * 2, 0, P * 0.32]} />
+      <mesh position={[0, 0, H_HEAD * 0.02]} castShadow scale={[1.08, hairT.skullcapScaleY, 1.10]}>
+        <sphereGeometry args={[H_HEAD * 1.01, 32, 18, 0, P * 2, 0, P * hairT.skullcapThetaFrac]} />
         <meshPhysicalMaterial color={hair} roughness={0.85} metalness={0.02}
           clearcoat={0.08} clearcoatRoughness={0.65} />
       </mesh>
@@ -157,13 +167,13 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
       </mesh>
 
       {/* Hårknut (bun) – placerad i nacken, mindre och mer kompakt */}
-      <mesh position={[0, H_HEAD * 0.15, H_HEAD * 1.08]} castShadow>
-        <sphereGeometry args={[H_HEAD * 0.42, 20, 16]} />
+      <mesh position={[0, H_HEAD * 0.15, H_HEAD * hairT.bunZFrac]} castShadow>
+        <sphereGeometry args={[H_HEAD * hairT.bunRadiusFrac, 20, 16]} />
         <meshPhysicalMaterial color={hair} roughness={0.88} metalness={0.02}
           clearcoat={0.06} clearcoatRoughness={0.65} />
       </mesh>
       {/* Hårband runt knuten */}
-      <mesh position={[0, H_HEAD * 0.15, H_HEAD * 1.02]} rotation={[P * 0.5, 0, 0]} castShadow>
+      <mesh position={[0, H_HEAD * 0.15, H_HEAD * (hairT.bunZFrac - 0.06)]} rotation={[P * 0.5, 0, 0]} castShadow>
         <torusGeometry args={[H_HEAD * 0.36, 0.010, 8, 20]} />
         <meshPhysicalMaterial color={ribbon} roughness={0.40} metalness={0.15} clearcoat={0.6} />
       </mesh>
@@ -196,30 +206,30 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
           Z-skalan 0.55 gör bollen till en liggande "dome" snarare än en
           full sfär. Pupillen är platt cirkel monterad framför bollen. */}
       {([-1, 1] as number[]).map((s) => {
-        const EYE_AZ = P / 10;                         // 18° från ansiktsaxeln
-        const EYE_R  = H_HEAD;                         // centrum på skinnet
-        const EYE_Y  = H_HEAD * 0.08;
+        const EYE_AZ = (eyes.azimuthDeg * P) / 180;
+        const EYE_R  = H_HEAD;
+        const EYE_Y  = H_HEAD * eyes.yFrac;
+        const frontZ = -eyes.radius * eyes.scaleZ - 0.0004;  // precis utanför dome
         return (
           <group
             key={`eye-${s}`}
             position={[s * Math.sin(EYE_AZ) * EYE_R, EYE_Y, -Math.cos(EYE_AZ) * EYE_R]}
             rotation={[0, -s * EYE_AZ, 0]}
           >
-            {/* Ögonvita – liggande ellipsoid-dome som buktar ut */}
-            <mesh scale={[1.45, 0.85, 0.55]} castShadow>
-              <sphereGeometry args={[0.012, 22, 16]} />
+            <mesh scale={[eyes.scaleX, eyes.scaleY, eyes.scaleZ]} castShadow>
+              <sphereGeometry args={[eyes.radius, 22, 16]} />
               <meshPhysicalMaterial color="#fafafa" roughness={0.30} metalness={0.02} clearcoat={0.45} clearcoatRoughness={0.2} />
             </mesh>
-            {/* Pupill – svart cirkel monterad på domens framsida */}
-            <mesh position={[0, 0, -0.0072]}>
-              <circleGeometry args={[0.0040, 20]} />
-              <meshBasicMaterial color="#0a0a0a" side={THREE.DoubleSide} />
+            <mesh position={[0, 0, frontZ]}>
+              <circleGeometry args={[eyes.pupilRadius, 20]} />
+              <meshBasicMaterial color={colors.pupil} side={THREE.DoubleSide} />
             </mesh>
-            {/* Ljusreflex – liten vit prick upp-inåt på pupillen */}
-            <mesh position={[s * -0.0012, 0.0018, -0.0080]}>
-              <circleGeometry args={[0.0012, 10]} />
-              <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
-            </mesh>
+            {eyes.catchLight && (
+              <mesh position={[s * -eyes.pupilRadius * 0.3, eyes.pupilRadius * 0.45, frontZ - 0.0008]}>
+                <circleGeometry args={[eyes.pupilRadius * 0.3, 10]} />
+                <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+              </mesh>
+            )}
           </group>
         );
       })}
@@ -234,25 +244,25 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshPhysicalMaterial color="#1a0f06" roughness={0.55} metalness={0.1} />
       </mesh>
 
-      {/* Ögonbryn – långa tunna horisontella streck. Endast Z-rotation π/2
-          så de ligger horisontellt i ansiktsplanet (ingen X-rotation som
-          tidigare tippade bort dem från kameran → såg ut som prickar).
-          Liten ±0.05π tilt i Z ger naturlig båge (inre lägre än yttre). */}
-      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.23, -H_HEAD * 0.89]}
-            rotation={[0, 0, P * 0.5 - P * 0.05]} castShadow>
-        <capsuleGeometry args={[0.0022, 0.030, 4, 8]} />
-        <meshPhysicalMaterial color="#2a1810" roughness={0.78} metalness={0.04} />
-      </mesh>
-      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.23, -H_HEAD * 0.89]}
-            rotation={[0, 0, P * 0.5 + P * 0.05]} castShadow>
-        <capsuleGeometry args={[0.0022, 0.030, 4, 8]} />
-        <meshPhysicalMaterial color="#2a1810" roughness={0.78} metalness={0.04} />
-      </mesh>
+      {/* Ögonbryn – tunna horisontella streck. Position/längd/tilt från tuning. */}
+      {([-1, 1] as number[]).map((s) => {
+        const tilt = (brows.tiltDeg * P) / 180;
+        return (
+          <mesh
+            key={`brow-${s}`}
+            position={[s * H_HEAD * brows.xFrac, H_HEAD * brows.yFrac, H_HEAD * brows.zFrac]}
+            rotation={[0, 0, P * 0.5 + s * tilt]}
+            castShadow
+          >
+            <capsuleGeometry args={[brows.thickness, brows.length, 4, 8]} />
+            <meshPhysicalMaterial color={colors.eyebrow} roughness={0.78} metalness={0.04} />
+          </mesh>
+        );
+      })}
 
-      {/* Näsa – längre kon. ConeGeometry har tip på +Y, bas på −Y.
-          Rotation X=−π/2 mappar +Y → −Z (framåt) så tippen pekar RÄTT. */}
-      <mesh position={[0, -H_HEAD * 0.04, -H_HEAD * 0.96]} rotation={[-P * 0.5, 0, 0]} castShadow>
-        <coneGeometry args={[0.012, 0.045, 12]} />
+      {/* Näsa – kon. Rotation X=−π/2 mappar +Y → −Z (framåt) så tippen pekar rätt. */}
+      <mesh position={[0, H_HEAD * noseT.yFrac, H_HEAD * noseT.zFrac]} rotation={[-P * 0.5, 0, 0]} castShadow>
+        <coneGeometry args={[noseT.baseRadius, noseT.length, 12]} />
         <meshPhysicalMaterial color={skinWarm} roughness={0.60} metalness={0} />
       </mesh>
       {/* Näsborrar (små mörka prickar under näsan) */}
@@ -265,13 +275,10 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshBasicMaterial color="#3a1a10" />
       </mesh>
 
-      {/* Mun – glad smiley-båge. Torus i XY-plan (inget X-rot), Z-rotation π
-          vänder default-arcen (från +X via +Y till −X, dvs uppåt-båge/frown)
-          till en smile (från −X via −Y till +X). thetaLength=π (halv cirkel).
-          Tuben ligger längs Z så hela munnen ligger platt mot ansiktet. */}
-      <mesh position={[0, -H_HEAD * 0.34, -H_HEAD * 0.91]} rotation={[0, 0, P]} castShadow>
-        <torusGeometry args={[0.026, 0.0022, 8, 28, P]} />
-        <meshPhysicalMaterial color="#b23a48" roughness={0.40} metalness={0.04} clearcoat={0.4} clearcoatRoughness={0.25} />
+      {/* Mun – glad smiley-båge. thetaLength=π (halv cirkel). Position/storlek från tuning. */}
+      <mesh position={[0, H_HEAD * mouthT.yFrac, H_HEAD * mouthT.zFrac]} rotation={[0, 0, P]} castShadow>
+        <torusGeometry args={[mouthT.radius, mouthT.tubeRadius, 8, 28, P]} />
+        <meshPhysicalMaterial color={colors.lip} roughness={0.40} metalness={0.04} clearcoat={0.4} clearcoatRoughness={0.25} />
       </mesh>
 
       {/* Kinder – subtilt rosa, mindre och mer inflyttade (var förr för stora
@@ -350,9 +357,16 @@ type Props = {
 };
 
 export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
-  { color, skin, hair, refs },
+  { color: colorProp, skin: skinProp, hair: _hairProp, refs },
   ref,
 ) {
+  const torsoT = useGymnastTuning((s) => s.torso);
+  const colors = useGymnastTuning((s) => s.colors);
+  // Leotard-färg = tuning (så panelen kan styra). color-prop från parent
+  // fungerar som fallback om någon kallar komponenten utan tuning-override.
+  const color = colors.leotard || colorProp;
+  const skin  = colors.skin    || skinProp;
+  const torsoProfile = useMemo(() => buildTorsoProfile(torsoT), [torsoT]);
   return (
     <group ref={ref}>
       {/* Höftkula */}
@@ -363,7 +377,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
         {/* Bål – ENDA mjuk lathe-profil ersätter de tre cylindrarna.
             Smal midja, bred höft, bredare bröstkorg, mot smal hals. */}
         <mesh castShadow>
-          <latheGeometry args={[TORSO_PROFILE, 28]} />
+          <latheGeometry args={[torsoProfile, 28]} />
           <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
             clearcoat={0.55} clearcoatRoughness={0.22} />
         </mesh>
@@ -395,7 +409,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
 
         {/* Huvud */}
         <group ref={r3f(refs.headRef)} position={[0, H_TORSO + H_NECK + H_HEAD * 0.90, 0]}>
-          <Head skin={skin} hair={hair} />
+          <Head />
         </group>
 
         {/* Axelkulor – mindre, smälter in med klavikelbryggan */}
