@@ -138,11 +138,10 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
           phiLength=3π/2 sveper −X → +Z → +X och lämnar ansiktet fritt. */}
 
       {/* 1) Skullcap – ENDAST hjässan, slutar precis ovan pannan på framsidan.
-             thetaLength=0.32π (~58°) → fronten (−Z) når ned till ca y=0.05·H_HEAD
-             (strax ovan ögonbrynen), inte ner över ögonen.
-             Clearcoat sänkt (0.35→0.08) så håret inte får stark specular
-             "ljusfläck" på hjässan. */}
-      <mesh position={[0, 0, H_HEAD * 0.02]} castShadow scale={[1.05, 1.06, 1.07]}>
+             VIKTIG skala Y=1.12 (> head Y-scale 1.08) annars poppar hjässans hud
+             upp genom hårstrukturen (ser ut som skallig fläck).
+             Clearcoat sänkt så håret inte får blanka specular-fläckar. */}
+      <mesh position={[0, 0, H_HEAD * 0.02]} castShadow scale={[1.08, 1.12, 1.10]}>
         <sphereGeometry args={[H_HEAD * 1.01, 32, 18, 0, P * 2, 0, P * 0.32]} />
         <meshPhysicalMaterial color={hair} roughness={0.85} metalness={0.02}
           clearcoat={0.08} clearcoatRoughness={0.65} />
@@ -151,7 +150,7 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
       {/* 2) Bak + sidor – tar vid där skullcap slutar och täcker nacken/sidorna.
              90° ansiktsglapp så face (−Z) inte täcks. Något innanför skullcap för
              att undvika z-fighting i överlappet (theta 0.30π→0.32π). */}
-      <mesh position={[0, 0, H_HEAD * 0.03]} castShadow scale={[1.05, 1.06, 1.08]}>
+      <mesh position={[0, 0, H_HEAD * 0.03]} castShadow scale={[1.07, 1.10, 1.10]}>
         <sphereGeometry args={[H_HEAD * 1.005, 36, 22, P * 1.75, P * 1.5, P * 0.30, P * 0.45]} />
         <meshPhysicalMaterial color={hair} roughness={0.85} metalness={0.02}
           clearcoat={0.08} clearcoatRoughness={0.65} />
@@ -190,12 +189,13 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
 
       {/* ── Ansikte (−Z) ─────────────────────────────────────────────── */}
 
-      {/* Ögonvitor – mandelformade (horisontellt ovala) */}
-      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow scale={[1.35, 0.95, 1.0]}>
+      {/* Ögonvitor – mandelformade (horisontellt ovala) + FLATA i Z (scale 0.4)
+          så iris/pupill inte göms INNE i vitans z-djup. */}
+      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow scale={[1.35, 0.95, 0.4]}>
         <sphereGeometry args={[0.015, 16, 10]} />
         <meshPhysicalMaterial color="#fafafa" roughness={0.2} metalness={0} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow scale={[1.35, 0.95, 1.0]}>
+      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow scale={[1.35, 0.95, 0.4]}>
         <sphereGeometry args={[0.015, 16, 10]} />
         <meshPhysicalMaterial color="#fafafa" roughness={0.2} metalness={0} />
       </mesh>
@@ -220,12 +220,12 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshPhysicalMaterial color="#0a0a0a" roughness={0.15} metalness={0.3} />
       </mesh>
 
-      {/* Ljusreflex i ögon – liten vit prick uppe till vänster på varje öga */}
-      <mesh position={[-H_HEAD * 0.29, H_HEAD * 0.11, -H_HEAD * 0.912]}>
+      {/* Ljusreflex i ögon – symmetriska små vita prickar uppe-inåt på varje öga */}
+      <mesh position={[-H_HEAD * 0.29, H_HEAD * 0.11, -H_HEAD * 0.918]}>
         <sphereGeometry args={[0.0032, 6, 5]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
-      <mesh position={[ H_HEAD * 0.35, H_HEAD * 0.11, -H_HEAD * 0.912]}>
+      <mesh position={[ H_HEAD * 0.29, H_HEAD * 0.11, -H_HEAD * 0.918]}>
         <sphereGeometry args={[0.0032, 6, 5]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
@@ -254,10 +254,9 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshPhysicalMaterial color="#2a1810" roughness={0.78} metalness={0.04} />
       </mesh>
 
-      {/* Näsa – längre kon som sticker ut mer från ansiktet (syntes knappt förr).
-          Position z=-0.98·H_HEAD så basen är vid ansiktsytan och spetsen når ut
-          ytterligare via H_HEAD*0.05 i −Z. */}
-      <mesh position={[0, -H_HEAD * 0.04, -H_HEAD * 1.00]} rotation={[P * 0.50, 0, 0]} castShadow>
+      {/* Näsa – längre kon. ConeGeometry har tip på +Y, bas på −Y.
+          Rotation X=−π/2 mappar +Y → −Z (framåt) så tippen pekar RÄTT. */}
+      <mesh position={[0, -H_HEAD * 0.04, -H_HEAD * 0.96]} rotation={[-P * 0.5, 0, 0]} castShadow>
         <coneGeometry args={[0.012, 0.045, 12]} />
         <meshPhysicalMaterial color={skinWarm} roughness={0.60} metalness={0} />
       </mesh>
