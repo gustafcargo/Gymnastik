@@ -36,7 +36,7 @@ export const ALL_EXERCISES: Exercise[] = [
   { id: "floor:cartwheel",        label: "Hjulning",     apparatus: ["floor"], speed: 1.8 },
   { id: "floor:forward-roll",     label: "Kullerbytta",  apparatus: ["floor"], speed: 1.8 },
   { id: "floor:tuck-jump",        label: "Knähopp",      apparatus: ["floor"], speed: 1.25 },
-  { id: "floor:leap",             label: "Språng",       apparatus: ["floor", "beam", "buck"], speed: 3.0 },
+  { id: "floor:leap",             label: "Språng",       apparatus: ["floor"], speed: 3.0 },
   // ── Bygelhäst ───────────────────────────────────────────────────────────
   { id: "pommel-horse:scissors",  label: "Saxpendel",    apparatus: ["pommel-horse"], speed: 1.4 },
   // ── Hoppbord ────────────────────────────────────────────────────────────
