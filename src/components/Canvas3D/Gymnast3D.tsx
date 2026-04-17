@@ -598,48 +598,34 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
     { t: 1.80, pose: { ...ZERO, ...ARMS_SIDE, rootZ: -0.65 } },
   ] },
 
-  // Hjulning – pga saknad root-roll approximerar vi via spineZ-vridning,
-  // rootY-båge och kraftig rootRotY-vändning i mitten (gymnasten vänder
-  // ryggen mot kameran på toppen).
+  // Hjulning – 4 KFs importerade från studion. spineZ driver sid-rotationen
+  // (ryggen vrider sig mot kameran på toppen) och hipZ-värdena öppnar/stänger
+  // benen så vänster/höger ben byter plats genom hjulningen.
   "floor:cartwheel": { kfs: [
-    { t: 0,    pose: { ...ZERO, lShX: -P*0.9, rShX: -P*0.9, lShZ: -P*0.15, rShZ: P*0.15 } },
-    // Framåtlutning mot sida
-    { t: 0.30, pose: { ...ZERO,
-        spineX: -P*0.30, spineZ: P*0.35,
-        lShX: -P*0.95, rShX: -P*0.20,
-        lShZ: -P*0.25, rShZ: P*0.50,
-        lHipX: -P*0.10, rHipX: P*0.40, rKnX: -P*0.10,
-        rootX: 0.20, rootY: -0.05 } },
-    // Handstand i sidled (rot kring Y → gymnasten vänd 90°)
-    { t: 0.60, pose: { ...ZERO,
-        lShX: -P, rShX: -P, spineZ: P*0.10,
-        lHipX: -P*0.05, rHipX: -P*0.05,
-        lShZ: -P*0.05, rShZ: P*0.05,
-        rootRotX: P, rootRotY: P*0.5,
-        rootX: 0.45, rootY: 0.12 } },
-    // Fortsatt rotation (gymnasten 180°)
-    { t: 0.90, pose: { ...ZERO,
-        lShX: -P, rShX: -P,
-        spineZ: -P*0.10,
-        rootRotX: P, rootRotY: P,
-        rootX: 0.70, rootY: 0.10 } },
-    // Fot ner på andra sidan
-    { t: 1.20, pose: { ...ZERO,
-        spineX: -P*0.25, spineZ: -P*0.35,
-        lShX: -P*0.20, rShX: -P*0.95,
-        lShZ: -P*0.50, rShZ: P*0.25,
-        lHipX: P*0.40, rHipX: -P*0.10, lKnX: -P*0.10,
-        rootRotY: P*1.5,
-        rootX: 0.95, rootY: -0.05 } },
-    // Res upp, armar upp, landning
-    { t: 1.50, pose: { ...ZERO,
-        lShX: -P*0.9, rShX: -P*0.9, lShZ: -P*0.15, rShZ: P*0.15,
-        rootRotY: P*2,
-        rootX: 1.15 } },
-    { t: 1.80, pose: { ...ZERO,
-        lShZ: -P*0.28, rShZ: P*0.28, lElX: P*0.05, rElX: P*0.05,
-        rootRotY: P*2,
-        rootX: 1.15 } },
+    { t: 0, pose: { ...ZERO,
+      lShX: -3.16318530717959, lShZ: -0.47123889803846897,
+      rShX: -3.16318530717959, rShZ:  0.47123889803846897 } },
+    { t: 0.25, pose: { ...ZERO,
+      spineZ: 0.966814692820414,
+      lShX: -3.16318530717959, lShZ: -1.79318530717959,
+      rShX: -3.16318530717959, rShZ:  0.47123889803846897,
+      lHipZ: 0.136814692820414,
+      rHipZ: 1.87681469282041,
+      rootX: -0.09 } },
+    { t: 0.5, pose: { ...ZERO,
+      spineZ: 1.41681469282041,
+      lShX: -2.79318530717959, lShZ: -1.51318530717959,
+      rShX: -3.16318530717959, rShZ:  0.47123889803846897,
+      lHipZ: 0.316814692820414,
+      rHipZ: 2.24681469282041,
+      rootX: -0.24 } },
+    { t: 0.75, pose: { ...ZERO,
+      spineZ: 2.97681469282041,
+      lShX: -3.34318530717959, lShZ: -0.233185307179586, lElX: -0.233185307179586,
+      rShX: -3.16318530717959, rShZ:  0.136814692820414,
+      lHipZ: 3.34681469282041,
+      rHipZ: 2.70681469282041,
+      rootX: -0.81, rootY: 0.2 } },
   ] },
 
   // Knähopp fristående (som beam:tuck-jump men på golv utan baseRotY)
