@@ -367,10 +367,13 @@ export function GameGymnast3D({
       pose.rootRotY += -startRotY;
       const baseY = H_THIGH + H_SHIN;
       pose.rootY += baseY;
-      // rootX/rootZ är lokala offsets från gymnastens startposition (i dess
-      // frame). Rotera dem till världen och addera till startposen.
-      const c = Math.cos(-startRotY);
-      const s = Math.sin(-startRotY);
+      // rootX/rootZ är lokala offsets i gymnastens frame (hon tittar mot
+      // lokal −Z). Gymnastens rendering-rotation är Y-rot(-startRotY), så vi
+      // applicerar samma Y-rotation för att få world-positionen. Viktigt:
+      // tecknet på sin måste matcha rotation.y; annars blir rörelsen speglad
+      // när gymnasten står vriden åt andra hållet.
+      const c = Math.cos(startRotY);
+      const s = Math.sin(startRotY);
       const wx = pose.rootX * c - pose.rootZ * s;
       const wz = pose.rootX * s + pose.rootZ * c;
       pos.current.x = startX + wx;
@@ -482,6 +485,11 @@ export function GameGymnast3D({
 
     // ── Applicera pose på refs ─────────────────────────────────────────────
     if (rootRef.current) {
+      // YXZ-order: yaw (Y) appliceras SIST, så roll/pitch (X/Z) sker i
+      // gymnastens lokala frame. Viktigt för floor-tricks där hon kan stå
+      // vriden åt valfritt håll och ändå skall rulla framåt (rootRotX) eller
+      // hjula (rootRotZ) i sin egen blickriktning istället för världens axlar.
+      rootRef.current.rotation.order = "YXZ";
       rootRef.current.position.set(pos.current.x, pose.rootY, pos.current.z);
       rootRef.current.rotation.x = pose.rootRotX;
       rootRef.current.rotation.y = pose.rootRotY;
@@ -498,6 +506,20 @@ export function GameGymnast3D({
     if (r.lKnRef.current)     r.lKnRef.current.rotation.x  = pose.lKnX;
     if (r.rHipRef.current)  { r.rHipRef.current.rotation.x = pose.rHipX; r.rHipRef.current.rotation.z = pose.rHipZ; }
     if (r.rKnRef.current)     r.rKnRef.current.rotation.x  = pose.rKnX;
+
+    // ── Golv-clamp för one-shot-tricks ────────────────────────────────
+    // Studions PosePreview har samma logik. Vissa floor-KFs har negativa
+    // rootY-värden (-1.81 för forward-roll etc.) som förutsätter att
+    // gymnasten "sitter på golvet" under rullningen. Utan clamp sjunker
+    // hela kroppen under golvytan och animationen ser trasig ut.
+    // Körs bara under one-shot (mount/walk är välkalibrerade).
+    if (oneShot.current && rootRef.current) {
+      rootRef.current.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(rootRef.current);
+      if (isFinite(box.min.y) && box.min.y < 0) {
+        rootRef.current.position.y -= box.min.y;
+      }
+    }
   });
 
   return (

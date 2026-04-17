@@ -13,6 +13,7 @@ export const ALL_EXERCISES: Exercise[] = [
   { id: "high-bar:giant-swing",   label: "Kast bakåt",   apparatus: ["high-bar"], speed: 1.6 },
   { id: "high-bar:kip",           label: "Kip",          apparatus: ["high-bar"], speed: 2.4 },
   { id: "high-bar:swing",         label: "Sving",        apparatus: ["high-bar"], speed: 1.8 },
+  { id: "high-bar:overslag",      label: "Överslag",     apparatus: ["high-bar"], speed: 5.0 },
   // ── Barr ────────────────────────────────────────────────────────────────
   { id: "parallel-bars:swing",    label: "Sving",        apparatus: ["parallel-bars"], speed: 1.6 },
   { id: "parallel-bars:support",  label: "Stöd",         apparatus: ["parallel-bars"], speed: 3.0 },
