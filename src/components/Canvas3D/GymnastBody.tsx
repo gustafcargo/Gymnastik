@@ -136,18 +136,20 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
           Ansiktsglapp: phi ∈ [5π/4, 7π/4] (90° runt −Z) ⇒ hårets phiStart=7π/4,
           phiLength=3π/2 sveper −X → +Z → +X och lämnar ansiktet fritt. */}
 
-      {/* 1) Skullcap – täcker hela övre halvan, något större än huvudet
-             så det aldrig ligger inne i hudsfären (Y-scale 1.10 > head 1.08) */}
-      <mesh position={[0, 0, H_HEAD * 0.02]} castShadow scale={[1.07, 1.10, 1.10]}>
-        <sphereGeometry args={[H_HEAD * 1.01, 32, 22, 0, P * 2, 0, P * 0.50]} />
+      {/* 1) Skullcap – ENDAST hjässan, slutar precis ovan pannan på framsidan.
+             thetaLength=0.32π (~58°) → fronten (−Z) når ned till ca y=0.05·H_HEAD
+             (strax ovan ögonbrynen), inte ner över ögonen. */}
+      <mesh position={[0, 0, H_HEAD * 0.02]} castShadow scale={[1.05, 1.06, 1.07]}>
+        <sphereGeometry args={[H_HEAD * 1.01, 32, 18, 0, P * 2, 0, P * 0.32]} />
         <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
           clearcoat={0.35} clearcoatRoughness={0.30} />
       </mesh>
 
-      {/* 2) Bak + sidor – något INNANFÖR skullcap (radius 1.005 vs 1.01) för att
-             undvika z-fighting där de överlappar. 90° glapp mot ansiktet. */}
-      <mesh position={[0, 0, H_HEAD * 0.03]} castShadow scale={[1.07, 1.08, 1.10]}>
-        <sphereGeometry args={[H_HEAD * 1.005, 36, 24, P * 1.75, P * 1.5, P * 0.42, P * 0.40]} />
+      {/* 2) Bak + sidor – tar vid där skullcap slutar och täcker nacken/sidorna.
+             90° ansiktsglapp så face (−Z) inte täcks. Något innanför skullcap för
+             att undvika z-fighting i överlappet (theta 0.30π→0.32π). */}
+      <mesh position={[0, 0, H_HEAD * 0.03]} castShadow scale={[1.05, 1.06, 1.08]}>
+        <sphereGeometry args={[H_HEAD * 1.005, 36, 22, P * 1.75, P * 1.5, P * 0.30, P * 0.45]} />
         <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
           clearcoat={0.35} clearcoatRoughness={0.30} />
       </mesh>
@@ -362,19 +364,21 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
             clearcoat={0.55} clearcoatRoughness={0.22} />
         </mesh>
 
-        {/* Diskret bystantydning – två små leotard-färgade bullar på framsidan */}
+        {/* Diskret bystantydning – placerade på bröstkorgens topp (y≈0.72) på
+            framsidan, just utanför torso-profilen så de syns men inte poppar. */}
         {([-1, 1] as number[]).map((side) => (
           <mesh key={`bust-${side}`}
-                position={[side * R_BODY * 0.42, H_TORSO * 0.66, -R_BODY * 0.92]}
-                scale={[1.0, 0.95, 0.65]} castShadow>
-            <sphereGeometry args={[R_BODY * 0.22, 14, 10]} />
+                position={[side * R_BODY * 0.45, H_TORSO * 0.72, -R_BODY * 1.02]}
+                scale={[1.0, 0.95, 0.55]} castShadow>
+            <sphereGeometry args={[R_BODY * 0.24, 14, 10]} />
             <meshPhysicalMaterial color={color} roughness={0.38} metalness={0.16}
               clearcoat={0.55} clearcoatRoughness={0.22} />
           </mesh>
         ))}
 
-        {/* Axel-yoke – mjuk ellipsoid som kopplar bröstet till axelkulorna */}
-        <mesh position={[0, H_TORSO * 0.90, 0]} scale={[3.05, 0.55, 1.10]} castShadow>
+        {/* Axel-yoke – mjukare och tjockare än tidigare (skala Y 0.55→0.80 gör
+            det mindre tallrikslikt, X 3.05→2.55 gör det mindre utstickande). */}
+        <mesh position={[0, H_TORSO * 0.90, 0]} scale={[2.55, 0.80, 1.20]} castShadow>
           <sphereGeometry args={[R_BODY * 0.95, 26, 18]} />
           <meshPhysicalMaterial color={color} roughness={0.38} metalness={0.16}
             clearcoat={0.50} clearcoatRoughness={0.25} />
