@@ -27,7 +27,7 @@ export type Pose = {
   lHipX: number; lHipZ: number; lKnX: number;
   rHipX: number; rHipZ: number; rKnX: number;
   rootX: number; rootY: number; rootZ: number;
-  rootRotX: number; rootRotY: number;
+  rootRotX: number; rootRotY: number; rootRotZ: number;
 };
 
 export type KF = {
@@ -63,7 +63,7 @@ export const POSE_KEYS: (keyof Pose)[] = [
   "lHipX", "lHipZ", "lKnX",
   "rHipX", "rHipZ", "rKnX",
   "rootX", "rootY", "rootZ",
-  "rootRotX", "rootRotY",
+  "rootRotX", "rootRotY", "rootRotZ",
 ];
 
 export const ZERO: Pose = {
@@ -73,7 +73,7 @@ export const ZERO: Pose = {
   lHipX: 0, lHipZ: 0, lKnX: 0,
   rHipX: 0, rHipZ: 0, rKnX: 0,
   rootX: 0, rootY: 0, rootZ: 0,
-  rootRotX: 0, rootRotY: 0,
+  rootRotX: 0, rootRotY: 0, rootRotZ: 0,
 };
 
 // Armar sträckta uppåt (+π vrider neråt-segmentet upp via framsidan,
@@ -144,7 +144,7 @@ export function applyLock(pose: Pose, mode: LockMode): Pose {
   if (mode === "hands") {
     const r = getFkRig();
     r.root.position.set(0, 0, 0);
-    r.root.rotation.set(pose.rootRotX, pose.rootRotY, 0);
+    r.root.rotation.set(pose.rootRotX, pose.rootRotY, pose.rootRotZ);
     r.spine.rotation.set(pose.spineX, 0, pose.spineZ);
     r.lSh.rotation.set(pose.lShX, 0, pose.lShZ);
     r.lEl.rotation.x = pose.lElX;

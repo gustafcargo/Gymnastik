@@ -598,34 +598,62 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
     { t: 1.80, pose: { ...ZERO, ...ARMS_SIDE, rootZ: -0.65 } },
   ] },
 
-  // Hjulning – 4 KFs importerade från studion. spineZ driver sid-rotationen
-  // (ryggen vrider sig mot kameran på toppen) och hipZ-värdena öppnar/stänger
-  // benen så vänster/höger ben byter plats genom hjulningen.
+  // Hjulning – 8 KFs importerade från studion. rootRotZ driver sid-rotationen
+  // kring gymnastens längdaxel (hela kroppen roterar som en enhet) medan
+  // spineZ + hipZ öppnar armar/ben i sido-läget. rootX driver förflyttning
+  // ~2.47 m åt vänster. Sista KFs (t=1, 1.125, 1.25) drar ner armarna i
+  // tre steg från utsträckta → mellanläge → utgångsläge.
   "floor:cartwheel": { kfs: [
     { t: 0, pose: { ...ZERO,
       lShX: -3.16318530717959, lShZ: -0.47123889803846897,
       rShX: -3.16318530717959, rShZ:  0.47123889803846897 } },
-    { t: 0.25, pose: { ...ZERO,
+    { t: 0.125, pose: { ...ZERO,
       spineZ: 0.966814692820414,
-      lShX: -3.16318530717959, lShZ: -1.79318530717959,
+      lShX: -3.16318530717959, lShZ: -1.33318530717959,
       rShX: -3.16318530717959, rShZ:  0.47123889803846897,
-      lHipZ: 0.136814692820414,
-      rHipZ: 1.87681469282041,
-      rootX: -0.09 } },
+      lHipZ: -0.323185307179586,
+      rHipZ:  1.87681469282041,
+      rootX: -0.06,
+      rootRotZ: 0.416814692820414 } },
+    { t: 0.25, pose: { ...ZERO,
+      spineZ: 0.226814692820414,
+      lShX: -3.25318530717959, lShZ: -0.323185307179586,
+      rShX: -3.44318530717959, rShZ: -0.043185307179586,
+      lHipZ: 0.046814692820414,
+      rHipZ: 0.966814692820414,
+      rootX: -0.78, rootY: 0.29,
+      rootRotZ: 2.61681469282041 } },
     { t: 0.5, pose: { ...ZERO,
-      spineZ: 1.41681469282041,
-      lShX: -2.79318530717959, lShZ: -1.51318530717959,
-      rShX: -3.16318530717959, rShZ:  0.47123889803846897,
+      spineZ: 0.226814692820414,
+      lShX: -3.25318530717959, lShZ: -0.323185307179586,
+      rShX: -3.34318530717959, rShZ:  0.596814692820414,
       lHipZ: 0.316814692820414,
-      rHipZ: 2.24681469282041,
-      rootX: -0.24 } },
+      rHipZ: 1.32681469282041,
+      rootX: -1.29, rootY: 0.24,
+      rootRotZ: 3.43681469282041 } },
     { t: 0.75, pose: { ...ZERO,
-      spineZ: 2.97681469282041,
-      lShX: -3.34318530717959, lShZ: -0.233185307179586, lElX: -0.233185307179586,
-      rShX: -3.16318530717959, rShZ:  0.136814692820414,
-      lHipZ: 3.34681469282041,
-      rHipZ: 2.70681469282041,
-      rootX: -0.81, rootY: 0.2 } },
+      spineZ: 0.966814692820414,
+      lShX: -3.16318530717959, lShZ: -1.14318530717959,
+      rShX: -3.34318530717959, rShZ:  1.87681469282041,
+      lHipZ: 0.316814692820414,
+      rHipZ: 1.60681469282041,
+      rootX: -1.95, rootY: 0.07,
+      rootRotZ: 4.17681469282041 } },
+    { t: 1, pose: { ...ZERO,
+      lShX: -3.16318530717959, lShZ: -2.89318530717959,
+      rShX: -3.16318530717959, rShZ:  2.79681469282041,
+      rootX: -2.47,
+      rootRotZ: 6.27681469282041 } },
+    { t: 1.125, pose: { ...ZERO,
+      lShX: -3.16318530717959, lShZ: -1.877,
+      rShX: -3.16318530717959, rShZ:  1.87681469282041,
+      rootX: -2.47,
+      rootRotZ: 6.27681469282041 } },
+    { t: 1.25, pose: { ...ZERO,
+      lShX: -3.16318530717959, lShZ: -0.47123889803846897,
+      rShX: -3.16318530717959, rShZ:  0.47123889803846897,
+      rootX: -2.47,
+      rootRotZ: 6.27681469282041 } },
   ] },
 
   // Knähopp fristående (som beam:tuck-jump men på golv utan baseRotY)
@@ -757,6 +785,7 @@ export function Gymnast3D({ exerciseId, color = "#C2185B", equipmentType }: Prop
       rootRef.current.position.set(p.rootX, baseY + p.rootY, p.rootZ);
       rootRef.current.rotation.x = p.rootRotX;
       rootRef.current.rotation.y = p.rootRotY;
+      rootRef.current.rotation.z = p.rootRotZ;
     }
     const r = bodyRefs;
     if (r.spineRef.current) { r.spineRef.current.rotation.x = p.spineX; r.spineRef.current.rotation.z = p.spineZ; }
