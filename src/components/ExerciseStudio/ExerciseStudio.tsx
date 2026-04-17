@@ -670,6 +670,59 @@ export function ExerciseStudio({ open, onClose }: Props) {
 
         {/* Sliders */}
         <div className={`${mobileTab === "edit" ? "flex-1" : "hidden"} overflow-y-auto border-slate-700 bg-slate-800/60 px-3 py-2 lg:block lg:border-l`}>
+          {/* Keyframe-stepper – låter användaren hoppa mellan KFs utan att
+              växla till tidslinje-taben. Dubbleras på desktop (timeline har
+              egen) men det gör inget – mobile-nyttan väger tyngre. */}
+          <div className="mb-3 flex items-center gap-2 rounded border border-slate-700 bg-slate-900/60 p-2">
+            <button
+              type="button"
+              onClick={() => stepKeyframe(-1)}
+              disabled={selectedKfIdx <= 0}
+              className="grid h-8 w-8 place-items-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30"
+              aria-label="Föregående keyframe"
+              title="Föregående keyframe"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className="flex flex-1 flex-col text-center text-[11px] leading-tight text-slate-300">
+              <span className="font-semibold">
+                KF #{selectedKfIdx + 1} / {def.kfs.length}
+              </span>
+              <span className="font-mono text-slate-400">
+                t = {def.kfs[selectedKfIdx]?.t.toFixed(2) ?? "–"}s
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => stepKeyframe(1)}
+              disabled={selectedKfIdx >= def.kfs.length - 1}
+              className="grid h-8 w-8 place-items-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30"
+              aria-label="Nästa keyframe"
+              title="Nästa keyframe"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={addKeyframe}
+              className="grid h-8 w-8 place-items-center rounded bg-emerald-700 hover:bg-emerald-600"
+              aria-label="Lägg till keyframe"
+              title="Lägg till keyframe"
+            >
+              <Plus size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => duplicateKeyframe(selectedKfIdx)}
+              disabled={def.kfs.length === 0}
+              className="grid h-8 w-8 place-items-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30"
+              aria-label="Duplicera aktuell keyframe"
+              title="Duplicera aktuell keyframe"
+            >
+              <CopyIcon size={14} />
+            </button>
+          </div>
+
           <div className="mb-3 flex flex-wrap gap-2">
             <button
               type="button"
