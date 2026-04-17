@@ -198,13 +198,16 @@ export function ExerciseStudio({ open, onClose }: Props) {
       kfs: d.kfs.map((k, i) => {
         if (i !== selectedKfIdx) return k;
         const next: Pose = { ...k.pose, [key]: value };
-        // Vid hand/fot-lås: när rootRotX ändras, räkna automatiskt om
-        // rootY/rootZ så pivot-punkten följer rotationen. Bevara samtidigt
-        // KF:ens befintliga offset (skillnaden mellan pose.rootY/Z och
-        // rena låsvärdet), så att användarens egen position behålls medan
-        // rotationen styr pendeln. Hoppa över KFs där locked === false
-        // (släpp-moment – pose är i fritt flyg).
-        if (lockMode !== "none" && key === "rootRotX" && k.locked !== false) {
+        // Vid hand/fot-lås: när en vinkel som ingår i lås-formeln ändras
+        // (rootRotX alltid; spineX också när händerna är låsta eftersom bålen
+        // roterar body-up-riktningen) så räknar vi automatiskt om rootY/rootZ
+        // så pivot-punkten följer rotationen. Offsetet (skillnaden mellan
+        // pose.rootY/Z och rena låsvärdet) bevaras. Hoppa över KFs där
+        // locked === false (släpp-moment – pose är i fritt flyg).
+        const affectsLock =
+          key === "rootRotX" ||
+          (lockMode === "hands" && key === "spineX");
+        if (lockMode !== "none" && affectsLock && k.locked !== false) {
           const oldLocked = applyLock(k.pose, lockMode);
           const offsetY = k.pose.rootY - oldLocked.rootY;
           const offsetZ = k.pose.rootZ - oldLocked.rootZ;
@@ -215,30 +218,6 @@ export function ExerciseStudio({ open, onClose }: Props) {
           };
         }
         return { ...k, pose: next };
-      }),
-    }));
-  };
-
-  const applyLockToAllKfs = () => {
-    if (lockMode === "none") return;
-    const sel = def.kfs[selectedKfIdx];
-    if (!sel) return;
-    // Offset = aktuell KF:ens manuella justering utöver ren lås-formel.
-    // Applicera lås(a) + offset på alla KFs som är märkta som låsta.
-    // KFs med locked === false lämnas orörda (t.ex. ett "släpp"-moment
-    // mitt i en sving då gymnasten lämnar räcket).
-    const selLocked = applyLock(sel.pose, lockMode);
-    const offsetY = sel.pose.rootY - selLocked.rootY;
-    const offsetZ = sel.pose.rootZ - selLocked.rootZ;
-    setDef((d) => ({
-      ...d,
-      kfs: d.kfs.map((k) => {
-        if (k.locked === false) return k;
-        const locked = applyLock(k.pose, lockMode);
-        return {
-          ...k,
-          pose: { ...locked, rootY: locked.rootY + offsetY, rootZ: locked.rootZ + offsetZ },
-        };
       }),
     }));
   };
@@ -373,6 +352,37 @@ export function ExerciseStudio({ open, onClose }: Props) {
     }
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const importJson = async (file: File) => {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      // Acceptera både { meta, def } (vår export) och en naken ExerciseDef.
+      const incomingDef: ExerciseDef | undefined = parsed?.def ?? (parsed?.kfs ? parsed : undefined);
+      const incomingMeta: Exercise | undefined = parsed?.meta;
+      if (!incomingDef || !Array.isArray(incomingDef.kfs)) {
+        alert("Filen ser inte ut att vara en giltig övning (kfs saknas).");
+        return;
+      }
+      setDef(cloneDef(incomingDef));
+      if (incomingMeta && typeof incomingMeta.id === "string") {
+        setMeta({
+          id: incomingMeta.id,
+          label: incomingMeta.label ?? "",
+          apparatus: Array.isArray(incomingMeta.apparatus) ? incomingMeta.apparatus : ["floor"],
+          speed: typeof incomingMeta.speed === "number" ? incomingMeta.speed : 2.0,
+        });
+      }
+      setSelectedId(null); // låt användaren spara själv
+      setSelectedKfIdx(0);
+      setTime(0);
+      setPlaying(false);
+    } catch (err) {
+      alert(`Kunde inte läsa filen: ${(err as Error).message}`);
+    }
+  };
+
   const dumpJson = () => {
     // Exportera övningen som .json-fil till användarens dator via en
     // tillfällig <a download>. Samma mönster som klassisk "save file"-flöde
@@ -456,6 +466,25 @@ export function ExerciseStudio({ open, onClose }: Props) {
         >
           Exportera JSON
         </button>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded bg-slate-600 px-3 py-1 text-sm hover:bg-slate-500"
+          title="Läs in en övning från en .json-fil"
+        >
+          Importera JSON
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void importJson(f);
+            e.target.value = ""; // gör att samma fil kan väljas igen
+          }}
+        />
 
         <div className="flex-1" />
 
@@ -625,15 +654,6 @@ export function ExerciseStudio({ open, onClose }: Props) {
                   {m === "none" ? "Inget" : m === "hands" ? "Händer (räcke)" : "Fötter (golv)"}
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={applyLockToAllKfs}
-                disabled={lockMode === "none"}
-                className="ml-auto rounded bg-emerald-700 px-2 py-1 text-[11px] hover:bg-emerald-600 disabled:opacity-30"
-                title="Snappa alla KFs rootY/rootZ mot aktuellt lås"
-              >
-                Applicera på alla
-              </button>
             </div>
           </div>
 

@@ -86,11 +86,18 @@ export function lerpPose(a: Pose, b: Pose, alpha: number): Pose {
 }
 
 // Räkna ut rootY/rootZ så att händer (hang-bar) eller fötter (golvpivot)
-// förblir fasta när kroppen roterar kring X (rootRotX). Händerna traverserar
-// en cirkel med radie BAR_R runt stångens centrum (inte en exakt punkt).
+// förblir fasta när kroppen roterar kring X.
+//
+// Händer: grepppunkten sitter i toppen av sträckta armar – alltså i riktning
+// "body-up". Body-up roteras av BÅDE rootRotX och spineX (spine sitter på
+// höften och vrider bålen + axlar + armar). Om vi bara kompenserade för
+// rootRotX skulle en mellan-keyframe-interpolation av spineX skjuta händerna
+// bort från stången. Därför använder vi effektivvinkeln a = rootRotX + spineX.
+// Grepppunkten ligger dessutom BAR_R från stångens centrum så hand-banan
+// blir en riktig cirkel runt stången.
 export function applyLock(pose: Pose, mode: LockMode): Pose {
   if (mode === "hands") {
-    const a = pose.rootRotX;
+    const a = pose.rootRotX + pose.spineX;
     return {
       ...pose,
       rootZ: -(HANG_DIST - BAR_R) * Math.sin(a),
