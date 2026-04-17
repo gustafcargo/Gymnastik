@@ -37,6 +37,24 @@ export const HANG_DIST = H_TORSO * 0.85 + H_UPPER + H_LOWER;
 
 const P = Math.PI;
 
+// ─── Bål-profil för LatheGeometry ─────────────────────────────────────────────
+// (radius, height) sett från sidan. Roteras runt Y-axeln vid render.
+// Kvinnlig kontur: bred höft → smal midja → bredare bröstkorg → smal hals.
+// Stängd vid topp och botten (x=0.001) så det inte syns hål in i bålen.
+const TORSO_PROFILE: THREE.Vector2[] = [
+  new THREE.Vector2(0.001,        0.00 * H_TORSO),  // stängd botten
+  new THREE.Vector2(0.95 * R_BODY, 0.005 * H_TORSO),
+  new THREE.Vector2(1.06 * R_BODY, 0.10 * H_TORSO), // bredaste höft
+  new THREE.Vector2(0.95 * R_BODY, 0.20 * H_TORSO),
+  new THREE.Vector2(0.74 * R_BODY, 0.36 * H_TORSO), // smalaste midja
+  new THREE.Vector2(0.82 * R_BODY, 0.50 * H_TORSO),
+  new THREE.Vector2(1.00 * R_BODY, 0.65 * H_TORSO),
+  new THREE.Vector2(1.10 * R_BODY, 0.78 * H_TORSO), // bredaste bröstkorg
+  new THREE.Vector2(1.02 * R_BODY, 0.88 * H_TORSO),
+  new THREE.Vector2(0.45 * R_BODY, 0.96 * H_TORSO),
+  new THREE.Vector2(0.001,        1.00 * H_TORSO),  // stängd topp (möter halsen)
+];
+
 // ─── Refs ─────────────────────────────────────────────────────────────────────
 export type BodyRefs = {
   spineRef: React.RefObject<THREE.Group | null>;
@@ -163,13 +181,13 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
         <meshPhysicalMaterial color={ribbon} roughness={0.45} metalness={0.08} />
       </mesh>
 
-      {/* Öron – mindre och mer naturligt placerade */}
-      <mesh position={[-H_HEAD * 0.92, -H_HEAD * 0.08, H_HEAD * 0.08]} rotation={[0, P * 0.1, 0]} scale={[0.6, 1.0, 1.2]} castShadow>
-        <sphereGeometry args={[H_HEAD * 0.15, 10, 8]} />
+      {/* Öron – tätare mot huvudet, något mindre */}
+      <mesh position={[-H_HEAD * 0.86, -H_HEAD * 0.08, H_HEAD * 0.10]} rotation={[0, P * 0.1, 0]} scale={[0.5, 0.95, 1.15]} castShadow>
+        <sphereGeometry args={[H_HEAD * 0.13, 10, 8]} />
         <meshPhysicalMaterial color={skinWarm} roughness={0.60} metalness={0} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.92, -H_HEAD * 0.08, H_HEAD * 0.08]} rotation={[0, -P * 0.1, 0]} scale={[0.6, 1.0, 1.2]} castShadow>
-        <sphereGeometry args={[H_HEAD * 0.15, 10, 8]} />
+      <mesh position={[ H_HEAD * 0.86, -H_HEAD * 0.08, H_HEAD * 0.10]} rotation={[0, -P * 0.1, 0]} scale={[0.5, 0.95, 1.15]} castShadow>
+        <sphereGeometry args={[H_HEAD * 0.13, 10, 8]} />
         <meshPhysicalMaterial color={skinWarm} roughness={0.60} metalness={0} />
       </mesh>
 
@@ -336,38 +354,30 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
 
       {/* ── Bål (uppåt från höfter) ──────────────────────────────────── */}
       <group ref={r3f(refs.spineRef)}>
-        {/* Bröstkorg (topp) – bredare upptill och ut mot axlarna */}
-        <mesh position={[0, H_TORSO * 0.76, 0]} castShadow>
-          <cylinderGeometry args={[R_BODY * 1.15, R_BODY * 0.82, H_TORSO * 0.50, 22]} />
-          <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
-            clearcoat={0.55} clearcoatRoughness={0.22} />
-        </mesh>
-        {/* Midja (smalare) – mjuk övergång bröst → höft */}
-        <mesh position={[0, H_TORSO * 0.40, 0]} castShadow>
-          <cylinderGeometry args={[R_BODY * 0.82, R_BODY * 0.78, H_TORSO * 0.24, 22]} />
-          <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
-            clearcoat={0.55} clearcoatRoughness={0.22} />
-        </mesh>
-        {/* Höft – bredare nedre del */}
-        <mesh position={[0, H_TORSO * 0.14, 0]} castShadow>
-          <cylinderGeometry args={[R_BODY * 0.78, R_BODY * 1.06, H_TORSO * 0.30, 22]} />
+        {/* Bål – ENDA mjuk lathe-profil ersätter de tre cylindrarna.
+            Smal midja, bred höft, bredare bröstkorg, mot smal hals. */}
+        <mesh castShadow>
+          <latheGeometry args={[TORSO_PROFILE, 28]} />
           <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
             clearcoat={0.55} clearcoatRoughness={0.22} />
         </mesh>
 
-        {/* Axel-yoke – EN bred, mjuk ellipsoid som kopplar bröstets topp till
-            axelkulorna. Ersätter tidigare klavikel-cylindrar (såg ut som rör)
-            + bröstplatta + V-ringningsplan. Bredd ≈ 2·W_SHLDR, slank höjd. */}
+        {/* Diskret bystantydning – två små leotard-färgade bullar på framsidan */}
+        {([-1, 1] as number[]).map((side) => (
+          <mesh key={`bust-${side}`}
+                position={[side * R_BODY * 0.42, H_TORSO * 0.66, -R_BODY * 0.92]}
+                scale={[1.0, 0.95, 0.65]} castShadow>
+            <sphereGeometry args={[R_BODY * 0.22, 14, 10]} />
+            <meshPhysicalMaterial color={color} roughness={0.38} metalness={0.16}
+              clearcoat={0.55} clearcoatRoughness={0.22} />
+          </mesh>
+        ))}
+
+        {/* Axel-yoke – mjuk ellipsoid som kopplar bröstet till axelkulorna */}
         <mesh position={[0, H_TORSO * 0.90, 0]} scale={[3.05, 0.55, 1.10]} castShadow>
           <sphereGeometry args={[R_BODY * 0.95, 26, 18]} />
           <meshPhysicalMaterial color={color} roughness={0.38} metalness={0.16}
             clearcoat={0.50} clearcoatRoughness={0.25} />
-        </mesh>
-
-        {/* Midjeband – mörkare accent vid smalaste punkten */}
-        <mesh position={[0, H_TORSO * 0.40, 0]} castShadow>
-          <torusGeometry args={[R_BODY * 0.80, 0.0045, 10, 24]} />
-          <meshPhysicalMaterial color="#000" roughness={0.30} metalness={0.3} clearcoat={0.7} transparent opacity={0.35} />
         </mesh>
 
         {/* Hals */}
@@ -393,7 +403,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
         <group ref={r3f(refs.lShRef)} position={[-W_SHLDR, H_TORSO * 0.87, 0]}>
           <LeotardSeg len={H_UPPER} r={R_LIMB * 1.05} color={color} />
           <group ref={r3f(refs.lElRef)} position={[0, -H_UPPER, 0]}>
-            <Joint r={R_LIMB * 1.12} color={skin} />
+            <Joint r={R_LIMB * 0.96} color={skin} />
             <SkinSeg len={H_LOWER} r={R_LIMB * 0.88} color={skin} />
             <group position={[0, -H_LOWER, 0]}>
               <Hand skin={skin} />
@@ -405,7 +415,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
         <group ref={r3f(refs.rShRef)} position={[W_SHLDR, H_TORSO * 0.87, 0]}>
           <LeotardSeg len={H_UPPER} r={R_LIMB * 1.05} color={color} />
           <group ref={r3f(refs.rElRef)} position={[0, -H_UPPER, 0]}>
-            <Joint r={R_LIMB * 1.12} color={skin} />
+            <Joint r={R_LIMB * 0.96} color={skin} />
             <SkinSeg len={H_LOWER} r={R_LIMB * 0.88} color={skin} />
             <group position={[0, -H_LOWER, 0]}>
               <Hand skin={skin} />
@@ -423,7 +433,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
           <meshPhysicalMaterial color={skin} roughness={0.62} metalness={0} />
         </mesh>
         <group ref={r3f(refs.lKnRef)} position={[0, -H_THIGH, 0]}>
-          <Joint r={R_LEG * 1.08} color={skin} />
+          <Joint r={R_LEG * 0.96} color={skin} />
           <SkinSeg len={H_SHIN} r={R_LEG * 0.88} color={skin} />
           <Foot skin={skin} />
         </group>
@@ -437,7 +447,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
           <meshPhysicalMaterial color={skin} roughness={0.62} metalness={0} />
         </mesh>
         <group ref={r3f(refs.rKnRef)} position={[0, -H_THIGH, 0]}>
-          <Joint r={R_LEG * 1.08} color={skin} />
+          <Joint r={R_LEG * 0.96} color={skin} />
           <SkinSeg len={H_SHIN} r={R_LEG * 0.88} color={skin} />
           <Foot skin={skin} />
         </group>
