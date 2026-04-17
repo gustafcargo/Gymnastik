@@ -76,6 +76,14 @@ export type GymnastTuning = {
     chestWidth: number;         // multiplikator för bröstkorgens bredaste radie
     shoulderWidth: number;      // multiplikator för axelparti
   };
+
+  // ── Glitter & effekter (kosmetisk rendering) ─────────────────
+  // Reglerar hur "glittrig" dräkten blir. Påverkar leotard-materialet:
+  // högre värden ger starkare metalness + clearcoat så dräkten blinkar
+  // likt paljetter/scentyg. 0 = matt, 1 = maxglitter.
+  sparkle: {
+    amount: number;             // 0..1 — intensitet
+  };
 };
 
 export const DEFAULT_TUNING: GymnastTuning = {
@@ -129,6 +137,9 @@ export const DEFAULT_TUNING: GymnastTuning = {
     waistNarrow: 0.94,
     chestWidth: 1.30,
     shoulderWidth: 1.34,
+  },
+  sparkle: {
+    amount: 0,
   },
 };
 

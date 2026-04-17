@@ -4,8 +4,9 @@
  * Touch: virtuell joystick (vänster) + hoppa-upp-knapp (höger).
  */
 import { useEffect, useRef, useState } from "react";
-import { Camera, X } from "lucide-react";
+import { Camera, X, Sparkles } from "lucide-react";
 import type { MountedExerciseInfo } from "./GameGymnast3D";
+import { GymnastStylePanel } from "./GymnastStylePanel";
 
 type Props = {
   nearEquipment: string | null;
@@ -22,6 +23,7 @@ type Props = {
 export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, speedRef, cameraResetRef, cameraOrbitRef, freeCamActive, onExit }: Props) {
   const [isTouch, setIsTouch] = useState(false);
   const [speedDisplay, setSpeedDisplay] = useState(speedRef.current);
+  const [styleOpen, setStyleOpen] = useState(false);
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
   const joyKnobRef = useRef<HTMLDivElement>(null);
@@ -187,6 +189,24 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
         />
       </div>
 
+      {/* Stil-knapp – öppnar enkel färg-/glitter-editor för barn */}
+      <button
+        type="button"
+        onClick={() => setStyleOpen(true)}
+        style={{
+          position: "absolute", top: freeCamActive ? 178 : 142, right: 14,
+          display: "flex", alignItems: "center", gap: 6,
+          background: "linear-gradient(135deg, rgba(236,72,153,0.85), rgba(168,85,247,0.85))",
+          backdropFilter: "blur(6px)",
+          border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8,
+          color: "#fff", fontSize: 11, fontWeight: 700, padding: "6px 12px",
+          cursor: "pointer", pointerEvents: "all",
+          boxShadow: "0 2px 10px rgba(168,85,247,0.35)",
+        }}
+      >
+        <Sparkles size={13} /> Stil
+      </button>
+
       {/* Övningsmeny – visas när gymnast är monterad på redskap (uppe till vänster) */}
       {mountedExerciseInfo && (
         <div style={{
@@ -309,6 +329,8 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
           </button>
         </>
       )}
+
+      <GymnastStylePanel open={styleOpen} onClose={() => setStyleOpen(false)} />
     </div>
   );
 }

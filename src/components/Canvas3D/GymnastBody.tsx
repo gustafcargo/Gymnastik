@@ -80,14 +80,37 @@ function r3f<T>(ref: React.RefObject<T | null>): React.Ref<T> {
 }
 
 // ─── Primitiver ───────────────────────────────────────────────────────────────
+
+// Glitter-booster: tar bas-materialparametrar och blandar in paljett-likt skimmer
+// baserat på sparkle-amount (0..1). Högre amount ger mer metalness + sheen +
+// iridescence (regnbågs-skimmer) och vassare clearcoat. Used av alla leotard-
+// meshes så dräkten blir glittrig som ett helt set — inte bara bålen.
+function leotardMat(
+  base: { metalness: number; roughness: number; clearcoat: number; clearcoatRoughness: number },
+  amount: number,
+) {
+  return {
+    roughness: Math.max(0.06, base.roughness - amount * 0.22),
+    metalness: Math.min(1, base.metalness + (1 - base.metalness) * amount * 0.65),
+    clearcoat: Math.min(1, base.clearcoat + (1 - base.clearcoat) * amount),
+    clearcoatRoughness: Math.max(0, base.clearcoatRoughness - amount * 0.15),
+    sheen: amount,
+    sheenRoughness: 0.25,
+    sheenColor: "#ffffff",
+    iridescence: amount * 0.5,
+    iridescenceIOR: 1.3 + amount * 0.1,
+  };
+}
+
 function LeotardSeg({ len, r, color, up = false }: {
   len: number; r: number; color: string; up?: boolean;
 }) {
+  const amount = useGymnastTuning((s) => s.sparkle.amount);
+  const mat = leotardMat({ metalness: 0.05, roughness: 0.48, clearcoat: 0.35, clearcoatRoughness: 0.30 }, amount);
   return (
     <mesh position={[0, up ? len / 2 : -len / 2, 0]} castShadow>
       <capsuleGeometry args={[r, Math.max(0.001, len - r * 2), 6, 10]} />
-      <meshPhysicalMaterial color={color} roughness={0.48} metalness={0.05}
-        clearcoat={0.35} clearcoatRoughness={0.30} />
+      <meshPhysicalMaterial color={color} {...mat} />
     </mesh>
   );
 }
@@ -104,12 +127,21 @@ function SkinSeg({ len, r, color, up = false }: {
 function Joint({ r, color, leotard = false }: {
   r: number; color: string; leotard?: boolean;
 }) {
+  const amount = useGymnastTuning((s) => s.sparkle.amount);
+  if (leotard) {
+    const mat = leotardMat({ metalness: 0.05, roughness: 0.48, clearcoat: 0.35, clearcoatRoughness: 0.30 }, amount);
+    return (
+      <mesh castShadow>
+        <sphereGeometry args={[r, 10, 8]} />
+        <meshPhysicalMaterial color={color} {...mat} />
+      </mesh>
+    );
+  }
   return (
     <mesh castShadow>
       <sphereGeometry args={[r, 10, 8]} />
-      <meshPhysicalMaterial color={color} roughness={leotard ? 0.48 : 0.72}
-        metalness={leotard ? 0.05 : 0}
-        clearcoat={leotard ? 0.35 : 0} clearcoatRoughness={0.30} />
+      <meshPhysicalMaterial color={color} roughness={0.72} metalness={0}
+        clearcoat={0} clearcoatRoughness={0.30} />
     </mesh>
   );
 }
@@ -362,11 +394,17 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
 ) {
   const torsoT = useGymnastTuning((s) => s.torso);
   const colors = useGymnastTuning((s) => s.colors);
+  const sparkle = useGymnastTuning((s) => s.sparkle.amount);
   // Leotard-färg = tuning (så panelen kan styra). color-prop från parent
   // fungerar som fallback om någon kallar komponenten utan tuning-override.
   const color = colors.leotard || colorProp;
   const skin  = colors.skin    || skinProp;
   const torsoProfile = useMemo(() => buildTorsoProfile(torsoT), [torsoT]);
+  // Pre-beräknade leotard-material med sparkle-booster (torso, bröst, axel-yoke)
+  const matTorso = leotardMat({ metalness: 0.18, roughness: 0.35, clearcoat: 0.55, clearcoatRoughness: 0.22 }, sparkle);
+  const matBust  = leotardMat({ metalness: 0.16, roughness: 0.38, clearcoat: 0.55, clearcoatRoughness: 0.22 }, sparkle);
+  const matYoke  = leotardMat({ metalness: 0.16, roughness: 0.38, clearcoat: 0.50, clearcoatRoughness: 0.25 }, sparkle);
+  const matShldr = leotardMat({ metalness: 0.14, roughness: 0.40, clearcoat: 0.50, clearcoatRoughness: 0.25 }, sparkle);
   return (
     <group ref={ref}>
       {/* Höftkula */}
@@ -378,8 +416,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
             Smal midja, bred höft, bredare bröstkorg, mot smal hals. */}
         <mesh castShadow>
           <latheGeometry args={[torsoProfile, 28]} />
-          <meshPhysicalMaterial color={color} roughness={0.35} metalness={0.18}
-            clearcoat={0.55} clearcoatRoughness={0.22} />
+          <meshPhysicalMaterial color={color} {...matTorso} />
         </mesh>
 
         {/* Diskret bystantydning – placerade på bröstkorgens topp (y≈0.72) på
@@ -389,8 +426,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
                 position={[side * R_BODY * 0.45, H_TORSO * 0.72, -R_BODY * 1.02]}
                 scale={[1.0, 0.95, 0.55]} castShadow>
             <sphereGeometry args={[R_BODY * 0.24, 14, 10]} />
-            <meshPhysicalMaterial color={color} roughness={0.38} metalness={0.16}
-              clearcoat={0.55} clearcoatRoughness={0.22} />
+            <meshPhysicalMaterial color={color} {...matBust} />
           </mesh>
         ))}
 
@@ -398,8 +434,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
             det mindre tallrikslikt, X 3.05→2.55 gör det mindre utstickande). */}
         <mesh position={[0, H_TORSO * 0.90, 0]} scale={[2.55, 0.80, 1.20]} castShadow>
           <sphereGeometry args={[R_BODY * 0.95, 26, 18]} />
-          <meshPhysicalMaterial color={color} roughness={0.38} metalness={0.16}
-            clearcoat={0.50} clearcoatRoughness={0.25} />
+          <meshPhysicalMaterial color={color} {...matYoke} />
         </mesh>
 
         {/* Hals */}
@@ -416,8 +451,7 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
         {([-W_SHLDR, W_SHLDR] as number[]).map((x, i) => (
           <mesh key={i} position={[x, H_TORSO * 0.88, 0]} castShadow>
             <sphereGeometry args={[0.044, 14, 11]} />
-            <meshPhysicalMaterial color={color} roughness={0.40} metalness={0.14}
-              clearcoat={0.50} clearcoatRoughness={0.25} />
+            <meshPhysicalMaterial color={color} {...matShldr} />
           </mesh>
         ))}
 

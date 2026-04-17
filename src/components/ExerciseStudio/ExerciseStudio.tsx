@@ -115,6 +115,10 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const [selectedKfIdx, setSelectedKfIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [mirrorLR, setMirrorLR] = useState(false);
+  // Mobile-tab: styr vilken kolumn som visas under lg-brytpunkten.
+  // Desktop (lg:) ignorerar detta och visar alla tre sida vid sida.
+  const [mobileTab, setMobileTab] = useState<"preview" | "edit" | "timeline">("preview");
+  const [metaExpanded, setMetaExpanded] = useState(false);
 
   // Laddar vald övning när selectedId ändras
   useEffect(() => {
@@ -433,13 +437,22 @@ export function ExerciseStudio({ open, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/95 text-slate-100 backdrop-blur-sm">
       {/* Top bar */}
-      <div className="flex items-center gap-3 border-b border-slate-700 bg-slate-800 px-4 py-2">
-        <strong className="mr-4 text-base font-semibold">Övningsstudio</strong>
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-700 bg-slate-800 px-3 py-2 lg:gap-3 lg:px-4">
+        <strong className="text-base font-semibold lg:mr-4">Övningsstudio</strong>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-auto grid h-8 w-8 place-items-center rounded hover:bg-slate-700 lg:order-last lg:ml-0"
+          aria-label="Stäng"
+        >
+          <X size={18} />
+        </button>
 
         <select
           value={selectedId ?? ""}
           onChange={(e) => setSelectedId(e.target.value || null)}
-          className="rounded bg-slate-700 px-2 py-1 text-sm"
+          className="min-w-0 max-w-full rounded bg-slate-700 px-2 py-1 text-sm"
         >
           <option value="">— Ny övning —</option>
           {allOptions.map((o) => (
@@ -462,7 +475,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
             onClick={handleRevert}
             className="rounded bg-amber-600 px-3 py-1 text-sm hover:bg-amber-500"
           >
-            Återställ till original
+            Återställ
           </button>
         )}
         {!isBuiltIn && meta.id && customDefs[meta.id] && (
@@ -471,7 +484,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
             onClick={handleDelete}
             className="rounded bg-rose-600 px-3 py-1 text-sm hover:bg-rose-500"
           >
-            Radera övning
+            Radera
           </button>
         )}
         <button
@@ -480,7 +493,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
           className="rounded bg-slate-600 px-3 py-1 text-sm hover:bg-slate-500"
           title="Ladda ner övningen som .json-fil"
         >
-          Exportera JSON
+          Export
         </button>
         <button
           type="button"
@@ -488,7 +501,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
           className="rounded bg-slate-600 px-3 py-1 text-sm hover:bg-slate-500"
           title="Läs in en övning från en .json-fil"
         >
-          Importera JSON
+          Import
         </button>
         <input
           ref={fileInputRef}
@@ -502,20 +515,21 @@ export function ExerciseStudio({ open, onClose }: Props) {
           }}
         />
 
-        <div className="flex-1" />
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="grid h-8 w-8 place-items-center rounded hover:bg-slate-700"
-          aria-label="Stäng"
-        >
-          <X size={18} />
-        </button>
+        <div className="hidden flex-1 lg:block" />
       </div>
 
-      {/* Metadata row */}
-      <div className="grid grid-cols-6 gap-2 border-b border-slate-700 bg-slate-800/60 px-4 py-2 text-xs">
+      {/* Metadata row – kollapsbar på mobil så den inte äter halva skärmen */}
+      <button
+        type="button"
+        onClick={() => setMetaExpanded((v) => !v)}
+        className="flex items-center justify-between border-b border-slate-700 bg-slate-800/60 px-4 py-1.5 text-xs text-slate-300 lg:hidden"
+      >
+        <span>Metadata {meta.label ? `• ${meta.label}` : ""}</span>
+        <span className="text-slate-500">{metaExpanded ? "▲" : "▼"}</span>
+      </button>
+      <div
+        className={`${metaExpanded ? "grid" : "hidden"} grid-cols-2 gap-2 border-b border-slate-700 bg-slate-800/60 px-4 py-2 text-xs lg:grid lg:grid-cols-6`}
+      >
         <label className="col-span-1">
           Id
           <input
@@ -603,10 +617,32 @@ export function ExerciseStudio({ open, onClose }: Props) {
         </div>
       </div>
 
-      {/* Main grid: preview | sliders | timeline */}
-      <div className="grid flex-1 grid-cols-[1fr_360px_320px] overflow-hidden">
+      {/* Mobile-tabbar – endast synliga under lg */}
+      <div className="flex shrink-0 border-b border-slate-700 bg-slate-800 text-xs lg:hidden">
+        {[
+          { key: "preview" as const, label: "Förhandsvisning" },
+          { key: "edit"    as const, label: "Redigera" },
+          { key: "timeline" as const, label: "Tidslinje" },
+        ].map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setMobileTab(t.key)}
+            className={`flex-1 border-b-2 px-2 py-2 font-semibold transition-colors ${
+              mobileTab === t.key
+                ? "border-emerald-500 text-emerald-300"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Main grid: preview | sliders | timeline (mobil: tabbad stack) */}
+      <div className="flex flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[1fr_360px_320px]">
         {/* Preview */}
-        <div className="relative">
+        <div className={`relative ${mobileTab === "preview" ? "flex-1" : "hidden"} lg:block lg:flex-auto`}>
           <PosePreview pose={currentPose} def={def} apparatus={meta.apparatus[0]} />
           {/* Scrubber overlay */}
           <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 bg-slate-900/80 px-3 py-2">
@@ -633,7 +669,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
         </div>
 
         {/* Sliders */}
-        <div className="overflow-y-auto border-l border-slate-700 bg-slate-800/60 px-3 py-2">
+        <div className={`${mobileTab === "edit" ? "flex-1" : "hidden"} overflow-y-auto border-slate-700 bg-slate-800/60 px-3 py-2 lg:block lg:border-l`}>
           <div className="mb-3 flex flex-wrap gap-2">
             <button
               type="button"
@@ -758,7 +794,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
         </div>
 
         {/* Timeline */}
-        <div className="flex flex-col overflow-hidden border-l border-slate-700 bg-slate-800/60">
+        <div className={`${mobileTab === "timeline" ? "flex flex-1" : "hidden"} flex-col overflow-hidden border-slate-700 bg-slate-800/60 lg:flex lg:border-l`}>
           <div className="flex items-center justify-between gap-2 border-b border-slate-700 px-3 py-2">
             <strong className="text-sm">Keyframes ({def.kfs.length})</strong>
             <div className="flex items-center gap-1">
