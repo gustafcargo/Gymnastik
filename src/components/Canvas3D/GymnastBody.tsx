@@ -190,14 +190,14 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
       {/* ── Ansikte (−Z) ─────────────────────────────────────────────── */}
 
       {/* ── Ögon ──────────────────────────────────────────────────────
-          Flata cirklar PROJICERADE på huvudsfären: varje ögongrupp placeras
-          på sfärytan (radie H_HEAD·1.006) vid azimut ±18° från ansikts-axeln
-          och roteras kring Y med −s·azimut så att gruppens lokala −Z pekar
-          längs sfärens utåt-normal. Därmed ligger ögondisken tangent mot
-          sfären och klipps INTE av huvudets kurvatur. */}
+          3D-ellipsoid-ögonbollar som buktar ut från huden (istället för
+          platta diskar som låg och flöt). Gruppen är projicerad tangent mot
+          huvudsfären (azimut ±18° runt Y) så ögonbollen sitter fast i skinnet.
+          Z-skalan 0.55 gör bollen till en liggande "dome" snarare än en
+          full sfär. Pupillen är platt cirkel monterad framför bollen. */}
       {([-1, 1] as number[]).map((s) => {
         const EYE_AZ = P / 10;                         // 18° från ansiktsaxeln
-        const EYE_R  = H_HEAD * 1.006;                 // precis utanför skinnet
+        const EYE_R  = H_HEAD;                         // centrum på skinnet
         const EYE_Y  = H_HEAD * 0.08;
         return (
           <group
@@ -205,19 +205,19 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
             position={[s * Math.sin(EYE_AZ) * EYE_R, EYE_Y, -Math.cos(EYE_AZ) * EYE_R]}
             rotation={[0, -s * EYE_AZ, 0]}
           >
-            {/* Ögonvita – tydligt liggande ellips (bredare än hög) */}
-            <mesh scale={[1.75, 0.85, 1.0]}>
-              <circleGeometry args={[0.012, 28]} />
-              <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
+            {/* Ögonvita – liggande ellipsoid-dome som buktar ut */}
+            <mesh scale={[1.45, 0.85, 0.55]} castShadow>
+              <sphereGeometry args={[0.012, 22, 16]} />
+              <meshPhysicalMaterial color="#fafafa" roughness={0.30} metalness={0.02} clearcoat={0.45} clearcoatRoughness={0.2} />
             </mesh>
-            {/* Pupill – svart prick mitt på ögonvitan (lokal −Z = framåt) */}
-            <mesh position={[0, 0, -0.0010]}>
-              <circleGeometry args={[0.0038, 20]} />
+            {/* Pupill – svart cirkel monterad på domens framsida */}
+            <mesh position={[0, 0, -0.0072]}>
+              <circleGeometry args={[0.0040, 20]} />
               <meshBasicMaterial color="#0a0a0a" side={THREE.DoubleSide} />
             </mesh>
             {/* Ljusreflex – liten vit prick upp-inåt på pupillen */}
-            <mesh position={[s * -0.0010, 0.0016, -0.0020]}>
-              <circleGeometry args={[0.0010, 10]} />
+            <mesh position={[s * -0.0012, 0.0018, -0.0080]}>
+              <circleGeometry args={[0.0012, 10]} />
               <meshBasicMaterial color="#ffffff" side={THREE.DoubleSide} />
             </mesh>
           </group>
