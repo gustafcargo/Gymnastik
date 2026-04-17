@@ -6,7 +6,10 @@
  * studions pose-editor kan producera samma struktur som built-in-övningarna
  * utan duplicerade type-definitioner.
  */
-import { HANG_DIST, H_THIGH, H_SHIN } from "../components/Canvas3D/GymnastBody";
+import * as THREE from "three";
+import {
+  HANG_DIST, H_THIGH, H_SHIN, H_TORSO, H_UPPER, H_LOWER, W_SHLDR,
+} from "../components/Canvas3D/GymnastBody";
 
 // Räckets greppradie – händer rör sig runt stången i en liten cirkel
 // snarare än en exakt punkt.
@@ -85,24 +88,84 @@ export function lerpPose(a: Pose, b: Pose, alpha: number): Pose {
   return out;
 }
 
-// Räkna ut rootY/rootZ så att händer (hang-bar) eller fötter (golvpivot)
-// förblir fasta när kroppen roterar kring X.
-//
-// Händer: grepppunkten sitter i toppen av sträckta armar – alltså i riktning
-// "body-up". Body-up roteras av BÅDE rootRotX och spineX (spine sitter på
-// höften och vrider bålen + axlar + armar). Om vi bara kompenserade för
-// rootRotX skulle en mellan-keyframe-interpolation av spineX skjuta händerna
-// bort från stången. Därför använder vi effektivvinkeln a = rootRotX + spineX.
-// Grepppunkten ligger dessutom BAR_R från stångens centrum så hand-banan
-// blir en riktig cirkel runt stången.
+// ─── FK-rigg för hand-lås ─────────────────────────────────────────────────────
+// Bygger en minimal THREE.js-hierarki som speglar GymnastBody, så vi kan
+// applicera en Pose och läsa ut handposition genom full kinematik. Behövs
+// eftersom grepppunkten (händerna) flyttas av hela kedjan rootRotX → spineX/Z
+// → shoulderX/Z → elbowX, inte bara av rootRotX+spineX. Utan FK skulle t.ex.
+// en arm-bend mellan KFs skjuta handen bort från stången.
+type FkRig = {
+  root: THREE.Group;
+  spine: THREE.Group;
+  lSh: THREE.Group; lEl: THREE.Group; lHand: THREE.Object3D;
+  rSh: THREE.Group; rEl: THREE.Group; rHand: THREE.Object3D;
+};
+let _fkRig: FkRig | null = null;
+const _tmpL = new THREE.Vector3();
+const _tmpR = new THREE.Vector3();
+
+function getFkRig(): FkRig {
+  if (_fkRig) return _fkRig;
+  const root = new THREE.Group();
+  const spine = new THREE.Group();
+  root.add(spine);
+  const mkArm = (side: -1 | 1): { sh: THREE.Group; el: THREE.Group; hand: THREE.Object3D } => {
+    const sh = new THREE.Group();
+    sh.position.set(side * W_SHLDR, H_TORSO * 0.87, 0);
+    spine.add(sh);
+    const el = new THREE.Group();
+    el.position.set(0, -H_UPPER, 0);
+    sh.add(el);
+    const hand = new THREE.Object3D();
+    hand.position.set(0, -H_LOWER, 0);
+    el.add(hand);
+    return { sh, el, hand };
+  };
+  const L = mkArm(-1);
+  const R = mkArm(1);
+  _fkRig = {
+    root, spine,
+    lSh: L.sh, lEl: L.el, lHand: L.hand,
+    rSh: R.sh, rEl: R.el, rHand: R.hand,
+  };
+  return _fkRig;
+}
+
+/**
+ * Låser rootY/rootZ så att händer (hang-bar) eller fötter (golv) sitter fast
+ * när kroppen rör sig. För "hands" använder vi en verklig FK-beräkning över
+ * hela armkedjan (root→spine→shoulder→elbow→hand) – INTE bara rootRotX – så
+ * att ingen kroppsdel kan skjuta handen ur sitt läge mellan keyframes. Grepp-
+ * punkten tillåts sitta BAR_R ut från stångcentrum längs hand-vektorn, så
+ * handen traverserar en liten cirkel runt stången istället för att klistras
+ * mot en exakt punkt.
+ */
 export function applyLock(pose: Pose, mode: LockMode): Pose {
   if (mode === "hands") {
-    const a = pose.rootRotX + pose.spineX;
-    return {
-      ...pose,
-      rootZ: -(HANG_DIST - BAR_R) * Math.sin(a),
-      rootY:  HANG_DIST - (HANG_DIST - BAR_R) * Math.cos(a),
-    };
+    const r = getFkRig();
+    r.root.position.set(0, 0, 0);
+    r.root.rotation.set(pose.rootRotX, pose.rootRotY, 0);
+    r.spine.rotation.set(pose.spineX, 0, pose.spineZ);
+    r.lSh.rotation.set(pose.lShX, 0, pose.lShZ);
+    r.lEl.rotation.x = pose.lElX;
+    r.rSh.rotation.set(pose.rShX, 0, pose.rShZ);
+    r.rEl.rotation.x = pose.rElX;
+    r.root.updateMatrixWorld(true);
+    r.lHand.getWorldPosition(_tmpL);
+    r.rHand.getWorldPosition(_tmpR);
+    // Medel-hand: behandlar gymnasten som att greppet sitter mellan händerna.
+    // Vid symmetrisk pose = identiskt med vänster/höger. Vid asymmetri fångar
+    // medelvärdet det bästa gemensamma läge för bådas greppunkt.
+    const midY = (_tmpL.y + _tmpR.y) * 0.5;
+    const midZ = (_tmpL.z + _tmpR.z) * 0.5;
+    // Greppriktning = hip→hand-mitt, normaliserad i Y-Z. BAR_R offsetar
+    // greppet utåt från stångcentrum längs denna riktning.
+    const len = Math.hypot(midY, midZ);
+    const upY = len > 1e-6 ? midY / len : 1;
+    const upZ = len > 1e-6 ? midZ / len : 0;
+    const targetY = HANG_DIST + BAR_R * upY;
+    const targetZ = 0 + BAR_R * upZ;
+    return { ...pose, rootY: targetY - midY, rootZ: targetZ - midZ };
   }
   if (mode === "feet") {
     return {

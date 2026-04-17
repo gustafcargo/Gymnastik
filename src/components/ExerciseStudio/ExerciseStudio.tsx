@@ -71,6 +71,18 @@ function speglaPose(p: Pose): Pose {
   };
 }
 
+// Live-spegling: när användaren justerar en L-arm/-ben-slider ska den mot-
+// svarande R-sidan följa med (och tvärtom). Z-axlar inverteras eftersom
+// sido-rotationerna är spegelvända (p.lShZ = -p.rShZ för symmetrisk pose).
+const MIRROR_KEYS: Partial<Record<keyof Pose, { key: keyof Pose; sign: 1 | -1 }>> = {
+  lShX:  { key: "rShX",  sign:  1 }, rShX:  { key: "lShX",  sign:  1 },
+  lShZ:  { key: "rShZ",  sign: -1 }, rShZ:  { key: "lShZ",  sign: -1 },
+  lElX:  { key: "rElX",  sign:  1 }, rElX:  { key: "lElX",  sign:  1 },
+  lHipX: { key: "rHipX", sign:  1 }, rHipX: { key: "lHipX", sign:  1 },
+  lHipZ: { key: "rHipZ", sign: -1 }, rHipZ: { key: "lHipZ", sign: -1 },
+  lKnX:  { key: "rKnX",  sign:  1 }, rKnX:  { key: "lKnX",  sign:  1 },
+};
+
 function cloneDef(def: ExerciseDef): ExerciseDef {
   return {
     kfs: def.kfs.map((k) => ({ t: k.t, pose: { ...k.pose }, locked: k.locked })),
@@ -102,6 +114,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const [time, setTime] = useState(0);
   const [selectedKfIdx, setSelectedKfIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [mirrorLR, setMirrorLR] = useState(false);
 
   // Laddar vald övning när selectedId ändras
   useEffect(() => {
@@ -197,17 +210,20 @@ export function ExerciseStudio({ open, onClose }: Props) {
       ...d,
       kfs: d.kfs.map((k, i) => {
         if (i !== selectedKfIdx) return k;
-        const next: Pose = { ...k.pose, [key]: value };
-        // Vid hand/fot-lås: när en vinkel som ingår i lås-formeln ändras
-        // (rootRotX alltid; spineX också när händerna är låsta eftersom bålen
-        // roterar body-up-riktningen) så räknar vi automatiskt om rootY/rootZ
-        // så pivot-punkten följer rotationen. Offsetet (skillnaden mellan
-        // pose.rootY/Z och rena låsvärdet) bevaras. Hoppa över KFs där
-        // locked === false (släpp-moment – pose är i fritt flyg).
-        const affectsLock =
-          key === "rootRotX" ||
-          (lockMode === "hands" && key === "spineX");
-        if (lockMode !== "none" && affectsLock && k.locked !== false) {
+        let next: Pose = { ...k.pose, [key]: value };
+        // Live L↔R-spegling: justera en sida → speglad key följer med.
+        if (mirrorLR && MIRROR_KEYS[key]) {
+          const m = MIRROR_KEYS[key]!;
+          next = { ...next, [m.key]: value * m.sign };
+        }
+        // Vid hand/fot-lås: så fort NÅGON ledvinkel ändras kan greppet flytta
+        // sig i FK-kedjan, så vi snappar rootY/rootZ mot lås-formeln och
+        // bevarar användarens offset (rootY/Z - låsvärde) så ev. manuell
+        // justering stannar kvar. rootX/rootY/rootZ själva triggar INTE
+        // snap – tweakar man dem vill man skapa offseten. KFs med
+        // locked === false lämnas orörda (fritt flyg).
+        const isRootTrans = key === "rootX" || key === "rootY" || key === "rootZ";
+        if (lockMode !== "none" && !isRootTrans && k.locked !== false) {
           const oldLocked = applyLock(k.pose, lockMode);
           const offsetY = k.pose.rootY - oldLocked.rootY;
           const offsetZ = k.pose.rootZ - oldLocked.rootZ;
@@ -633,6 +649,20 @@ export function ExerciseStudio({ open, onClose }: Props) {
             >
               Nolla pose
             </button>
+            <label
+              className={`flex cursor-pointer items-center gap-1 rounded px-2 py-1 text-xs ${
+                mirrorLR ? "bg-accent text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+              }`}
+              title="När aktiv: justeringar på L-sidan speglas live till R-sidan (och tvärtom)"
+            >
+              <input
+                type="checkbox"
+                checked={mirrorLR}
+                onChange={(e) => setMirrorLR(e.target.checked)}
+                className="h-3 w-3"
+              />
+              Symmetrisk L↔R
+            </label>
           </div>
 
           <div className="mb-3 rounded border border-slate-700 bg-slate-800/60 p-2">
