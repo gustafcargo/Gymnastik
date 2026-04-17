@@ -485,6 +485,11 @@ export function GameGymnast3D({
 
     // ── Applicera pose på refs ─────────────────────────────────────────────
     if (rootRef.current) {
+      // YXZ-order: yaw (Y) appliceras SIST, så roll/pitch (X/Z) sker i
+      // gymnastens lokala frame. Viktigt för floor-tricks där hon kan stå
+      // vriden åt valfritt håll och ändå skall rulla framåt (rootRotX) eller
+      // hjula (rootRotZ) i sin egen blickriktning istället för världens axlar.
+      rootRef.current.rotation.order = "YXZ";
       rootRef.current.position.set(pos.current.x, pose.rootY, pos.current.z);
       rootRef.current.rotation.x = pose.rootRotX;
       rootRef.current.rotation.y = pose.rootRotY;
