@@ -568,21 +568,22 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   //   approximeras via spineZ + rootY-båge + rootRotY-vändning. Användaren
   //   finjusterar via studion (override).
 
-  // Kullerbytta – 7 KFs importerade från studion. Stående → huk → huvud ned
-  // → rullning via rootRotX = -2π (snabb revolution) → resning. rootZ driver
-  // förflyttning ~2.6 m framåt under rullningen.
+  // Kullerbytta – 7 KFs importerade från studion, t-värden ×3 från import
+  // så duration ~1.37s istället för 0.46s (i paritet med cartwheel/tuck-jump
+  // som körs i realtid). Stående → huk → huvud ned → rullning via rootRotX
+  // = -2π → resning. rootZ driver ~2.6 m framåt under rullningen.
   "floor:forward-roll": { kfs: [
     { t: 0, pose: { ...ZERO,
       lShZ: -0.143185307179586, lElX: 0.15707963267948966,
       rShZ:  0.143185307179586, rElX: 0.15707963267948966 } },
-    { t: 0.125, pose: { ...ZERO,
+    { t: 0.375, pose: { ...ZERO,
       spineX: -0.953185307179586,
       lShX: 1.53681469282041, lShZ: -0.143185307179586, lElX: 0.506814692820414,
       rShX: 1.53681469282041, rShZ:  0.143185307179586, rElX: 0.506814692820414,
       lKnX: -0.873185307179586, rKnX: -0.873185307179586,
       rootY: -0.25, rootZ: -0.42,
       rootRotX: -0.143185307179586 } },
-    { t: 0.1875, pose: { ...ZERO,
+    { t: 0.5625, pose: { ...ZERO,
       spineX: -1.02318530717959,
       headX: -0.583185307179586,
       lShX: 1.38681469282041, lShZ: -0.073185307179586, lElX: 0.876814692820414,
@@ -591,7 +592,7 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
       lKnX: -2.04318530717959, rKnX: -2.04318530717959,
       rootY: -0.17, rootZ: -0.7,
       rootRotX: -0.653185307179586 } },
-    { t: 0.25, pose: { ...ZERO,
+    { t: 0.75, pose: { ...ZERO,
       spineX: -0.6283185307179586,
       lShX: 1.38681469282041, lElX: 1.97681469282041,
       rShX: 1.38681469282041, rElX: 1.97681469282041,
@@ -599,7 +600,7 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
       lKnX: -2.356194490192345, rKnX: -2.356194490192345,
       rootY: -1.81, rootZ: -1.26,
       rootRotX: -1.90318530717959 } },
-    { t: 0.4, pose: { ...ZERO,
+    { t: 1.2, pose: { ...ZERO,
       spineX: -2.12318530717959,
       lShX: -1.02318530717959, lShZ: -3.21318530717959, lElX: -0.143185307179586,
       rShX: -1.02318530717959, rShZ:  3.21318530717959, rElX: -0.143185307179586,
@@ -607,7 +608,7 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
       lKnX: -2.77318530717959, rKnX: -2.77318530717959,
       rootY: -1.81, rootZ: -2.44,
       rootRotX: -4.09318530717959 } },
-    { t: 0.4375, pose: { ...ZERO,
+    { t: 1.3125, pose: { ...ZERO,
       spineX: -0.143185307179586,
       lShX: -1.02318530717959, lShZ: -3.21318530717959, lElX: -0.143185307179586,
       rShX: -1.02318530717959, rShZ:  3.21318530717959, rElX: -0.143185307179586,
@@ -615,7 +616,7 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
       lKnX: -0.073185307179586, rKnX: -0.073185307179586,
       rootY: -1.81, rootZ: -2.62,
       rootRotX: -6.06318530717959 } },
-    { t: 0.45625, pose: { ...ZERO,
+    { t: 1.36875, pose: { ...ZERO,
       spineX: -0.143185307179586,
       lShX: -3.14318530717959, lShZ: -3.07318530717959, lElX: -0.143185307179586,
       rShX: -3.14318530717959, rShZ:  3.07318530717959, rElX: -0.143185307179586,
