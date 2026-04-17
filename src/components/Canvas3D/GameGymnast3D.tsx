@@ -493,9 +493,9 @@ export function GameGymnast3D({
     if (r.lElRef.current)     r.lElRef.current.rotation.x = pose.lElX;
     if (r.rShRef.current)   { r.rShRef.current.rotation.x = pose.rShX;  r.rShRef.current.rotation.z = pose.rShZ; }
     if (r.rElRef.current)     r.rElRef.current.rotation.x = pose.rElX;
-    if (r.lHipRef.current)    r.lHipRef.current.rotation.x = pose.lHipX;
+    if (r.lHipRef.current)  { r.lHipRef.current.rotation.x = pose.lHipX; r.lHipRef.current.rotation.z = pose.lHipZ; }
     if (r.lKnRef.current)     r.lKnRef.current.rotation.x  = pose.lKnX;
-    if (r.rHipRef.current)    r.rHipRef.current.rotation.x = pose.rHipX;
+    if (r.rHipRef.current)  { r.rHipRef.current.rotation.x = pose.rHipX; r.rHipRef.current.rotation.z = pose.rHipZ; }
     if (r.rKnRef.current)     r.rKnRef.current.rotation.x  = pose.rKnX;
   });
 

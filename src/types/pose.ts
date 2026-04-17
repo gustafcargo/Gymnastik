@@ -13,8 +13,8 @@ export type Pose = {
   headX:  number; headZ:  number;
   lShX: number; lShZ: number; lElX: number;
   rShX: number; rShZ: number; rElX: number;
-  lHipX: number; lKnX: number;
-  rHipX: number; rKnX: number;
+  lHipX: number; lHipZ: number; lKnX: number;
+  rHipX: number; rHipZ: number; rKnX: number;
   rootX: number; rootY: number; rootZ: number;
   rootRotX: number; rootRotY: number;
 };
@@ -32,7 +32,8 @@ export const POSE_KEYS: (keyof Pose)[] = [
   "spineX", "spineZ", "headX", "headZ",
   "lShX", "lShZ", "lElX",
   "rShX", "rShZ", "rElX",
-  "lHipX", "lKnX", "rHipX", "rKnX",
+  "lHipX", "lHipZ", "lKnX",
+  "rHipX", "rHipZ", "rKnX",
   "rootX", "rootY", "rootZ",
   "rootRotX", "rootRotY",
 ];
@@ -41,8 +42,8 @@ export const ZERO: Pose = {
   spineX: 0, spineZ: 0, headX: 0, headZ: 0,
   lShX: 0,  lShZ: 0,  lElX: 0,
   rShX: 0,  rShZ: 0,  rElX: 0,
-  lHipX: 0, lKnX: 0,
-  rHipX: 0, rKnX: 0,
+  lHipX: 0, lHipZ: 0, lKnX: 0,
+  rHipX: 0, rHipZ: 0, rKnX: 0,
   rootX: 0, rootY: 0, rootZ: 0,
   rootRotX: 0, rootRotY: 0,
 };

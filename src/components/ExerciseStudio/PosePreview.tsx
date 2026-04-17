@@ -57,9 +57,9 @@ function RiggedGymnast({ pose, def, color = "#c026d3" }: Props) {
     if (r.lElRef.current)     r.lElRef.current.rotation.x = p.lElX;
     if (r.rShRef.current)   { r.rShRef.current.rotation.x = p.rShX; r.rShRef.current.rotation.z = p.rShZ; }
     if (r.rElRef.current)     r.rElRef.current.rotation.x = p.rElX;
-    if (r.lHipRef.current)    r.lHipRef.current.rotation.x = p.lHipX;
+    if (r.lHipRef.current)  { r.lHipRef.current.rotation.x = p.lHipX; r.lHipRef.current.rotation.z = p.lHipZ; }
     if (r.lKnRef.current)     r.lKnRef.current.rotation.x  = p.lKnX;
-    if (r.rHipRef.current)    r.rHipRef.current.rotation.x = p.rHipX;
+    if (r.rHipRef.current)  { r.rHipRef.current.rotation.x = p.rHipX; r.rHipRef.current.rotation.z = p.rHipZ; }
     if (r.rKnRef.current)     r.rKnRef.current.rotation.x  = p.rKnX;
   }, [pose, def.baseRotY, baseY, bodyRefs]);
 

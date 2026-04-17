@@ -40,8 +40,8 @@ const POSE_GROUPS: { label: string; keys: (keyof Pose)[] }[] = [
   { label: "Head",   keys: ["headX", "headZ"] },
   { label: "L-arm",  keys: ["lShX", "lShZ", "lElX"] },
   { label: "R-arm",  keys: ["rShX", "rShZ", "rElX"] },
-  { label: "L-leg",  keys: ["lHipX", "lKnX"] },
-  { label: "R-leg",  keys: ["rHipX", "rKnX"] },
+  { label: "L-leg",  keys: ["lHipX", "lHipZ", "lKnX"] },
+  { label: "R-leg",  keys: ["rHipX", "rHipZ", "rKnX"] },
 ];
 
 // Slider-intervall per nyckel (radianer eller meter)
@@ -60,6 +60,7 @@ function speglaPose(p: Pose): Pose {
     lShZ: -p.rShZ, rShZ: -p.lShZ,
     lElX: p.rElX, rElX: p.lElX,
     lHipX: p.rHipX, rHipX: p.lHipX,
+    lHipZ: -p.rHipZ, rHipZ: -p.lHipZ,
     lKnX: p.rKnX, rKnX: p.lKnX,
     spineZ: -p.spineZ,
     headZ: -p.headZ,
