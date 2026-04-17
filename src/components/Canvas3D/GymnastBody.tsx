@@ -39,7 +39,7 @@ const P = Math.PI;
 
 // ─── Bål-profil för LatheGeometry ─────────────────────────────────────────────
 // (radius, height) sett från sidan. Roteras runt Y-axeln vid render.
-// Kvinnlig kontur: bred höft → smal midja → bredare bröstkorg → smal hals.
+// Kvinnlig kontur: bred höft → smal midja → bred bröstkorg/axelparti → smal hals.
 // Stängd vid topp och botten (x=0.001) så det inte syns hål in i bålen.
 const TORSO_PROFILE: THREE.Vector2[] = [
   new THREE.Vector2(0.001,        0.00 * H_TORSO),  // stängd botten
@@ -47,11 +47,12 @@ const TORSO_PROFILE: THREE.Vector2[] = [
   new THREE.Vector2(1.06 * R_BODY, 0.10 * H_TORSO), // bredaste höft
   new THREE.Vector2(0.95 * R_BODY, 0.20 * H_TORSO),
   new THREE.Vector2(0.74 * R_BODY, 0.36 * H_TORSO), // smalaste midja
-  new THREE.Vector2(0.82 * R_BODY, 0.50 * H_TORSO),
-  new THREE.Vector2(1.00 * R_BODY, 0.65 * H_TORSO),
-  new THREE.Vector2(1.10 * R_BODY, 0.78 * H_TORSO), // bredaste bröstkorg
-  new THREE.Vector2(1.02 * R_BODY, 0.88 * H_TORSO),
-  new THREE.Vector2(0.45 * R_BODY, 0.96 * H_TORSO),
+  new THREE.Vector2(0.86 * R_BODY, 0.50 * H_TORSO),
+  new THREE.Vector2(1.08 * R_BODY, 0.62 * H_TORSO),
+  new THREE.Vector2(1.24 * R_BODY, 0.74 * H_TORSO), // bredaste bröstkorg (bredare)
+  new THREE.Vector2(1.22 * R_BODY, 0.82 * H_TORSO), // breda axelpartiet
+  new THREE.Vector2(0.95 * R_BODY, 0.92 * H_TORSO),
+  new THREE.Vector2(0.55 * R_BODY, 0.97 * H_TORSO),
   new THREE.Vector2(0.001,        1.00 * H_TORSO),  // stängd topp (möter halsen)
 ];
 
@@ -138,11 +139,13 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
 
       {/* 1) Skullcap – ENDAST hjässan, slutar precis ovan pannan på framsidan.
              thetaLength=0.32π (~58°) → fronten (−Z) når ned till ca y=0.05·H_HEAD
-             (strax ovan ögonbrynen), inte ner över ögonen. */}
+             (strax ovan ögonbrynen), inte ner över ögonen.
+             Clearcoat sänkt (0.35→0.08) så håret inte får stark specular
+             "ljusfläck" på hjässan. */}
       <mesh position={[0, 0, H_HEAD * 0.02]} castShadow scale={[1.05, 1.06, 1.07]}>
         <sphereGeometry args={[H_HEAD * 1.01, 32, 18, 0, P * 2, 0, P * 0.32]} />
-        <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
-          clearcoat={0.35} clearcoatRoughness={0.30} />
+        <meshPhysicalMaterial color={hair} roughness={0.85} metalness={0.02}
+          clearcoat={0.08} clearcoatRoughness={0.65} />
       </mesh>
 
       {/* 2) Bak + sidor – tar vid där skullcap slutar och täcker nacken/sidorna.
@@ -150,15 +153,15 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
              att undvika z-fighting i överlappet (theta 0.30π→0.32π). */}
       <mesh position={[0, 0, H_HEAD * 0.03]} castShadow scale={[1.05, 1.06, 1.08]}>
         <sphereGeometry args={[H_HEAD * 1.005, 36, 22, P * 1.75, P * 1.5, P * 0.30, P * 0.45]} />
-        <meshPhysicalMaterial color={hair} roughness={0.72} metalness={0.06}
-          clearcoat={0.35} clearcoatRoughness={0.30} />
+        <meshPhysicalMaterial color={hair} roughness={0.85} metalness={0.02}
+          clearcoat={0.08} clearcoatRoughness={0.65} />
       </mesh>
 
       {/* Hårknut (bun) – placerad i nacken, mindre och mer kompakt */}
       <mesh position={[0, H_HEAD * 0.15, H_HEAD * 1.08]} castShadow>
         <sphereGeometry args={[H_HEAD * 0.42, 20, 16]} />
-        <meshPhysicalMaterial color={hair} roughness={0.78} metalness={0.05}
-          clearcoat={0.35} clearcoatRoughness={0.30} />
+        <meshPhysicalMaterial color={hair} roughness={0.88} metalness={0.02}
+          clearcoat={0.06} clearcoatRoughness={0.65} />
       </mesh>
       {/* Hårband runt knuten */}
       <mesh position={[0, H_HEAD * 0.15, H_HEAD * 1.02]} rotation={[P * 0.5, 0, 0]} castShadow>
@@ -187,80 +190,96 @@ function Head({ skin, hair, ribbon = "#ff6fa0" }: {
 
       {/* ── Ansikte (−Z) ─────────────────────────────────────────────── */}
 
-      {/* Ögonvitor */}
-      <mesh position={[-H_HEAD * 0.34, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow>
-        <sphereGeometry args={[0.016, 12, 8]} />
+      {/* Ögonvitor – mandelformade (horisontellt ovala) */}
+      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow scale={[1.35, 0.95, 1.0]}>
+        <sphereGeometry args={[0.015, 16, 10]} />
         <meshPhysicalMaterial color="#fafafa" roughness={0.2} metalness={0} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.34, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow>
-        <sphereGeometry args={[0.016, 12, 8]} />
+      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.88]} castShadow scale={[1.35, 0.95, 1.0]}>
+        <sphereGeometry args={[0.015, 16, 10]} />
         <meshPhysicalMaterial color="#fafafa" roughness={0.2} metalness={0} />
       </mesh>
 
-      {/* Iris – varm brun */}
-      <mesh position={[-H_HEAD * 0.34, H_HEAD * 0.08, -H_HEAD * 0.895]} castShadow>
-        <sphereGeometry args={[0.011, 10, 8]} />
-        <meshPhysicalMaterial color="#5a3a1a" roughness={0.25} metalness={0.2} clearcoat={0.8} clearcoatRoughness={0.15} />
+      {/* Iris – varm brun, större (fyller mer av ögonvitan) */}
+      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.895]} castShadow>
+        <sphereGeometry args={[0.0115, 14, 10]} />
+        <meshPhysicalMaterial color="#4a2a0a" roughness={0.25} metalness={0.2} clearcoat={0.8} clearcoatRoughness={0.15} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.34, H_HEAD * 0.08, -H_HEAD * 0.895]} castShadow>
-        <sphereGeometry args={[0.011, 10, 8]} />
-        <meshPhysicalMaterial color="#5a3a1a" roughness={0.25} metalness={0.2} clearcoat={0.8} clearcoatRoughness={0.15} />
+      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.895]} castShadow>
+        <sphereGeometry args={[0.0115, 14, 10]} />
+        <meshPhysicalMaterial color="#4a2a0a" roughness={0.25} metalness={0.2} clearcoat={0.8} clearcoatRoughness={0.15} />
       </mesh>
 
-      {/* Pupiller */}
-      <mesh position={[-H_HEAD * 0.34, H_HEAD * 0.08, -H_HEAD * 0.905]} castShadow>
-        <sphereGeometry args={[0.005, 8, 6]} />
+      {/* Pupiller – större (tidigare 0.005, nästan osynliga) */}
+      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.908]} castShadow>
+        <sphereGeometry args={[0.0065, 10, 8]} />
         <meshPhysicalMaterial color="#0a0a0a" roughness={0.15} metalness={0.3} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.34, H_HEAD * 0.08, -H_HEAD * 0.905]} castShadow>
-        <sphereGeometry args={[0.005, 8, 6]} />
+      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.08, -H_HEAD * 0.908]} castShadow>
+        <sphereGeometry args={[0.0065, 10, 8]} />
         <meshPhysicalMaterial color="#0a0a0a" roughness={0.15} metalness={0.3} />
       </mesh>
 
-      {/* Ljusreflex i ögon – liten vit prick uppe till vänster */}
-      <mesh position={[-H_HEAD * 0.31, H_HEAD * 0.12, -H_HEAD * 0.905]}>
-        <sphereGeometry args={[0.0026, 6, 5]} />
+      {/* Ljusreflex i ögon – liten vit prick uppe till vänster på varje öga */}
+      <mesh position={[-H_HEAD * 0.29, H_HEAD * 0.11, -H_HEAD * 0.912]}>
+        <sphereGeometry args={[0.0032, 6, 5]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
-      <mesh position={[ H_HEAD * 0.37, H_HEAD * 0.12, -H_HEAD * 0.905]}>
-        <sphereGeometry args={[0.0026, 6, 5]} />
+      <mesh position={[ H_HEAD * 0.35, H_HEAD * 0.11, -H_HEAD * 0.912]}>
+        <sphereGeometry args={[0.0032, 6, 5]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
 
-      {/* Ögonfransar – tunn mörk båge precis ovanför ögat */}
-      <mesh position={[-H_HEAD * 0.34, H_HEAD * 0.135, -H_HEAD * 0.88]} rotation={[P * 0.5, 0, 0]} castShadow>
-        <torusGeometry args={[0.013, 0.0014, 6, 10, P * 0.9]} />
+      {/* Ögonfransar – tunn mörk båge precis ovanför ögat, längre arc för synlighet */}
+      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.14, -H_HEAD * 0.87]} rotation={[P * 0.5, 0, 0]} castShadow>
+        <torusGeometry args={[0.016, 0.0016, 6, 12, P * 1.0]} />
         <meshPhysicalMaterial color="#1a0f06" roughness={0.55} metalness={0.1} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.34, H_HEAD * 0.135, -H_HEAD * 0.88]} rotation={[P * 0.5, 0, 0]} castShadow>
-        <torusGeometry args={[0.013, 0.0014, 6, 10, P * 0.9]} />
+      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.14, -H_HEAD * 0.87]} rotation={[P * 0.5, 0, 0]} castShadow>
+        <torusGeometry args={[0.016, 0.0016, 6, 12, P * 1.0]} />
         <meshPhysicalMaterial color="#1a0f06" roughness={0.55} metalness={0.1} />
       </mesh>
 
-      {/* Ögonbryn – två TUNNA, horisontella streck ovanför respektive öga.
-          Capsule ligger längs Y-axeln, så vi roterar π/2 kring Z för att
-          få den horisontell. Liten arch via Z-tilt (±0.05π). */}
-      <mesh position={[-H_HEAD * 0.34, H_HEAD * 0.22, -H_HEAD * 0.87]}
-            rotation={[P * 0.08, 0, P * 0.5 - P * 0.05]} castShadow>
-        <capsuleGeometry args={[0.0020, 0.018, 3, 6]} />
-        <meshPhysicalMaterial color={hair} roughness={0.78} metalness={0.04} />
+      {/* Ögonbryn – tunna horisontella streck, lite tjockare (r 0.0020→0.0028)
+          och längre (0.018→0.022) så de faktiskt syns. Rotation Z=π/2 ger
+          horisontal; ±0.06π tilt ger en liten båge. */}
+      <mesh position={[-H_HEAD * 0.32, H_HEAD * 0.23, -H_HEAD * 0.86]}
+            rotation={[P * 0.08, 0, P * 0.5 - P * 0.06]} castShadow>
+        <capsuleGeometry args={[0.0028, 0.022, 4, 8]} />
+        <meshPhysicalMaterial color="#2a1810" roughness={0.78} metalness={0.04} />
       </mesh>
-      <mesh position={[ H_HEAD * 0.34, H_HEAD * 0.22, -H_HEAD * 0.87]}
-            rotation={[P * 0.08, 0, P * 0.5 + P * 0.05]} castShadow>
-        <capsuleGeometry args={[0.0020, 0.018, 3, 6]} />
-        <meshPhysicalMaterial color={hair} roughness={0.78} metalness={0.04} />
+      <mesh position={[ H_HEAD * 0.32, H_HEAD * 0.23, -H_HEAD * 0.86]}
+            rotation={[P * 0.08, 0, P * 0.5 + P * 0.06]} castShadow>
+        <capsuleGeometry args={[0.0028, 0.022, 4, 8]} />
+        <meshPhysicalMaterial color="#2a1810" roughness={0.78} metalness={0.04} />
       </mesh>
 
-      {/* Näsa – liten kon/kil */}
-      <mesh position={[0, -H_HEAD * 0.05, -H_HEAD * 0.97]} rotation={[P * 0.18, 0, 0]} castShadow>
-        <coneGeometry args={[0.014, 0.036, 10]} />
+      {/* Näsa – längre kon som sticker ut mer från ansiktet (syntes knappt förr).
+          Position z=-0.98·H_HEAD så basen är vid ansiktsytan och spetsen når ut
+          ytterligare via H_HEAD*0.05 i −Z. */}
+      <mesh position={[0, -H_HEAD * 0.04, -H_HEAD * 1.00]} rotation={[P * 0.50, 0, 0]} castShadow>
+        <coneGeometry args={[0.012, 0.045, 12]} />
         <meshPhysicalMaterial color={skinWarm} roughness={0.60} metalness={0} />
       </mesh>
+      {/* Näsborrar (små mörka prickar under näsan) */}
+      <mesh position={[-0.006, -H_HEAD * 0.22, -H_HEAD * 0.96]}>
+        <sphereGeometry args={[0.0022, 6, 5]} />
+        <meshBasicMaterial color="#3a1a10" />
+      </mesh>
+      <mesh position={[ 0.006, -H_HEAD * 0.22, -H_HEAD * 0.96]}>
+        <sphereGeometry args={[0.0022, 6, 5]} />
+        <meshBasicMaterial color="#3a1a10" />
+      </mesh>
 
-      {/* Mun – mjukt leende (liten båge) */}
-      <mesh position={[0, -H_HEAD * 0.30, -H_HEAD * 0.92]} rotation={[P * 0.5, 0, 0]} castShadow>
-        <torusGeometry args={[0.020, 0.005, 8, 14, P * 0.7]} />
-        <meshPhysicalMaterial color="#c24a55" roughness={0.40} metalness={0.05} clearcoat={0.5} clearcoatRoughness={0.2} />
+      {/* Mun – tydligare leende (bredare och tjockare) */}
+      <mesh position={[0, -H_HEAD * 0.36, -H_HEAD * 0.91]} rotation={[P * 0.5, 0, 0]} castShadow>
+        <torusGeometry args={[0.028, 0.0055, 8, 16, P * 0.8]} />
+        <meshPhysicalMaterial color="#c24050" roughness={0.38} metalness={0.05} clearcoat={0.5} clearcoatRoughness={0.2} />
+      </mesh>
+      {/* Underläpp-accent – liten skugg-kurva under munnen för djup */}
+      <mesh position={[0, -H_HEAD * 0.42, -H_HEAD * 0.90]} rotation={[P * 0.5, 0, 0]}>
+        <torusGeometry args={[0.022, 0.002, 6, 12, P * 0.65]} />
+        <meshPhysicalMaterial color="#8a3038" roughness={0.60} metalness={0} transparent opacity={0.55} />
       </mesh>
 
       {/* Kinder – subtilt rosa, mindre och mer inflyttade (var förr för stora
