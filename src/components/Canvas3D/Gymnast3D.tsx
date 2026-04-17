@@ -574,20 +574,33 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Trampett ───────────────────────────────────────────────────────────────
 
+  // Studs – 6 KFs importerade från studion. Huk → topp → landning →
+  // retur-huk. Armarna öppnar i top- och landningsfas, knä böjda i
+  // huk-faserna.
   "mini-tramp:bounce": { kfs: [
-    { t: 0,    pose: { ...ZERO } },
-    { t: 0.20, pose: { ...ZERO, lHipX: P*0.18, rHipX: P*0.18, lKnX:-P*0.28, rKnX:-P*0.28,
-                       spineX:-P*0.06,
-                       rootY:-0.06, lShZ:-P*0.10, rShZ:P*0.10 } },
-    { t: 0.45, pose: { ...ZERO, rootY:0.32,
-                       lShX:-P*0.4, rShX:-P*0.4, lShZ:-P*0.10, rShZ:P*0.10,
-                       spineX:-P*0.02 } },
-    { t: 0.70, pose: { ...ZERO, rootY:0.15,
-                       lShX:-P*0.2, rShX:-P*0.2, lShZ:-P*0.12, rShZ:P*0.12 } },
-    { t: 0.85, pose: { ...ZERO, lHipX: P*0.16, rHipX: P*0.16, lKnX:-P*0.26, rKnX:-P*0.26,
-                       spineX:-P*0.06,
-                       rootY:-0.05, lShZ:-P*0.08, rShZ:P*0.08 } },
-    { t: 1.0,  pose: { ...ZERO } },
+    { t: 0, pose: { ...ZERO } },
+    { t: 0.2, pose: { ...ZERO,
+      spineX: -0.18849555921538758,
+      lShZ: -0.3141592653589793, rShZ: 0.3141592653589793,
+      lHipX: 0.5654866776461628, rHipX: 0.5654866776461628,
+      lKnX: -0.8796459430051422, rKnX: -0.8796459430051422,
+      rootY: -0.06 } },
+    { t: 0.45, pose: { ...ZERO,
+      spineX: -0.06283185307179587,
+      lShX: -1.2566370614359172, lShZ: -0.3141592653589793,
+      rShX: -1.2566370614359172, rShZ:  0.3141592653589793,
+      rootY: 0.32 } },
+    { t: 0.7, pose: { ...ZERO,
+      lShX: -0.6283185307179586, lShZ: -0.37699111843077515,
+      rShX: -0.6283185307179586, rShZ:  0.37699111843077515,
+      rootY: 0.15 } },
+    { t: 0.85, pose: { ...ZERO,
+      spineX: -0.18849555921538758,
+      lShZ: -0.25132741228718347, rShZ: 0.25132741228718347,
+      lHipX: 0.5026548245743669, rHipX: 0.5026548245743669,
+      lKnX: -0.8168140899333463, rKnX: -0.8168140899333463,
+      rootY: -0.05 } },
+    { t: 1, pose: { ...ZERO } },
   ] },
 
   // ── Plint ──────────────────────────────────────────────────────────────────
