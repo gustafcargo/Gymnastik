@@ -18,6 +18,9 @@ import { InviteModal } from "./InviteModal";
 import { TrickOverlay } from "./TrickOverlay";
 import { RoundOverlay, RoundTimer } from "./RoundOverlay";
 import { Leaderboard } from "./Leaderboard";
+import { FailToast } from "./FailToast";
+import { PreGameMenu } from "./PreGameMenu";
+import { EndGameSummary } from "./EndGameSummary";
 
 type Props = {
   nearEquipment: string | null;
@@ -35,6 +38,13 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   const [isTouch, setIsTouch] = useState(false);
   const [speedDisplay, setSpeedDisplay] = useState(speedRef.current);
   const [styleOpen, setStyleOpen] = useState(false);
+  // Pre-game-menyn ska alltid visas när spelläget öppnas. GameHUD monteras
+  // fresh varje gång gameMode flippar till true, så useState(false) återställs
+  // automatiskt vid ny session.
+  const [started, setStarted] = useState(false);
+  // End-summary visas när spelaren trycker "Avsluta spelläge" och har poäng att
+  // visa upp. Gäller primärt fri-läge (tävling har sin egen scorecard).
+  const [showEndSummary, setShowEndSummary] = useState(false);
   const muted = useAudioStore((s) => s.muted);
   const toggleMute = useAudioStore((s) => s.toggle);
   const difficulty = useGameConfig((s) => s.difficulty);
@@ -140,6 +150,48 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
     if (camPointers.current.size < 2) pinchDistRef.current = null;
   };
 
+  // Pre-game-meny: visa alltid före spel. Döljer hela HUD:et tills spelaren
+  // trycker "Spela!". Menyn hanterar exit direkt (utan summary).
+  if (!started) {
+    return <PreGameMenu onStart={() => setStarted(true)} onExit={onExit} />;
+  }
+
+  // End-summary visas i fri-läget när spelaren trycker Avsluta. I tävling
+  // sköter RoundOverlay sin egen scorecard så vi släpper onExit rakt igenom.
+  const handleExitClick = () => {
+    const roundState = useGameMode.getState().roundState;
+    const gm = useGameMode.getState().gameMode;
+    const sc = useGameScore.getState().score;
+    // I tävling visar RoundOverlay redan en scorecard när rundan slutat;
+    // om spelaren själv trycker avsluta mitt i rundan låter vi även dem
+    // få en summary (för att behålla samma UX som fri-läge).
+    if (gm === "tavling" && roundState === "running") {
+      // Mid-round avbrott: hoppa direkt ut utan summary (de har redan en
+      // tickande timer, blir konstigt att överlagra summary).
+      onExit();
+      return;
+    }
+    if (sc > 0) setShowEndSummary(true);
+    else onExit();
+  };
+
+  if (showEndSummary) {
+    return (
+      <EndGameSummary
+        onPlayAgain={() => {
+          useGameScore.getState().resetScore();
+          useGameScore.getState().clearFailedEquipment();
+          setShowEndSummary(false);
+          setStarted(false);
+        }}
+        onExit={() => {
+          setShowEndSummary(false);
+          onExit();
+        }}
+      />
+    );
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 50, fontFamily: "system-ui, sans-serif" }}>
 
@@ -161,7 +213,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
       {/* Avsluta-knapp – övre höger */}
       <button
         type="button"
-        onClick={onExit}
+        onClick={handleExitClick}
         style={{
           position: "absolute", top: 14, right: 14,
           display: "flex", alignItems: "center", gap: 6,
@@ -510,6 +562,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
       {isProffsMode(difficulty) && <RoundTimer />}
       {isProffsMode(difficulty) && <RoundOverlay />}
       {isProffsMode(difficulty) && <Leaderboard />}
+      {isProffsMode(difficulty) && <FailToast />}
       <GymnastStylePanel open={styleOpen} onClose={() => setStyleOpen(false)} />
       <InviteModal />
     </div>
