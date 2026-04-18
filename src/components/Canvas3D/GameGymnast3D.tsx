@@ -21,7 +21,7 @@ import type { EffectsHandle } from "./EffectsLayer";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { useGymnastTuning } from "../../store/useGymnastTuning";
 import { useGameConfig, isPlayerScrubbing, isProffsMode } from "../../store/useGameConfig";
-import { useGameScore, type TrickGrade, MAX_MISSES_PER_ATTEMPT } from "../../store/useGameScore";
+import { useGameScore, type TrickGrade, MAX_MISSES_PER_EQUIPMENT } from "../../store/useGameScore";
 import { useGameMode } from "../../store/useGameMode";
 import { sendState } from "../../lib/multiplayer";
 
@@ -159,14 +159,6 @@ export function GameGymnast3D({
   // Minsta tid spelaren måste hålla stilla innan poäng börjar trilla in,
   // så att korta paus-toucher inte räknas som "hold".
   const HOLD_MIN_SEC = 0.5;
-
-  // Anti-stuck watchdog: om spelaren försöker röra sig men inget händer
-  // (blockerad av redskap) räknar vi ned, och efter STUCK_THRESHOLD_SEC
-  // nudge:ar vi gymnasten bort från närmsta redskap i några frames så att
-  // hon aldrig fastnar i ett hörn.
-  const stuckSinceRef = useRef<number | null>(null);
-  const stuckNudgeUntilRef = useRef<number>(0);
-  const nearestBlockerRef = useRef<{ x: number; z: number } | null>(null);
 
   const rootRef  = useRef<THREE.Group>(null);
   const bodyRefs: BodyRefs = {
@@ -323,7 +315,7 @@ export function GameGymnast3D({
           // Kolla om denna miss slog taket för fail på aktuellt redskap.
           if (grade === "miss") {
             const misses = useGameScore.getState().equipmentMisses[mountedEqId] ?? 0;
-            if (misses >= MAX_MISSES_PER_ATTEMPT) {
+            if (misses >= MAX_MISSES_PER_EQUIPMENT) {
               useGameScore.getState().failCurrentEquipment(nameFor(mountedEqId));
             }
           }
@@ -564,7 +556,7 @@ export function GameGymnast3D({
             useGameScore.getState().recordTrick("miss", tr.label ?? tr.type, tr.difficulty ?? 1);
             // Kolla fail-tröskel direkt så force-dismount hinner triggas nästa frame.
             const misses = useGameScore.getState().equipmentMisses[eqId] ?? 0;
-            if (misses >= MAX_MISSES_PER_ATTEMPT) {
+            if (misses >= MAX_MISSES_PER_EQUIPMENT) {
               useGameScore.getState().failCurrentEquipment(nameFor(eqId));
               break;
             }
@@ -736,12 +728,11 @@ export function GameGymnast3D({
       const left = (k.has("a") || k.has("arrowleft"))  ? 1 : 0;
       const rgt  = (k.has("d") || k.has("arrowright")) ? 1 : 0;
 
-      // Joystick-input (touch). Joysticken garanterar exakt 0 inom sin egen
-      // dead-zone så här räcker det med en strikt tröskel för float-brus.
+      // Joystick-input (touch)
       const joyFwd  = -joy.dz;
       const joyTurn =  joy.dx;
-      const turning = left || rgt || Math.abs(joyTurn) > 0.01;
-      const moving  = fwd || back || Math.abs(joyFwd) > 0.01 || turning;
+      const turning = left || rgt || Math.abs(joyTurn) > 0.1;
+      const moving  = fwd || back || Math.abs(joyFwd) > 0.1 || turning;
 
       // Rotera gymnast (rotY) + lät kamera följa med fördröjning (camYaw)
       rotY.current += (rgt - left + joyTurn) * TURN_SPEED * delta;
@@ -762,8 +753,6 @@ export function GameGymnast3D({
       const boxes: Box[] = [];
       let closest: { id: string; name: string } | null = null;
       let minDist = PROX;
-      let nearestBlockerCenter: { x: number; z: number } | null = null;
-      let nearestBlockerEdgeDist = Infinity;
       for (const eq of station.equipment) {
         const eqType = getEquipmentById(eq.typeId);
         if (!eqType) continue;
@@ -786,12 +775,7 @@ export function GameGymnast3D({
           minDist = edgeDist;
           closest = { id: eq.id, name: eq.label ?? eqType.name };
         }
-        if (edgeDist < nearestBlockerEdgeDist) {
-          nearestBlockerEdgeDist = edgeDist;
-          nearestBlockerCenter = { x: eq.x, z: eq.y };
-        }
       }
-      nearestBlockerRef.current = nearestBlockerCenter;
 
       const PAD = 0.3;
       const inBox = (b: Box, wx: number, wz: number) => {
@@ -827,53 +811,8 @@ export function GameGymnast3D({
         }
       }
 
-      const prevX = pos.current.x;
-      const prevZ = pos.current.z;
       pos.current.x = Math.max(0.5, Math.min(hallW - 0.5, newX));
       pos.current.z = Math.max(0.5, Math.min(hallH - 0.5, newZ));
-
-      // Anti-stuck watchdog. Om spelaren trycker att röra sig (moving) men
-      // kollisionen har blockerat hela steget räknar vi upp stuck-tid. Efter
-      // STUCK_THRESHOLD_SEC pushar vi gymnasten sakta bort från närmsta
-      // redskaps centrum några frames, så barn inte fastnar i hörn.
-      const STUCK_THRESHOLD_SEC = 0.9;
-      const STUCK_NUDGE_SEC = 0.4;
-      const STUCK_NUDGE_SPEED = 2.0; // m/s
-      const inputMag = Math.abs(fwd - back + joyFwd);
-      const wantedDist = Math.abs(moveD);
-      const actualDist = Math.hypot(pos.current.x - prevX, pos.current.z - prevZ);
-      const stuck = inputMag > 0.05 && wantedDist > 0.001 && actualDist < wantedDist * 0.15;
-      if (stuck) {
-        if (stuckSinceRef.current == null) stuckSinceRef.current = t;
-      } else {
-        stuckSinceRef.current = null;
-      }
-      if (
-        stuckSinceRef.current != null &&
-        t - stuckSinceRef.current > STUCK_THRESHOLD_SEC &&
-        stuckNudgeUntilRef.current < t
-      ) {
-        stuckNudgeUntilRef.current = t + STUCK_NUDGE_SEC;
-        stuckSinceRef.current = null;
-      }
-      if (stuckNudgeUntilRef.current > t && nearestBlockerRef.current) {
-        const away = {
-          x: pos.current.x - nearestBlockerRef.current.x,
-          z: pos.current.z - nearestBlockerRef.current.z,
-        };
-        const len = Math.hypot(away.x, away.z);
-        if (len > 1e-4) {
-          const nx = away.x / len;
-          const nz = away.z / len;
-          const step = STUCK_NUDGE_SPEED * delta;
-          const tryX = pos.current.x + nx * step;
-          const tryZ = pos.current.z + nz * step;
-          // Respekera hallkanterna, men låt nudgen "vinna" över redskaps-
-          // kollisionen — watchdogen syftar just på att frigöra gymnasten.
-          pos.current.x = Math.max(0.5, Math.min(hallW - 0.5, tryX));
-          pos.current.z = Math.max(0.5, Math.min(hallH - 0.5, tryZ));
-        }
-      }
 
       if (closest?.id !== nearEq.current?.id) {
         nearEq.current = closest;
