@@ -1,23 +1,20 @@
 /**
- * useGameScore – poäng, combo och pågående trick/hold-tillstånd för
- * Proffs-läget. Lifetimebest persistas (per gameMode) men sessionscore inte.
+ * useGameScore – poäng, combo, per-försökstillstånd och fail/clear-mekanik
+ * för Proffs-läget. Lifetimebest persistas men sessionscore inte.
+ *
+ * Modell (proffs-läge):
+ *   • Varje redskap får två FÖRSÖK per spelomgång. Ett försök räknas så fort
+ *     gymnasten antingen FAILAR (3 missar) eller KLARAR (10 hits).
+ *   • När attempts[eqId] ≥ MAX_ATTEMPTS_PER_EQUIPMENT (2) låses redskapet för
+ *     den egna spelaren resten av spelet.
+ *   • När alla spelbara redskap har låsts → spelet är över (EndGameSummary).
+ *   • Om samma redskap klaras två gånger behåller spelaren bara den BÄSTA av
+ *     de två försökens poäng ("högsta poängen är den man tar med sig").
  *
  * Designprinciper:
- * - addPoints/recordTrick/recordHold är pure dispatch — ingen sidoeffekt
- *   på sound/HUD. HUD subscribar och spelar ljud reaktivt.
+ * - actions är rena dispatchers — HUD subscribar och spelar ljud reaktivt.
  * - pendingTrick/activeHoldZone exponeras som transient state så HUD-komponenten
  *   kan rita timing-ringen / hold-mätaren utan att veta vilken övning som körs.
- * - resetScore() ska köras när en runda startar (Tävling) eller när spelaren
- *   lämnar spelläget (så nästa session börjar rent).
- *
- * Per-redskap i proffs-läge:
- * - beginMount(eqId) anropas när gymnasten hoppar upp på ett redskap. Startar
- *   en "sub-konto" för eqId. endMount() stänger det (utan att radera historik).
- * - Varje recordTrick/addHoldPoints bokförs både mot totalpoäng OCH mot
- *   equipmentScore[currentEqId]. På MISS ökas equipmentMisses[currentEqId].
- *   Vid 2 missar → failCurrentEquipment(): alla poäng på redskapet rivs från
- *   total, redskapet markeras som failedEquipment, och en force-dismount-flagga
- *   sätts som GameGymnast3D läser för att kliva ner automatiskt.
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -31,12 +28,13 @@ function scoreLocked(): boolean {
   return m.roundState !== "running";
 }
 
-export type TrickGrade = "perfect" | "great" | "good" | "miss";
+export type TrickGrade = "perfect" | "great" | "good" | "ok" | "miss";
 
 export const GRADE_POINTS: Record<TrickGrade, number> = {
-  perfect: 100,
-  great: 60,
-  good: 30,
+  perfect: 120,
+  great: 80,
+  good: 45,
+  ok: 20,
   miss: -30,
 };
 
@@ -44,6 +42,7 @@ export const GRADE_LABELS: Record<TrickGrade, string> = {
   perfect: "PERFEKT!",
   great: "BRA!",
   good: "OK",
+  ok: "Sådär",
   miss: "MISS",
 };
 
@@ -51,11 +50,18 @@ export const GRADE_COLORS: Record<TrickGrade, string> = {
   perfect: "#22c55e",
   great: "#3b82f6",
   good: "#eab308",
+  ok: "#94a3b8",
   miss: "#ef4444",
 };
 
-/** Max antal missar per redskap i proffs-läge innan FAIL triggas. */
-export const MAX_MISSES_PER_EQUIPMENT = 2;
+/** Tröskel för FAIL på aktuellt försök. */
+export const MAX_MISSES_PER_ATTEMPT = 3;
+
+/** Antal lyckade trick-grade (ej miss) som krävs för att KLARA ett försök. */
+export const HITS_TO_CLEAR = 10;
+
+/** Max antal försök (fail + clear sammanlagt) per redskap per spelomgång. */
+export const MAX_ATTEMPTS_PER_EQUIPMENT = 2;
 
 /** Combo-multiplikator: 1× upp till 2 i rad, sedan 1.5×, 2×, 3×, max 5×. */
 export function comboMultiplier(combo: number): number {
@@ -104,6 +110,18 @@ export type LastFail = {
   eqId: string;
   eqName: string;
   rollbackPoints: number;
+  attempt: number;
+  finalAttempt: boolean;
+  at: number;
+};
+
+export type LastClear = {
+  eqId: string;
+  eqName: string;
+  attemptScore: number;
+  isBest: boolean;
+  attempt: number;
+  finalAttempt: boolean;
   at: number;
 };
 
@@ -121,14 +139,22 @@ type ScoreState = {
 
   /** Aktivt redskap — sätts av beginMount/endMount. null i fri rörelse. */
   currentEqId: string | null;
-  /** Ackumulerad nettopoäng per redskap (inkl -30 för missar). */
+  /** Nettopoäng för AKTUELLT försök per redskap (nollställs efter clear/fail). */
   equipmentScore: Record<string, number>;
-  /** Antal missar per redskap under innevarande game. */
+  /** Missar i AKTUELLT försök. Nollställs efter clear/fail. */
   equipmentMisses: Record<string, number>;
-  /** Redskap som spelaren misslyckats på under nuvarande game (endast lokalt). */
+  /** Lyckade tricks i AKTUELLT försök. Nollställs efter clear/fail. */
+  equipmentHits: Record<string, number>;
+  /** Antal försök (fail+clear) som gjorts per redskap under spelomgången. */
+  equipmentAttempts: Record<string, number>;
+  /** Bästa clear-poäng per redskap (används när samma redskap klaras två ggr). */
+  equipmentBestClear: Record<string, number>;
+  /** Redskap som är låsta för spelaren (har använt upp sina försök). */
   failedEquipment: string[];
   /** Senaste fail för FAIL-toast. */
   lastFail: LastFail | null;
+  /** Senaste clear för CLEAR-toast. */
+  lastClear: LastClear | null;
   /** Signalflagga till GameGymnast3D: kliv ner från nämnt redskap. */
   pendingForceDismount: { eqId: string } | null;
 
@@ -147,6 +173,7 @@ type ScoreState = {
   beginMount: (eqId: string) => void;
   endMount: () => void;
   failCurrentEquipment: (eqName: string) => void;
+  clearCurrentEquipment: (eqName: string) => void;
   clearFailedEquipment: () => void;
   consumePendingForceDismount: () => void;
 };
@@ -166,8 +193,12 @@ export const useGameScore = create<ScoreState>()(
       currentEqId: null,
       equipmentScore: {},
       equipmentMisses: {},
+      equipmentHits: {},
+      equipmentAttempts: {},
+      equipmentBestClear: {},
       failedEquipment: [],
       lastFail: null,
+      lastClear: null,
       pendingForceDismount: null,
 
       setPendingTrick: (pendingTrick) => set({ pendingTrick }),
@@ -188,10 +219,13 @@ export const useGameScore = create<ScoreState>()(
         const eqId = s.currentEqId;
         const nextEqScore = { ...s.equipmentScore };
         const nextEqMisses = { ...s.equipmentMisses };
+        const nextEqHits = { ...s.equipmentHits };
         if (eqId) {
           nextEqScore[eqId] = (nextEqScore[eqId] ?? 0) + points;
           if (!isHit) {
             nextEqMisses[eqId] = (nextEqMisses[eqId] ?? 0) + 1;
+          } else {
+            nextEqHits[eqId] = (nextEqHits[eqId] ?? 0) + 1;
           }
         }
 
@@ -201,6 +235,7 @@ export const useGameScore = create<ScoreState>()(
           sessionBest: Math.max(s.sessionBest, newScore),
           equipmentScore: nextEqScore,
           equipmentMisses: nextEqMisses,
+          equipmentHits: nextEqHits,
           lastEvent: {
             grade,
             label: `${GRADE_LABELS[grade]} ${label}`,
@@ -250,8 +285,12 @@ export const useGameScore = create<ScoreState>()(
           currentEqId: null,
           equipmentScore: {},
           equipmentMisses: {},
+          equipmentHits: {},
+          equipmentAttempts: {},
+          equipmentBestClear: {},
           failedEquipment: [],
           lastFail: null,
+          lastClear: null,
           pendingForceDismount: null,
         }),
 
@@ -282,27 +321,77 @@ export const useGameScore = create<ScoreState>()(
         const s = get();
         const eqId = s.currentEqId;
         if (!eqId) return;
-        // Rulla tillbaka positiva nettopoäng från redskapet (förluster behålls).
+        // Rulla tillbaka positiva nettopoäng från försöket (miss-straff behålls).
         const earned = s.equipmentScore[eqId] ?? 0;
         const rollback = Math.max(0, earned);
-        const nextEqScore = { ...s.equipmentScore };
-        const nextEqMisses = { ...s.equipmentMisses };
-        nextEqScore[eqId] = 0;
-        nextEqMisses[eqId] = 0;
+        const nextEqScore = { ...s.equipmentScore, [eqId]: 0 };
+        const nextEqMisses = { ...s.equipmentMisses, [eqId]: 0 };
+        const nextEqHits = { ...s.equipmentHits, [eqId]: 0 };
+        const attempt = (s.equipmentAttempts[eqId] ?? 0) + 1;
+        const nextAttempts = { ...s.equipmentAttempts, [eqId]: attempt };
+        const isFinal = attempt >= MAX_ATTEMPTS_PER_EQUIPMENT;
         const newScore = Math.max(0, s.score - rollback);
-        const nextFailed = s.failedEquipment.includes(eqId)
-          ? s.failedEquipment
-          : [...s.failedEquipment, eqId];
+        const nextFailed = isFinal && !s.failedEquipment.includes(eqId)
+          ? [...s.failedEquipment, eqId]
+          : s.failedEquipment;
         set({
           score: newScore,
           combo: 0,
           equipmentScore: nextEqScore,
           equipmentMisses: nextEqMisses,
+          equipmentHits: nextEqHits,
+          equipmentAttempts: nextAttempts,
           failedEquipment: nextFailed,
           lastFail: {
             eqId,
             eqName,
             rollbackPoints: rollback,
+            attempt,
+            finalAttempt: isFinal,
+            at: Date.now(),
+          },
+          pendingForceDismount: { eqId },
+        });
+      },
+
+      clearCurrentEquipment: (eqName) => {
+        const s = get();
+        const eqId = s.currentEqId;
+        if (!eqId) return;
+        const attemptScore = Math.max(0, s.equipmentScore[eqId] ?? 0);
+        const prevBest = s.equipmentBestClear[eqId] ?? 0;
+        const priorAttempts = s.equipmentAttempts[eqId] ?? 0;
+        // Behåll bara det bästa försöket i totalen när redskapet klarats
+        // flera gånger: totalpoängen innehåller redan båda försökens poäng,
+        // så subtrahera det mindre.
+        const scoreAdjust = priorAttempts > 0 ? -Math.min(prevBest, attemptScore) : 0;
+        const newBest = Math.max(prevBest, attemptScore);
+        const attempt = priorAttempts + 1;
+        const isFinal = attempt >= MAX_ATTEMPTS_PER_EQUIPMENT;
+        const nextEqScore = { ...s.equipmentScore, [eqId]: 0 };
+        const nextEqMisses = { ...s.equipmentMisses, [eqId]: 0 };
+        const nextEqHits = { ...s.equipmentHits, [eqId]: 0 };
+        const nextAttempts = { ...s.equipmentAttempts, [eqId]: attempt };
+        const nextBest = { ...s.equipmentBestClear, [eqId]: newBest };
+        const nextFailed = isFinal && !s.failedEquipment.includes(eqId)
+          ? [...s.failedEquipment, eqId]
+          : s.failedEquipment;
+        const newScore = Math.max(0, s.score + scoreAdjust);
+        set({
+          score: newScore,
+          equipmentScore: nextEqScore,
+          equipmentMisses: nextEqMisses,
+          equipmentHits: nextEqHits,
+          equipmentAttempts: nextAttempts,
+          equipmentBestClear: nextBest,
+          failedEquipment: nextFailed,
+          lastClear: {
+            eqId,
+            eqName,
+            attemptScore,
+            isBest: attemptScore >= prevBest,
+            attempt,
+            finalAttempt: isFinal,
             at: Date.now(),
           },
           pendingForceDismount: { eqId },
@@ -314,7 +403,11 @@ export const useGameScore = create<ScoreState>()(
           failedEquipment: [],
           equipmentScore: {},
           equipmentMisses: {},
+          equipmentHits: {},
+          equipmentAttempts: {},
+          equipmentBestClear: {},
           lastFail: null,
+          lastClear: null,
           pendingForceDismount: null,
         });
       },
@@ -325,8 +418,7 @@ export const useGameScore = create<ScoreState>()(
     }),
     {
       name: "gymnast-game-score-v1",
-      // Persistera bara lifetime-best — allt session-specifikt (score, combo,
-      // failade redskap) ska börja rent varje gång.
+      // Persistera bara lifetime-best — allt session-specifikt ska börja rent.
       partialize: (state) => ({
         lifetimeBestTavling: state.lifetimeBestTavling,
         lifetimeBestFri: state.lifetimeBestFri,
