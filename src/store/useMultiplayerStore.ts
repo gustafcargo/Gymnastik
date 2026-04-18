@@ -188,6 +188,18 @@ export const useMultiplayerStore = create<Store>()(
             // att flera host-svar skriver över varandra.
             if (get().hasAdoptedPlan) return;
             if (payload.from === get().playerId) return;
+            // Skydd mot tyst överskrivning: om den lokala spelaren redan
+            // har redskap utplacerade behåller vi deras plan. Utan denna
+            // vakt förlorar en spelare som byggt sin hall och sen öppnar
+            // en delad länk hela sin plan i tysthet.
+            const localPlan = usePlanStore.getState().plan;
+            const hasLocalContent = localPlan.stations.some(
+              (s) => s.equipment.length > 0,
+            );
+            if (hasLocalContent) {
+              set({ hasAdoptedPlan: true });
+              return;
+            }
             usePlanStore.getState().adoptRemotePlan(payload.plan);
             set({ hasAdoptedPlan: true });
           },
@@ -315,6 +327,7 @@ export const useMultiplayerStore = create<Store>()(
             if (payload.toId !== selfId) return; // ej till oss
             // En inbjudan åt gången — ignorera dubbletter
             if (get().pendingInvite) return;
+            const receivedAt = Date.now();
             set({
               pendingInvite: {
                 fromId: payload.fromId,
@@ -322,13 +335,15 @@ export const useMultiplayerStore = create<Store>()(
                 fromColor: payload.fromColor,
                 fromBuddyCode: payload.fromBuddyCode,
                 roomCode: payload.roomCode,
-                receivedAtMs: Date.now(),
+                receivedAtMs: receivedAt,
               },
             });
-            // Auto-dismiss efter timeout om användaren inte svarar
+            // Auto-dismiss efter timeout om användaren inte svarar. Matcha på
+            // receivedAtMs så vi inte råkar dismiss:a en NY inbjudan från samma
+            // avsändare som landat under tiden.
             window.setTimeout(() => {
               const inv = get().pendingInvite;
-              if (inv && inv.fromId === payload.fromId && inv.receivedAtMs === payload.t) {
+              if (inv && inv.fromId === payload.fromId && inv.receivedAtMs === receivedAt) {
                 get().dismissInvite("timeout");
               }
             }, INVITE_TIMEOUT_MS);
