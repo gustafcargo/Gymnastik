@@ -364,6 +364,11 @@ export function GameGymnast3D({
           triggerMount = false;
         }
       }
+      // Proffs-regel: när gymnasten är monterad går det aldrig att hoppa av
+      // manuellt. Spelaren måste antingen klara försöket (10 hits) eller bomma
+      // (3 missar i rad) för att avmontera. Detta säkerställer att varje
+      // redskaps-försök räknas och poängen är rättvist jämförbara.
+      if (triggerMount) triggerMount = false;
     }
 
     if (triggerMount) {

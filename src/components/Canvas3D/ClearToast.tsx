@@ -50,26 +50,41 @@ export function ClearToast() {
       }}
     >
       <div style={{
-        fontSize: 42, fontWeight: 900,
-        letterSpacing: "0.08em",
+        fontSize: 40, fontWeight: 900,
+        letterSpacing: "0.06em",
         textShadow: "0 2px 10px rgba(0,0,0,0.4)",
         lineHeight: 1,
       }}>
-        KLART!
+        Godkänt!
       </div>
       <div style={{
-        fontSize: 13, fontWeight: 700, marginTop: 6,
+        fontSize: 16, fontWeight: 800, marginTop: 6,
         opacity: 0.95,
+      }}>
+        Bra jobbat!
+      </div>
+      <div style={{
+        fontSize: 13, fontWeight: 700, marginTop: 8,
+        opacity: 0.92,
       }}>
         {lastClear.eqName}
       </div>
       <div style={{
-        fontSize: 12, fontWeight: 600, marginTop: 4,
-        color: "#dcfce7",
+        fontSize: 22, fontWeight: 900, marginTop: 4,
+        fontVariantNumeric: "tabular-nums",
+        color: "#fef9c3",
+        textShadow: "0 2px 8px rgba(0,0,0,0.35)",
       }}>
-        +{lastClear.attemptScore.toLocaleString("sv-SE")} p
-        {lastClear.isBest && lastClear.attempt > 1 ? " – nytt bästa försök" : ""}
+        {lastClear.attemptScore.toLocaleString("sv-SE")} p
       </div>
+      {lastClear.isBest && lastClear.attempt > 1 && (
+        <div style={{
+          fontSize: 11, fontWeight: 700, marginTop: 4,
+          color: "#dcfce7",
+        }}>
+          Nytt bästa försök
+        </div>
+      )}
       {lastClear.finalAttempt && (
         <div style={{
           fontSize: 11, fontWeight: 700, marginTop: 6,
