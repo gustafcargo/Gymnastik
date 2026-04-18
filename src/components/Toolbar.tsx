@@ -107,7 +107,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
 
   return (
     <>
-      <div className="safe-top flex items-center gap-2 border-b border-surface-3 bg-white px-3 py-2">
+      <div className="safe-top relative z-20 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-surface-3 bg-white px-3 py-2">
         {onToggleSidebar && (
           <button
             type="button"
@@ -224,7 +224,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           </button>
         )}
 
-        <div className="min-w-0">
+        <div className="relative z-10 shrink-0">
           <label className="sr-only" htmlFor="hall-select">
             Hallmall
           </label>
@@ -235,7 +235,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
               const h = HALL_TEMPLATES.find((h) => h.id === e.target.value);
               if (h) setHall(h);
             }}
-            className="max-w-[160px] truncate rounded-md border border-surface-3 bg-surface-2 px-2 py-1.5 text-xs font-medium outline-none focus:border-accent sm:text-sm"
+            className="h-9 min-w-[110px] max-w-[160px] truncate rounded-md border border-surface-3 bg-surface-2 px-2 text-xs font-medium outline-none focus:border-accent sm:text-sm"
             title={plan.hall.name}
           >
             {HALL_TEMPLATES.map((h) => (
