@@ -24,39 +24,78 @@ const Hall3D = lazy(() =>
   import("./components/Canvas3D/Hall3D").then((m) => ({ default: m.Hall3D })),
 );
 
-/** Fångar krascher i 3D-vyn och återställer till 2D-läge. */
+/** Fångar krascher i 3D-vyn. Visar ett synligt fel + retry-knapp istället
+ *  för att tyst tömma skärmen. Tidigare bouncades användaren tillbaka till
+ *  2D-editorn, vilket på iPad Air gav intryck av att "spelläget inte öppnar".
+ *  Nu ser spelaren vad som hände och kan trycka Försök igen. */
 class ThreeDErrorBoundary extends Component<
   { children: ReactNode; is3D: boolean },
-  { crashed: boolean }
+  { crashed: boolean; message: string | null }
 > {
-  state = { crashed: false };
+  state = { crashed: false, message: null as string | null };
 
-  // Reset automatically when the user switches back to 3D after a crash.
-  // Using getDerivedStateFromProps avoids calling setState from a useEffect,
-  // which can push React's nested-update counter toward the error-185 limit.
+  // Nollställ felet automatiskt när användaren växlar bort från 3D och
+  // tillbaka — annars skulle ett gammalt fel ligga kvar efter att vi
+  // sett error-UI:t och gått till 2D och tillbaka via toolbaren.
   static getDerivedStateFromProps(
     props: { is3D: boolean },
-    state: { crashed: boolean },
+    state: { crashed: boolean; message: string | null },
   ) {
-    if (props.is3D && state.crashed) return { crashed: false };
+    if (!props.is3D && state.crashed) return { crashed: false, message: null };
     return null;
   }
 
-  static getDerivedStateFromError() {
-    return { crashed: true };
+  static getDerivedStateFromError(err: Error) {
+    return { crashed: true, message: err.message || String(err) };
   }
   componentDidCatch(err: Error) {
-    console.warn("[3D] krasch – återgår till 2D:", err.message);
+    console.warn("[3D] krasch:", err);
+    // Logga en full stack i DOM-attribut så kan läsas via Safari Web Inspector
+    // även när konsolen är svår att nå på iPad.
+    try {
+      document.documentElement.setAttribute("data-3d-error", err.stack?.slice(0, 500) ?? err.message);
+    } catch { /* ignoreras */ }
+  }
+  private retry = () => {
+    this.setState({ crashed: false, message: null });
+  };
+  private exitToEditor = () => {
     usePlanStore.getState().setViewMode("2D");
-    // Om 3D kraschar under spelläget fastnar iPad:en annars i en blank
-    // gameMode-vy utan HUD — toolbaren finns inte där heller. Stäng
-    // spelläget så användaren hamnar i editorn och kan försöka igen.
     if (usePlanStore.getState().gameMode) {
       usePlanStore.getState().setGameMode(false);
     }
-  }
+    this.setState({ crashed: false, message: null });
+  };
   render() {
-    if (this.state.crashed) return null;
+    if (this.state.crashed) {
+      return (
+        <div
+          className="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-900/95 p-6 text-center text-slate-100"
+          style={{ fontFamily: "system-ui, sans-serif" }}
+        >
+          <div className="text-lg font-semibold">3D-vyn kraschade</div>
+          <div className="max-w-md text-xs text-slate-400">
+            {this.state.message ?? "Okänt fel"}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={this.retry}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white shadow active:opacity-80"
+            >
+              Försök igen
+            </button>
+            <button
+              type="button"
+              onClick={this.exitToEditor}
+              className="rounded-md bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 active:opacity-80"
+            >
+              Tillbaka till 2D
+            </button>
+          </div>
+        </div>
+      );
+    }
     return this.props.children;
   }
 }
