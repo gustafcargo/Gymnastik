@@ -36,6 +36,13 @@ export type PlayerState = {
   pose: Record<string, number>;
   mountedEqId: string | null;
   t: number; // wall-clock (ms)
+  // Tävlings-tillstånd (proffs-läget). Optional för bakåtkompat med äldre klienter.
+  score?: number;
+  combo?: number;
+  /** Date.now() då rundan slutar; null/undefined = inte i runda. */
+  roundEndsAt?: number | null;
+  /** True när spelaren är inne i en aktiv tävlingsrunda (running). */
+  roundActive?: boolean;
 };
 
 export type PlanPayload = {

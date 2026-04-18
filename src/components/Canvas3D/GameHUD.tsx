@@ -4,15 +4,20 @@
  * Touch: virtuell joystick (vänster) + hoppa-upp-knapp (höger).
  */
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, Sparkles, Volume2, VolumeX, Gamepad2, Dumbbell } from "lucide-react";
+import { Camera, X, Sparkles, Volume2, VolumeX, Gamepad2, Dumbbell, Trophy, Timer, Play } from "lucide-react";
 import type { MountedExerciseInfo } from "./GameGymnast3D";
 import { GymnastStylePanel } from "./GymnastStylePanel";
 import { useAudioStore } from "../../store/useAudioStore";
-import { useGameConfig } from "../../store/useGameConfig";
+import { useGameConfig, isProffsMode } from "../../store/useGameConfig";
+import { useGameScore } from "../../store/useGameScore";
+import { useGameMode } from "../../store/useGameMode";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { isMultiplayerEnabled } from "../../lib/multiplayer";
 import { RoomPanel } from "./RoomPanel";
 import { InviteModal } from "./InviteModal";
+import { TrickOverlay } from "./TrickOverlay";
+import { RoundOverlay, RoundTimer } from "./RoundOverlay";
+import { Leaderboard } from "./Leaderboard";
 
 type Props = {
   nearEquipment: string | null;
@@ -34,6 +39,9 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   const toggleMute = useAudioStore((s) => s.toggle);
   const difficulty = useGameConfig((s) => s.difficulty);
   const toggleDifficulty = useGameConfig((s) => s.toggleDifficulty);
+  const gameMode = useGameMode((s) => s.gameMode);
+  const roundState = useGameMode((s) => s.roundState);
+  const lifetimeBest = useGameScore((s) => s.lifetimeBestTavling);
   const [difficultyHintSeen, setDifficultyHintSeen] = useState<boolean>(() => {
     try { return localStorage.getItem("gymnast-difficulty-hint-seen") === "1"; }
     catch { return true; }
@@ -251,7 +259,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
         {muted ? "Ljud av" : "Ljud på"}
       </button>
 
-      {/* Svårighetsgrad-toggle – auto vs manuell styrning av övningen */}
+      {/* Svårighetsgrad-toggle – auto/manuell/proffs */}
       <div style={{
         position: "absolute", top: freeCamActive ? 250 : 214, right: 14,
         display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4,
@@ -266,37 +274,115 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
               try { localStorage.setItem("gymnast-difficulty-hint-seen", "1"); } catch { /* ignore */ }
             }
           }}
-          aria-label={difficulty === "manuell" ? "Byt till auto-läge" : "Byt till manuell-läge"}
+          aria-label={`Sv\u00e5righetsgrad: ${difficulty}. Klicka f\u00f6r att byta.`}
           style={{
             display: "flex", alignItems: "center", gap: 6,
-            background: difficulty === "manuell"
-              ? "linear-gradient(135deg, rgba(34,197,94,0.88), rgba(16,185,129,0.88))"
-              : "rgba(10,18,32,0.78)",
+            background:
+              difficulty === "proffs"
+                ? "linear-gradient(135deg, rgba(245,158,11,0.92), rgba(234,88,12,0.92))"
+                : difficulty === "manuell"
+                ? "linear-gradient(135deg, rgba(34,197,94,0.88), rgba(16,185,129,0.88))"
+                : "rgba(10,18,32,0.78)",
             backdropFilter: "blur(6px)",
-            border: `1px solid ${difficulty === "manuell" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)"}`,
+            border: `1px solid ${difficulty === "auto" ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.3)"}`,
             borderRadius: 8,
             color: "#f1f5f9", fontSize: 11, fontWeight: 700, padding: "6px 12px",
             cursor: "pointer",
-            boxShadow: difficulty === "manuell" ? "0 2px 10px rgba(34,197,94,0.35)" : "none",
+            boxShadow:
+              difficulty === "proffs"
+                ? "0 2px 10px rgba(245,158,11,0.4)"
+                : difficulty === "manuell"
+                ? "0 2px 10px rgba(34,197,94,0.35)"
+                : "none",
           }}
         >
-          {difficulty === "manuell" ? <Dumbbell size={13} /> : <Gamepad2 size={13} />}
-          {difficulty === "manuell" ? "Manuell" : "Auto"}
+          {difficulty === "proffs"
+            ? <Trophy size={13} />
+            : difficulty === "manuell"
+              ? <Dumbbell size={13} />
+              : <Gamepad2 size={13} />}
+          {difficulty === "proffs" ? "Proffs" : difficulty === "manuell" ? "Manuell" : "Auto"}
         </button>
-        {difficulty === "manuell" && !difficultyHintSeen && (
+        {difficulty !== "auto" && !difficultyHintSeen && (
           <div style={{
             background: "rgba(15,23,42,0.95)",
-            border: "1px solid rgba(34,197,94,0.4)",
+            border: `1px solid ${difficulty === "proffs" ? "rgba(245,158,11,0.45)" : "rgba(34,197,94,0.4)"}`,
             borderRadius: 6,
             padding: "5px 9px",
             color: "#cbd5e1", fontSize: 10, fontWeight: 500,
-            maxWidth: 180, textAlign: "right", lineHeight: 1.35,
+            maxWidth: 200, textAlign: "right", lineHeight: 1.35,
             boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
           }}>
-            Styr övningen själv med joysticken framåt/bakåt
+            {difficulty === "proffs"
+              ? "T\u00e4vlingsl\u00e4ge: tryck p\u00e5 hopp-knappen exakt vid r\u00e4tt \u00f6gonblick f\u00f6r po\u00e4ng"
+              : "Styr \u00f6vningen sj\u00e4lv med joysticken fram\u00e5t/bak\u00e5t"}
           </div>
         )}
       </div>
+
+      {/* Tävlings-läges-toggle + starta-runda — bara synlig när proffs är valt */}
+      {isProffsMode(difficulty) && (
+        <div style={{
+          position: "absolute",
+          top: (freeCamActive ? 250 : 214) + 44,
+          right: 14,
+          display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6,
+          pointerEvents: "all",
+        }}>
+          <button
+            type="button"
+            onClick={() => useGameMode.getState().toggleGameMode()}
+            aria-label={`Spell\u00e4ge: ${gameMode}. Klicka f\u00f6r att byta.`}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: gameMode === "tavling"
+                ? "linear-gradient(135deg, rgba(239,68,68,0.92), rgba(185,28,28,0.92))"
+                : "rgba(10,18,32,0.78)",
+              backdropFilter: "blur(6px)",
+              border: `1px solid ${gameMode === "tavling" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)"}`,
+              borderRadius: 8,
+              color: "#f1f5f9", fontSize: 11, fontWeight: 700, padding: "6px 12px",
+              cursor: "pointer",
+              boxShadow: gameMode === "tavling" ? "0 2px 10px rgba(239,68,68,0.4)" : "none",
+            }}
+          >
+            <Timer size={13} />
+            {gameMode === "tavling" ? "T\u00e4vling" : "Fri"}
+          </button>
+          {gameMode === "tavling" && roundState === "idle" && (
+            <button
+              type="button"
+              onClick={() => {
+                useGameScore.getState().resetScore();
+                useGameMode.getState().startCountdown();
+              }}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: "linear-gradient(135deg, #22c55e, #16a34a)",
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: 8,
+                color: "#fff", fontSize: 11, fontWeight: 800, padding: "6px 12px",
+                cursor: "pointer",
+                boxShadow: "0 2px 10px rgba(34,197,94,0.4)",
+              }}
+            >
+              <Play size={13} /> Starta runda
+            </button>
+          )}
+          {gameMode === "tavling" && lifetimeBest > 0 && roundState === "idle" && (
+            <div style={{
+              fontSize: 10, color: "#94a3b8", fontWeight: 600,
+              background: "rgba(10,18,32,0.6)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 6, padding: "3px 8px",
+            }}>
+              Personligt rekord: <span style={{ color: "#f59e0b", fontWeight: 800 }}>
+                {lifetimeBest.toLocaleString("sv-SE")}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Rum-panel uppe till vänster (döljs när övningsmenyn visas där) */}
       {!mountedExerciseInfo && <RoomPanel />}
@@ -409,34 +495,72 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
             }} />
           </div>
 
-          {/* Hoppa upp/av-knapp – nedre höger */}
-          <button
-            type="button"
-            onPointerDown={(e) => { e.preventDefault(); mountTriggerRef.current = true; }}
-            style={{
-              position: "absolute", bottom: 40, right: 40,
-              width: 80, height: 80,
-              background: mountedExerciseInfo
-                ? "rgba(239,68,68,0.85)"
-                : nearEquipment
-                  ? "rgba(59,130,246,0.85)"
-                  : "rgba(34,197,94,0.85)",
-              border: "2px solid rgba(255,255,255,0.30)",
-              borderRadius: "50%",
-              color: "#fff", fontSize: 11, fontWeight: 700,
-              cursor: "pointer", pointerEvents: "all", touchAction: "none",
-              transition: "background 0.2s",
-              whiteSpace: "pre-line",
-              lineHeight: 1.3,
-            }}
-          >
-            {mountedExerciseInfo ? "Hoppa\nav" : nearEquipment ? "Hoppa\nupp" : "Trick"}
-          </button>
+          {/* Hoppa upp/av-knapp – nedre höger. I proffs-läge agerar den även
+              som trick-knapp när ett fönster är öppet (kontextkänsligt label). */}
+          <ActionButton
+            mounted={!!mountedExerciseInfo}
+            nearEquipment={nearEquipment}
+            isProffs={isProffsMode(difficulty)}
+            onPress={() => { mountTriggerRef.current = true; }}
+          />
         </>
       )}
 
+      {isProffsMode(difficulty) && <TrickOverlay />}
+      {isProffsMode(difficulty) && <RoundTimer />}
+      {isProffsMode(difficulty) && <RoundOverlay />}
+      {isProffsMode(difficulty) && <Leaderboard />}
       <GymnastStylePanel open={styleOpen} onClose={() => setStyleOpen(false)} />
       <InviteModal />
     </div>
+  );
+}
+
+type ActionButtonProps = {
+  mounted: boolean;
+  nearEquipment: string | null;
+  isProffs: boolean;
+  onPress: () => void;
+};
+
+function ActionButton({ mounted, nearEquipment, isProffs, onPress }: ActionButtonProps) {
+  const pending = useGameScore((s) => s.pendingTrick);
+  const inWindow =
+    isProffs && mounted && pending && Math.abs(pending.dt) * 1000 <= pending.windowMs;
+  const label = inWindow
+    ? pending.label.toUpperCase()
+    : mounted
+      ? "Hoppa\nav"
+      : nearEquipment
+        ? "Hoppa\nupp"
+        : "Trick";
+  const bg = inWindow
+    ? "linear-gradient(135deg, rgba(245,158,11,0.95), rgba(234,88,12,0.95))"
+    : mounted
+      ? "rgba(239,68,68,0.85)"
+      : nearEquipment
+        ? "rgba(59,130,246,0.85)"
+        : "rgba(34,197,94,0.85)";
+  return (
+    <button
+      type="button"
+      onPointerDown={(e) => { e.preventDefault(); onPress(); }}
+      style={{
+        position: "absolute", bottom: 40, right: 40,
+        width: 80, height: 80,
+        background: bg,
+        border: `2px solid ${inWindow ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.30)"}`,
+        borderRadius: "50%",
+        color: "#fff", fontSize: inWindow ? 12 : 11, fontWeight: 800,
+        cursor: "pointer", pointerEvents: "all", touchAction: "none",
+        transition: "background 0.15s, transform 0.1s",
+        whiteSpace: "pre-line",
+        lineHeight: 1.3,
+        transform: inWindow ? "scale(1.08)" : "scale(1)",
+        boxShadow: inWindow ? "0 0 24px rgba(245,158,11,0.7)" : "0 4px 14px rgba(0,0,0,0.35)",
+      }}
+    >
+      {label}
+    </button>
   );
 }

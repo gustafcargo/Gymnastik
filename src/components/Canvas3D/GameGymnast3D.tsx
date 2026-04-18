@@ -15,12 +15,14 @@ import {
   H_TORSO, H_UPPER, H_LOWER, H_THIGH, H_SHIN, HANG_DIST,
   type BodyRefs,
 } from "./GymnastBody";
-import { type Pose, type KF, ZERO, evalKF, evalExercise, pend as _pend } from "../../types/pose";
+import { type Pose, type KF, type TrickWindow, ZERO, evalKF, evalExercise, pend as _pend } from "../../types/pose";
 import { playMount, playDismount, playTrick, playLanding, playStep, playDenied } from "../../lib/sfx";
 import type { EffectsHandle } from "./EffectsLayer";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { useGymnastTuning } from "../../store/useGymnastTuning";
-import { useGameConfig } from "../../store/useGameConfig";
+import { useGameConfig, isPlayerScrubbing, isProffsMode } from "../../store/useGameConfig";
+import { useGameScore, type TrickGrade } from "../../store/useGameScore";
+import { useGameMode } from "../../store/useGameMode";
 import { sendState } from "../../lib/multiplayer";
 
 const P = Math.PI;
@@ -139,7 +141,24 @@ export function GameGymnast3D({
   // så svårighetsgraden "manuell" kan låta spelaren skrubba tidslinjen via
   // joysticken. Resetas vid varje mount och vid övningsbyte.
   const exerciseT = useRef(0);
+  // Ackumulerad övnings-progress utan wrap, används av advance-logiken så
+  // gymnasten kan gå hela bommens längd (annars klamps `dist` till en cykel).
+  const exerciseProgress = useRef(0);
   const lastMountedExerciseId = useRef<string | null>(null);
+  // Proffs-läge: vilken trick som spelaren just nu kan/försöker tajma.
+  // Uppdateras varje frame i mounted-blocket; läses av trigger-handler för
+  // att avgöra om Space/knappen ska gradera tricket eller demontera.
+  const pendingTrickRef = useRef<{ trick: TrickWindow; dt: number; exerciseId: string } | null>(null);
+  // Set av redan-konsumerade tricks per "lap" för att undvika dubbel-gradering
+  // eller dubbel-miss inom samma cykel. Key: `${cycle}:${trickT}`.
+  const consumedTricksRef = useRef<Set<string>>(new Set());
+  // Pågående hold-zon: ackumulerad stilla-tid + zon-meta. Resetas så fort
+  // spelaren rör joysticken eller scrubbar ut ur zonen.
+  const holdElapsedRef = useRef(0);
+  const holdZoneKeyRef = useRef<string | null>(null);
+  // Minsta tid spelaren måste hålla stilla innan poäng börjar trilla in,
+  // så att korta paus-toucher inte räknas som "hold".
+  const HOLD_MIN_SEC = 0.5;
 
   const rootRef  = useRef<THREE.Group>(null);
   const bodyRefs: BodyRefs = {
@@ -232,14 +251,52 @@ export function GameGymnast3D({
     }
 
     // ── Montera/demontera ──────────────────────────────────────────────────
-    const triggerMount = mountTriggerRef.current || spaceDown.current;
+    let triggerMount = mountTriggerRef.current || spaceDown.current;
     mountTriggerRef.current = false;
     spaceDown.current = false;
+
+    // Proffs-läge: när spelaren är monterad och ett trick-fönster är öppet
+    // ska tryck på trick-knappen gradera tricket istället för att demontera.
+    // Ett kort cooldown-fönster på 400ms efter ett konsumerat trick håller en
+    // sen-tryckning från att accidentellt demontera.
+    if (triggerMount && mounted.current && isProffsMode(useGameConfig.getState().difficulty)) {
+      const pending = pendingTrickRef.current;
+      if (pending && pending.exerciseId === mounted.current.exerciseId) {
+        const winSec = (pending.trick.windowMs ?? 250) / 1000;
+        const offsetMs = Math.abs(pending.dt) * 1000;
+        if (Math.abs(pending.dt) <= winSec) {
+          const grade: TrickGrade =
+            offsetMs < 40 ? "perfect" :
+            offsetMs < 100 ? "great" :
+            offsetMs < 200 ? "good" : "miss";
+          useGameScore.getState().recordTrick(
+            grade,
+            pending.trick.label ?? pending.trick.type,
+            pending.trick.difficulty ?? 1,
+          );
+          // Markera trick som konsumerat för aktuell cykel.
+          const def0 = lookupExercise(mounted.current.exerciseId);
+          if (def0) {
+            const dur0 = def0.kfs[def0.kfs.length - 1].t;
+            const cycle0 = Math.floor(exerciseProgress.current / dur0);
+            consumedTricksRef.current.add(`${cycle0}:${pending.trick.t}`);
+          }
+          // Suppress dismount.
+          triggerMount = false;
+        }
+      }
+    }
 
     if (triggerMount) {
       if (mounted.current) {
         mounted.current = null;
         lastMountedExerciseId.current = null;
+        consumedTricksRef.current = new Set();
+        pendingTrickRef.current = null;
+        holdZoneKeyRef.current = null;
+        holdElapsedRef.current = 0;
+        useGameScore.getState().setPendingTrick(null);
+        useGameScore.getState().setActiveHold(null);
         onMountedExercisesRef.current(null);
         playDismount();
         // Rensa proximity-state så etiketten försvinner
@@ -358,10 +415,21 @@ export function GameGymnast3D({
       const dur = def ? def.kfs[def.kfs.length - 1].t : 1;
       if (lastMountedExerciseId.current !== exerciseId) {
         exerciseT.current = 0;
+        exerciseProgress.current = 0;
         lastMountedExerciseId.current = exerciseId;
+        // Glöm tidigare cykels trick-status så vi inte säger "redan konsumerat"
+        // för en helt ny övning, och nollställ pending så HUD inte hänger kvar.
+        consumedTricksRef.current = new Set();
+        pendingTrickRef.current = null;
+        holdZoneKeyRef.current = null;
+        holdElapsedRef.current = 0;
+        useGameScore.getState().setPendingTrick(null);
+        useGameScore.getState().setActiveHold(null);
+        useGameScore.getState().resetCombo();
       }
       const difficulty = useGameConfig.getState().difficulty;
-      if (difficulty === "manuell") {
+      let exerciseDelta: number;
+      if (isPlayerScrubbing(difficulty)) {
         // -joy.dz = framåt på joysticken. WASD räknas också in för desktop.
         const joyFwd  = -joy.dz;
         const keyFwd  = (k.has("w") || k.has("arrowup"))   ? 1 : 0;
@@ -370,12 +438,135 @@ export function GameGymnast3D({
         // Hastighet: 1.2 övnings-cykler per sekund vid full joystick. Bra
         // balans — tillräckligt snabb för att svinga i tid men inte så snabb
         // att posen blir ett hack. Kan justeras vid behov.
-        exerciseT.current += rawInput * 1.2 * delta;
+        exerciseDelta = rawInput * 1.2 * delta;
       } else {
-        exerciseT.current += delta;
+        exerciseDelta = delta;
       }
-      // Modulo så vi alltid är inom [0, dur)
+      exerciseT.current += exerciseDelta;
+      exerciseProgress.current += exerciseDelta;
+      // Modulo så posen alltid är inom [0, dur)
       exerciseT.current = ((exerciseT.current % dur) + dur) % dur;
+
+      // Proffs-läge: detektera närmsta trick-fönster för HUD och auto-grada
+      // som MISS när ett fönster passerar utan att spelaren tryckte. Hela
+      // blocket är gated på proffs-mode + att övningen har trick-annotationer.
+      if (isProffsMode(difficulty) && def?.tricks && def.tricks.length > 0) {
+        const cur = exerciseT.current;
+        const cycle = Math.floor(exerciseProgress.current / dur);
+
+        // Hitta närmsta trick (signed dt; negativ = just passerat, positiv = kommer).
+        let nearest: { trick: TrickWindow; dt: number } | null = null;
+        for (const tr of def.tricks) {
+          const key = `${cycle}:${tr.t}`;
+          if (consumedTricksRef.current.has(key)) continue;
+          let dt = tr.t - cur;
+          // Om vi är mer än halv cykel före, är nästa varv närmare.
+          if (dt < -dur / 2) dt += dur;
+          if (dt > 1.5) continue; // för långt fram för HUD
+          if (!nearest || Math.abs(dt) < Math.abs(nearest.dt)) {
+            nearest = { trick: tr, dt };
+          }
+        }
+
+        if (nearest) {
+          pendingTrickRef.current = { trick: nearest.trick, dt: nearest.dt, exerciseId };
+          const cur0 = useGameScore.getState().pendingTrick;
+          if (
+            !cur0 ||
+            cur0.exerciseId !== exerciseId ||
+            cur0.dt !== nearest.dt ||
+            cur0.label !== (nearest.trick.label ?? nearest.trick.type)
+          ) {
+            useGameScore.getState().setPendingTrick({
+              exerciseId,
+              eqId,
+              type: nearest.trick.type,
+              label: nearest.trick.label ?? nearest.trick.type,
+              dt: nearest.dt,
+              windowMs: nearest.trick.windowMs ?? 250,
+              difficulty: nearest.trick.difficulty ?? 1,
+            });
+          }
+        } else {
+          pendingTrickRef.current = null;
+          if (useGameScore.getState().pendingTrick) {
+            useGameScore.getState().setPendingTrick(null);
+          }
+        }
+
+        // Forward-crossing miss: om ett ogradet trick-fönster har passerat
+        // (cur > tr.t + windowMs/1000) räknas det som missat. Vi tittar bara
+        // framåt-passerade i samma cykel för att inte räkna miss vid scrubbing
+        // bakåt eller wrap.
+        for (const tr of def.tricks) {
+          const key = `${cycle}:${tr.t}`;
+          if (consumedTricksRef.current.has(key)) continue;
+          const win = (tr.windowMs ?? 250) / 1000;
+          if (cur > tr.t + win && cur - tr.t < dur / 2) {
+            consumedTricksRef.current.add(key);
+            useGameScore.getState().recordTrick("miss", tr.label ?? tr.type, tr.difficulty ?? 1);
+          }
+        }
+
+        // Trimma set:et så det inte växer obegränsat (drop > 2 cykler gamla).
+        if (consumedTricksRef.current.size > 32) {
+          const keep = new Set<string>();
+          for (const k of consumedTricksRef.current) {
+            const c = parseInt(k.split(":")[0] ?? "0", 10);
+            if (cycle - c <= 2) keep.add(k);
+          }
+          consumedTricksRef.current = keep;
+        }
+      } else if (pendingTrickRef.current) {
+        pendingTrickRef.current = null;
+        if (useGameScore.getState().pendingTrick) {
+          useGameScore.getState().setPendingTrick(null);
+        }
+      }
+
+      // Hold-zoner (proffs-läget). Spelaren håller stilla i en statisk pose
+      // och samlar pointsPerSec efter en kort minimum-grace-period. Joystick-
+      // magnitud < 0.1 räknas som "stilla" (matchar dead-zone i WASD-grenen).
+      if (isProffsMode(difficulty) && def?.holdZones && def.holdZones.length > 0) {
+        const cur = exerciseT.current;
+        const inZone = def.holdZones.find(
+          (h) => cur >= h.tStart && cur <= h.tEnd,
+        );
+        const joyMag = Math.hypot(joy.dx, joy.dz);
+        const stillStill = joyMag < 0.1
+          && !k.has("w") && !k.has("s") && !k.has("arrowup") && !k.has("arrowdown");
+
+        if (inZone && stillStill) {
+          const zoneKey = `${exerciseId}:${inZone.tStart}`;
+          if (holdZoneKeyRef.current !== zoneKey) {
+            holdZoneKeyRef.current = zoneKey;
+            holdElapsedRef.current = 0;
+          }
+          holdElapsedRef.current += delta;
+          const totalSec = inZone.tEnd - inZone.tStart;
+          useGameScore.getState().setActiveHold({
+            exerciseId, eqId,
+            label: inZone.label ?? "h\u00e5ll",
+            elapsedSec: holdElapsedRef.current,
+            totalSec,
+            pointsPerSec: inZone.pointsPerSec ?? 30,
+          });
+          if (holdElapsedRef.current > HOLD_MIN_SEC) {
+            const pts = (inZone.pointsPerSec ?? 30) * delta;
+            useGameScore.getState().addHoldPoints(pts, inZone.label ?? "h\u00e5ll");
+          }
+        } else {
+          if (holdZoneKeyRef.current !== null) {
+            holdZoneKeyRef.current = null;
+            holdElapsedRef.current = 0;
+            useGameScore.getState().setActiveHold(null);
+          }
+        }
+      } else if (holdZoneKeyRef.current !== null) {
+        holdZoneKeyRef.current = null;
+        holdElapsedRef.current = 0;
+        useGameScore.getState().setActiveHold(null);
+      }
 
       pose = def ? evalExercise(def, exerciseT.current) : evalKF(IDLE_KFS, t);
       if (def?.baseRotY) pose.rootRotY += def.baseRotY;
@@ -384,10 +575,9 @@ export function GameGymnast3D({
       // Övningar med baseRotY har ansiktet mot lokal −Z → världens −X (vid baseRotY=PI/2).
       // Vi negerar rootX-förflyttningen så att gymnasten rör sig i sin blickriktning (−X).
       if (def?.advance && def.advance > 0) {
-        // Använd exerciseT (driven av auto/manuell) istället för wall-clock,
-        // så att "framgång genom övningen" även flyttar gymnasten längs bommen
-        // i manuell-läge.
-        const dist = (exerciseT.current / dur) * def.advance;
+        // Använd ackumulerad progress (utan modulo) så gymnasten kan
+        // gå hela bommen istället för att klampas till en cykels längd.
+        const dist = (exerciseProgress.current / dur) * def.advance;
         const range = def.range ?? 3.0;
         const period = range * 2;
         const phase = ((dist % period) + period) % period;
@@ -664,6 +854,12 @@ export function GameGymnast3D({
         // Skicka lokal leotard-färg (inte den statiska mp.playerColor) så
         // fjärrspelare ser den faktiska färgen från tuning-panelen.
         const localColor = useGymnastTuning.getState().colors.leotard || mp.playerColor;
+        // Tävlingsstate broadcastas så övriga klienters leaderboard kan visa
+        // våra poäng och timer i realtid. Skickas alltid (även 0/null) så
+        // remote-state nollställs när vi lämnar proffs-läget.
+        const scoreState = useGameScore.getState();
+        const modeState = useGameMode.getState();
+        const inProffs = isProffsMode(useGameConfig.getState().difficulty);
         sendState(mp.channel, {
           id: mp.playerId,
           name: mp.playerName,
@@ -673,6 +869,12 @@ export function GameGymnast3D({
           pose: poseOut,
           mountedEqId: mounted.current?.eqId ?? null,
           t: Date.now(),
+          score: inProffs ? scoreState.score : 0,
+          combo: inProffs ? scoreState.combo : 0,
+          roundEndsAt: inProffs && modeState.gameMode === "tavling"
+            ? modeState.roundEndsAt
+            : null,
+          roundActive: inProffs && modeState.roundState === "running",
         });
         mp.reapStale(8000);
       }

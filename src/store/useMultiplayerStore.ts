@@ -48,6 +48,11 @@ export type RemotePlayer = {
   pose: Record<string, number>;
   mountedEqId: string | null;
   lastSeenT: number; // wall-clock ms (Date.now())
+  // Tävlings-state (optional — sätts bara när motspelaren kör proffs-läget).
+  score?: number;
+  combo?: number;
+  roundEndsAt?: number | null;
+  roundActive?: boolean;
 };
 
 /** En annan spelare som syns i lobbyn (ej nödvändigtvis i samma rum). */
@@ -236,6 +241,10 @@ export const useMultiplayerStore = create<Store>()(
               pose: payload.pose,
               mountedEqId: payload.mountedEqId,
               lastSeenT: Date.now(),
+              score: payload.score,
+              combo: payload.combo,
+              roundEndsAt: payload.roundEndsAt ?? null,
+              roundActive: payload.roundActive ?? false,
             },
           },
         }));
