@@ -170,6 +170,8 @@ type PlanActions = {
   toggleNotes: () => void;
   toggleGameMode: () => void;
   setGameMode: (on: boolean) => void;
+  /** Ersätt hela planen från en extern källa (multiplayer-synk). */
+  adoptRemotePlan: (plan: Plan) => void;
 
   // stations
   addStation: (name?: string) => string;
@@ -501,6 +503,8 @@ export const usePlanStore = create<PlanStore>()(
       toggleNotes: () => set((s) => ({ showNotes: !s.showNotes })),
       toggleGameMode: () => set((s) => ({ gameMode: !s.gameMode })),
       setGameMode: (on) => set({ gameMode: on }),
+      adoptRemotePlan: (plan) =>
+        set({ plan, selectedEquipmentId: null }),
 
       addStation: (name) => {
         const state = get();

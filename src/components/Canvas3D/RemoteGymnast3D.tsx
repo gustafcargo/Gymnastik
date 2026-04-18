@@ -33,14 +33,29 @@ function toPose(obj: Record<string, number> | undefined): Pose {
   return out;
 }
 
+/** Kortaste-båge-interpolation mellan två vinklar (radianer). Undviker att
+ *  gymnasten spinner 360° när t.ex. rotY går från +π till −π mellan två
+ *  broadcasts. */
+function lerpAngle(a: number, b: number, alpha: number): number {
+  const TWO_PI = Math.PI * 2;
+  let d = (b - a) % TWO_PI;
+  if (d > Math.PI) d -= TWO_PI;
+  else if (d < -Math.PI) d += TWO_PI;
+  return a + d * alpha;
+}
+
 function lerpSnap(a: Snap, b: Snap, alpha: number): Snap {
   const mix = (x: number, y: number) => x + (y - x) * alpha;
   const pose = { ...ZERO };
+  // Alla pose-fält är vinklar (radianer) – interpolera via kortaste båge.
   for (const k of POSE_KEYS) {
-    (pose as unknown as Record<string, number>)[k as string] = mix(
-      (a.pose as unknown as Record<string, number>)[k as string] ?? 0,
-      (b.pose as unknown as Record<string, number>)[k as string] ?? 0,
-    );
+    const av = (a.pose as unknown as Record<string, number>)[k as string] ?? 0;
+    const bv = (b.pose as unknown as Record<string, number>)[k as string] ?? 0;
+    // rootX/rootY/rootZ är förflyttningar i meter, inte vinklar
+    const isPos = k === "rootX" || k === "rootY" || k === "rootZ";
+    (pose as unknown as Record<string, number>)[k as string] = isPos
+      ? mix(av, bv)
+      : lerpAngle(av, bv, alpha);
   }
   return {
     t: b.t,
@@ -49,7 +64,7 @@ function lerpSnap(a: Snap, b: Snap, alpha: number): Snap {
       y: mix(a.pos.y, b.pos.y),
       z: mix(a.pos.z, b.pos.z),
     },
-    rotY: mix(a.rotY, b.rotY),
+    rotY: lerpAngle(a.rotY, b.rotY, alpha),
     pose,
   };
 }
@@ -103,10 +118,14 @@ export function RemoteGymnast3D({ player }: { player: RemotePlayer }) {
     const s = lerpSnap(prev.current, curr.current, alpha);
 
     if (rootRef.current) {
+      // Matchar lokal rendering i GameGymnast3D: rotation.y = pose.rootRotY
+      // (som redan innehåller gymnastens yaw, eqRot och ev. baseRotY).
+      // s.rotY skickas fortfarande i payload men används inte här för att
+      // undvika dubbelrotation.
       rootRef.current.rotation.order = "YXZ";
       rootRef.current.position.set(s.pos.x, s.pos.y, s.pos.z);
       rootRef.current.rotation.x = s.pose.rootRotX;
-      rootRef.current.rotation.y = s.rotY + s.pose.rootRotY;
+      rootRef.current.rotation.y = s.pose.rootRotY;
       rootRef.current.rotation.z = s.pose.rootRotZ;
     }
     const r = bodyRefs;

@@ -9,6 +9,7 @@
  * knappar utan att kasta fel.
  */
 import { createClient, type SupabaseClient, type RealtimeChannel } from "@supabase/supabase-js";
+import type { Plan } from "../types";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -37,9 +38,22 @@ export type PlayerState = {
   t: number; // wall-clock (ms)
 };
 
+export type PlanPayload = {
+  from: string;   // avsändar-id
+  plan: Plan;
+  t: number;
+};
+
+export type PlanRequestPayload = {
+  from: string;   // be:are
+  t: number;
+};
+
 export type RoomHandlers = {
   onStateBroadcast: (state: PlayerState) => void;
   onPresenceSync: (activeIds: string[]) => void;
+  onPlanReceived: (payload: PlanPayload) => void;
+  onPlanRequest: (payload: PlanRequestPayload) => void;
 };
 
 /** Skapa och subscribe:a en kanal för rummet. Caller måste anropa `leaveRoom`. */
@@ -59,6 +73,12 @@ export async function joinRoom(
   channel.on("broadcast", { event: "state" }, ({ payload }) => {
     handlers.onStateBroadcast(payload as PlayerState);
   });
+  channel.on("broadcast", { event: "plan" }, ({ payload }) => {
+    handlers.onPlanReceived(payload as PlanPayload);
+  });
+  channel.on("broadcast", { event: "plan-request" }, ({ payload }) => {
+    handlers.onPlanRequest(payload as PlanRequestPayload);
+  });
   channel.on("presence", { event: "sync" }, () => {
     const state = channel.presenceState<{ id: string }>();
     handlers.onPresenceSync(Object.keys(state));
@@ -66,6 +86,13 @@ export async function joinRoom(
   await channel.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
       await channel.track({ id: selfId });
+      // Be alla andra i rummet om deras aktuella plan. Befintliga spelare
+      // svarar med "plan"-broadcast; joinaren adopterar första mottagna.
+      void channel.send({
+        type: "broadcast",
+        event: "plan-request",
+        payload: { from: selfId, t: Date.now() } satisfies PlanRequestPayload,
+      });
     }
   });
   return channel;
@@ -75,6 +102,12 @@ export async function joinRoom(
 export function sendState(channel: RealtimeChannel | null, state: PlayerState): void {
   if (!channel) return;
   void channel.send({ type: "broadcast", event: "state", payload: state });
+}
+
+/** Skicka aktuell plan som svar på en plan-request. */
+export function sendPlan(channel: RealtimeChannel | null, payload: PlanPayload): void {
+  if (!channel) return;
+  void channel.send({ type: "broadcast", event: "plan", payload });
 }
 
 export async function leaveRoom(channel: RealtimeChannel | null): Promise<void> {

@@ -10,11 +10,17 @@
  *
  * Storen är medvetet "dumb": logiken för throttlad broadcast och mount-
  * prevention ligger i GameGymnast3D; storen är bara state + actions.
+ *
+ * Plan-synk: när en ny spelare joinar skickas "plan-request" automatiskt
+ * från multiplayer.ts. Alla befintliga klienter får requesten och skickar
+ * sin aktuella plan. Joinaren adopterar första mottagna planen (sedan
+ * nonchaleras dubletter).
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { joinRoom, leaveRoom, type PlayerState } from "../lib/multiplayer";
+import { joinRoom, leaveRoom, sendPlan, type PlayerState, type PlanPayload, type PlanRequestPayload } from "../lib/multiplayer";
+import { usePlanStore } from "./usePlanStore";
 
 export type RemotePlayer = {
   id: string;
@@ -38,6 +44,8 @@ type RuntimeState = {
   channel: RealtimeChannel | null;
   players: Record<string, RemotePlayer>;
   activePresenceIds: string[]; // från presence sync, städar bort timeouts
+  hasAdoptedPlan: boolean;     // true när vi fått plan från annan spelare
+  joinedAtMs: number;          // när vi subscribea:de senast (ms)
 };
 
 type Actions = {
@@ -73,6 +81,8 @@ export const useMultiplayerStore = create<Store>()(
       channel: null,
       players: {},
       activePresenceIds: [],
+      hasAdoptedPlan: false,
+      joinedAtMs: 0,
 
       setPlayerName: (name) => set({ playerName: name.slice(0, 20) || "Gymnast" }),
       setPlayerColor: (color) => set({ playerColor: color }),
@@ -81,17 +91,55 @@ export const useMultiplayerStore = create<Store>()(
         const { channel: existing, playerId } = get();
         if (existing) await leaveRoom(existing);
         const normalized = code.toUpperCase().slice(0, 6);
+        set({
+          roomCode: normalized,
+          channel: null,
+          players: {},
+          activePresenceIds: [],
+          hasAdoptedPlan: false,
+          joinedAtMs: Date.now(),
+        });
         const newChannel = await joinRoom(normalized, playerId, {
           onStateBroadcast: (payload) => get().ingestRemote(payload),
           onPresenceSync: (ids) => get().syncPresence(ids),
+          onPlanReceived: (payload: PlanPayload) => {
+            // Bara första mottagna planen adopteras, för att undvika
+            // att flera host-svar skriver över varandra.
+            if (get().hasAdoptedPlan) return;
+            if (payload.from === get().playerId) return;
+            usePlanStore.getState().adoptRemotePlan(payload.plan);
+            set({ hasAdoptedPlan: true });
+          },
+          onPlanRequest: (payload: PlanRequestPayload) => {
+            // Svara bara om requesten kommer från någon annan, och bara
+            // om vi själva är "etablerade" (joinade för > 1s sedan) – annars
+            // blir det en join-race där två joiners frågar varandra samtidigt.
+            if (payload.from === get().playerId) return;
+            const { channel, joinedAtMs } = get();
+            if (!channel) return;
+            if (Date.now() - joinedAtMs < 1000) return;
+            const plan = usePlanStore.getState().plan;
+            sendPlan(channel, {
+              from: get().playerId,
+              plan,
+              t: Date.now(),
+            });
+          },
         });
-        set({ roomCode: normalized, channel: newChannel, players: {} });
+        set({ channel: newChannel });
       },
 
       leave: async () => {
         const { channel } = get();
         if (channel) await leaveRoom(channel);
-        set({ roomCode: null, channel: null, players: {}, activePresenceIds: [] });
+        set({
+          roomCode: null,
+          channel: null,
+          players: {},
+          activePresenceIds: [],
+          hasAdoptedPlan: false,
+          joinedAtMs: 0,
+        });
       },
 
       ingestRemote: (payload) => {
