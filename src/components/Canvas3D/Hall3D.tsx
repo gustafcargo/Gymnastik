@@ -16,6 +16,7 @@ import { Gymnast3D } from "./Gymnast3D";
 import { GameGymnast3D, type MountedExerciseInfo } from "./GameGymnast3D";
 import { GameHUD } from "./GameHUD";
 import { EffectsLayer, type EffectsHandle } from "./EffectsLayer";
+import { Bleachers } from "./Bleachers";
 import { RemoteGymnast3D } from "./RemoteGymnast3D";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { exercisesForKind } from "../../catalog/exercises";
@@ -669,6 +670,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
         />
       )}
       {gameMode && <EffectsLayer ref={effectsRef} />}
+      {gameMode && <Bleachers hallW={W} hallH={H} />}
       {gameMode && <RemotePlayers />}
     </>
   );
