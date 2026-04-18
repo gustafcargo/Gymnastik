@@ -139,6 +139,9 @@ export function GameGymnast3D({
   // så svårighetsgraden "manuell" kan låta spelaren skrubba tidslinjen via
   // joysticken. Resetas vid varje mount och vid övningsbyte.
   const exerciseT = useRef(0);
+  // Ackumulerad övnings-progress utan wrap, används av advance-logiken så
+  // gymnasten kan gå hela bommens längd (annars klamps `dist` till en cykel).
+  const exerciseProgress = useRef(0);
   const lastMountedExerciseId = useRef<string | null>(null);
 
   const rootRef  = useRef<THREE.Group>(null);
@@ -358,9 +361,11 @@ export function GameGymnast3D({
       const dur = def ? def.kfs[def.kfs.length - 1].t : 1;
       if (lastMountedExerciseId.current !== exerciseId) {
         exerciseT.current = 0;
+        exerciseProgress.current = 0;
         lastMountedExerciseId.current = exerciseId;
       }
       const difficulty = useGameConfig.getState().difficulty;
+      let exerciseDelta: number;
       if (difficulty === "manuell") {
         // -joy.dz = framåt på joysticken. WASD räknas också in för desktop.
         const joyFwd  = -joy.dz;
@@ -370,11 +375,13 @@ export function GameGymnast3D({
         // Hastighet: 1.2 övnings-cykler per sekund vid full joystick. Bra
         // balans — tillräckligt snabb för att svinga i tid men inte så snabb
         // att posen blir ett hack. Kan justeras vid behov.
-        exerciseT.current += rawInput * 1.2 * delta;
+        exerciseDelta = rawInput * 1.2 * delta;
       } else {
-        exerciseT.current += delta;
+        exerciseDelta = delta;
       }
-      // Modulo så vi alltid är inom [0, dur)
+      exerciseT.current += exerciseDelta;
+      exerciseProgress.current += exerciseDelta;
+      // Modulo så posen alltid är inom [0, dur)
       exerciseT.current = ((exerciseT.current % dur) + dur) % dur;
 
       pose = def ? evalExercise(def, exerciseT.current) : evalKF(IDLE_KFS, t);
@@ -384,10 +391,9 @@ export function GameGymnast3D({
       // Övningar med baseRotY har ansiktet mot lokal −Z → världens −X (vid baseRotY=PI/2).
       // Vi negerar rootX-förflyttningen så att gymnasten rör sig i sin blickriktning (−X).
       if (def?.advance && def.advance > 0) {
-        // Använd exerciseT (driven av auto/manuell) istället för wall-clock,
-        // så att "framgång genom övningen" även flyttar gymnasten längs bommen
-        // i manuell-läge.
-        const dist = (exerciseT.current / dur) * def.advance;
+        // Använd ackumulerad progress (utan modulo) så gymnasten kan
+        // gå hela bommen istället för att klampas till en cykels längd.
+        const dist = (exerciseProgress.current / dur) * def.advance;
         const range = def.range ?? 3.0;
         const period = range * 2;
         const phase = ((dist % period) + period) % period;
