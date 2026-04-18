@@ -323,12 +323,17 @@ export function GameGymnast3D({
         }
       }
 
-      // Transformera lokal rootX/rootZ till världskoordinater via utrustningens rotation
+      // Transformera lokal rootX/rootZ till världskoordinater via utrustningens
+      // rotation. Three.js R_y(θ) mappar lokal (x,z) → (x·cos θ + z·sin θ,
+       // −x·sin θ + z·cos θ). Gymnastens rotation.y sätts till eqRot strax
+      // nedan, så samma formel används här för att hamna i hennes värld-frame.
+      // Tidigare transformerade vi med −eqRot vilket spegelvände rörelsen på
+      // vridna redskap (gymnasten gick baklänges + handlåset tappade grepp).
       if (eq && type) {
         const eqRot = -(eq.rotation * Math.PI) / 180;
         const c = Math.cos(eqRot), s = Math.sin(eqRot);
-        const wx = pose.rootX * c - pose.rootZ * s;
-        const wz = pose.rootX * s + pose.rootZ * c;
+        const wx =  pose.rootX * c + pose.rootZ * s;
+        const wz = -pose.rootX * s + pose.rootZ * c;
         pos.current.x = eq.x + wx;
         pos.current.z = eq.y + wz;
         pose.rootRotY += eqRot;
