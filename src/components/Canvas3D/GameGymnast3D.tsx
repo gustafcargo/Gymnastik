@@ -170,6 +170,10 @@ export function GameGymnast3D({
   // spelaren rör joysticken eller scrubbar ut ur zonen.
   const holdElapsedRef = useRef(0);
   const holdZoneKeyRef = useRef<string | null>(null);
+  // Antal hold-completions som redan registrerats för aktuell zon-entry.
+  // En completion = HOLD_COMPLETION_HITS hits + stor poäng-bonus. Nollställs
+  // när spelaren lämnar zonen (holdZoneKeyRef byter).
+  const holdCompletionsAwardedRef = useRef(0);
   // Minsta tid spelaren måste hålla stilla innan poäng börjar trilla in,
   // så att korta paus-toucher inte räknas som "hold".
   const HOLD_MIN_SEC = 0.5;
@@ -298,6 +302,7 @@ export function GameGymnast3D({
         pendingTrickRef.current = null;
         holdZoneKeyRef.current = null;
         holdElapsedRef.current = 0;
+        holdCompletionsAwardedRef.current = 0;
         useGameScore.getState().setPendingTrick(null);
         useGameScore.getState().setActiveHold(null);
         useGameScore.getState().endMount();
@@ -364,6 +369,11 @@ export function GameGymnast3D({
           triggerMount = false;
         }
       }
+      // Proffs-regel: när gymnasten är monterad går det aldrig att hoppa av
+      // manuellt. Spelaren måste antingen klara försöket (10 hits) eller bomma
+      // (3 missar i rad) för att avmontera. Detta säkerställer att varje
+      // redskaps-försök räknas och poängen är rättvist jämförbara.
+      if (triggerMount) triggerMount = false;
     }
 
     if (triggerMount) {
@@ -374,6 +384,7 @@ export function GameGymnast3D({
         pendingTrickRef.current = null;
         holdZoneKeyRef.current = null;
         holdElapsedRef.current = 0;
+        holdCompletionsAwardedRef.current = 0;
         useGameScore.getState().setPendingTrick(null);
         useGameScore.getState().setActiveHold(null);
         useGameScore.getState().endMount();
@@ -516,6 +527,7 @@ export function GameGymnast3D({
         pendingTrickRef.current = null;
         holdZoneKeyRef.current = null;
         holdElapsedRef.current = 0;
+        holdCompletionsAwardedRef.current = 0;
         useGameScore.getState().setPendingTrick(null);
         useGameScore.getState().setActiveHold(null);
         useGameScore.getState().resetCombo();
@@ -646,6 +658,7 @@ export function GameGymnast3D({
           if (holdZoneKeyRef.current !== zoneKey) {
             holdZoneKeyRef.current = zoneKey;
             holdElapsedRef.current = 0;
+            holdCompletionsAwardedRef.current = 0;
           }
           holdElapsedRef.current += delta;
           const totalSec = inZone.tEnd - inZone.tStart;
@@ -660,16 +673,31 @@ export function GameGymnast3D({
             const pts = (inZone.pointsPerSec ?? 30) * delta;
             useGameScore.getState().addHoldPoints(pts, inZone.label ?? "h\u00e5ll");
           }
+          // Completion: varje gång ackumulerad stillhet överskrider en hel
+          // zon-varaktighet räknas det som ett fullbordat hold-moment. Ger
+          // poängbonus + HOLD_COMPLETION_HITS hits mot clear. Utan det kunde
+          // pure-hold-övningar (t.ex. rings:cross) aldrig klaras.
+          const completionsShouldHave = Math.floor(holdElapsedRef.current / Math.max(0.1, totalSec));
+          if (completionsShouldHave > holdCompletionsAwardedRef.current) {
+            holdCompletionsAwardedRef.current = completionsShouldHave;
+            useGameScore.getState().recordHoldCompletion(inZone.label ?? "h\u00e5ll");
+            const hits = useGameScore.getState().equipmentHits[eqId] ?? 0;
+            if (hits >= HITS_TO_CLEAR) {
+              useGameScore.getState().clearCurrentEquipment(nameFor(eqId));
+            }
+          }
         } else {
           if (holdZoneKeyRef.current !== null) {
             holdZoneKeyRef.current = null;
             holdElapsedRef.current = 0;
+            holdCompletionsAwardedRef.current = 0;
             useGameScore.getState().setActiveHold(null);
           }
         }
       } else if (holdZoneKeyRef.current !== null) {
         holdZoneKeyRef.current = null;
         holdElapsedRef.current = 0;
+        holdCompletionsAwardedRef.current = 0;
         useGameScore.getState().setActiveHold(null);
       }
 
@@ -980,6 +1008,8 @@ export function GameGymnast3D({
             ? modeState.roundEndsAt
             : null,
           roundActive: inProffs && modeState.roundState === "running",
+          equipmentBestClear: inProffs ? scoreState.equipmentBestClear : undefined,
+          failedEquipment: inProffs ? scoreState.failedEquipment : undefined,
         });
         mp.reapStale(8000);
       }

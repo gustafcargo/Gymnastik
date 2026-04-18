@@ -10,7 +10,10 @@
  * direkt från useGameScore och behöver inga props.
  */
 import { useEffect, useRef, useState } from "react";
-import { useGameScore, comboMultiplier, GRADE_COLORS } from "../../store/useGameScore";
+import {
+  useGameScore, comboMultiplier, GRADE_COLORS,
+  HITS_TO_CLEAR, MAX_MISSES_PER_ATTEMPT,
+} from "../../store/useGameScore";
 import { playPerfect, playGood, playOk, playMiss, playCombo } from "../../lib/sfx";
 
 const ringColor = (dt: number, windowMs: number) => {
@@ -26,6 +29,13 @@ export function TrickOverlay() {
   const lastEvent = useGameScore((s) => s.lastEvent);
   const pending = useGameScore((s) => s.pendingTrick);
   const hold = useGameScore((s) => s.activeHold);
+  const currentEqId = useGameScore((s) => s.currentEqId);
+  const hits = useGameScore((s) =>
+    currentEqId ? s.equipmentHits[currentEqId] ?? 0 : 0,
+  );
+  const misses = useGameScore((s) =>
+    currentEqId ? s.equipmentMisses[currentEqId] ?? 0 : 0,
+  );
 
   const [eventVisible, setEventVisible] = useState(false);
   // Spåra senaste combo-tier så vi bara pingar när den ändras uppåt.
@@ -93,10 +103,38 @@ export function TrickOverlay() {
         )}
       </div>
 
-      {/* Toast (under score-badge) */}
+      {/* Progress-pill (hits/misses på aktuellt redskap) – visas bara när
+          monterad. Ger spelaren klar bild av målet: X lyckade klarar,
+          Y missar misslyckas. */}
+      {currentEqId && (
+        <div style={{
+          position: "absolute", top: 58, left: "50%",
+          transform: "translateX(-50%)",
+          display: "flex", alignItems: "center", gap: 6,
+          background: "rgba(10,18,32,0.75)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 10, padding: "4px 10px",
+          fontSize: 11, fontWeight: 800,
+          fontVariantNumeric: "tabular-nums",
+          pointerEvents: "none",
+          letterSpacing: "0.03em",
+        }}>
+          <span style={{ color: "#22c55e" }}>
+            {Math.min(hits, HITS_TO_CLEAR)}/{HITS_TO_CLEAR} <span style={{ fontSize: 9, opacity: 0.8 }}>KLARA</span>
+          </span>
+          <span style={{ color: "rgba(255,255,255,0.22)" }}>·</span>
+          <span style={{
+            color: misses >= MAX_MISSES_PER_ATTEMPT - 1 ? "#ef4444" : "#f59e0b",
+          }}>
+            {misses}/{MAX_MISSES_PER_ATTEMPT} <span style={{ fontSize: 9, opacity: 0.8 }}>MISS</span>
+          </span>
+        </div>
+      )}
+
+      {/* Toast (under progress-pillen) */}
       {lastEvent && eventVisible && (
         <div style={{
-          position: "absolute", top: 56, left: "50%",
+          position: "absolute", top: 92, left: "50%",
           transform: `translateX(-50%) translateY(${eventVisible ? 0 : -6}px)`,
           display: "flex", alignItems: "center", gap: 8,
           background: "rgba(10,18,32,0.92)",

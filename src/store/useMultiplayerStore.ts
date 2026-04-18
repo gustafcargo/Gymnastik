@@ -53,6 +53,8 @@ export type RemotePlayer = {
   combo?: number;
   roundEndsAt?: number | null;
   roundActive?: boolean;
+  equipmentBestClear?: Record<string, number>;
+  failedEquipment?: string[];
 };
 
 /** En annan spelare som syns i lobbyn (ej nödvändigtvis i samma rum). */
@@ -257,6 +259,8 @@ export const useMultiplayerStore = create<Store>()(
               combo: payload.combo,
               roundEndsAt: payload.roundEndsAt ?? null,
               roundActive: payload.roundActive ?? false,
+              equipmentBestClear: payload.equipmentBestClear,
+              failedEquipment: payload.failedEquipment,
             },
           },
         }));

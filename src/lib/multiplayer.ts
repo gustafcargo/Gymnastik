@@ -43,6 +43,11 @@ export type PlayerState = {
   roundEndsAt?: number | null;
   /** True när spelaren är inne i en aktiv tävlingsrunda (running). */
   roundActive?: boolean;
+  /** Bästa clear-poäng per redskap-id — används för per-redskap-ranking i
+   *  EndGameSummary. Bara satt i proffs-läget. */
+  equipmentBestClear?: Record<string, number>;
+  /** Låsta (fullt använda) redskap — visas som "misslyckat" i scorecarden. */
+  failedEquipment?: string[];
 };
 
 export type PlanPayload = {

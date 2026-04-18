@@ -626,28 +626,40 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Fristående ─────────────────────────────────────────────────────────────
 
-  // Handstående – 3 KFs importerade från studion. lockMode: hands håller
-  // händerna mot golvet så kroppen balanserar upp-och-ned. Liten
-  // spineX-oscillation ger en levande "vågning".
+  // Handstående – balansera på händerna upp-och-ned.
+  // lockMode: "hands" håller händerna mot golvet. Cykeln är ~3.5 s så hold-
+  // fönstret är långt nog för att kännas som ett "riktigt" handstand-håll
+  // (tidigare 0.5 s räckte inte för att spelaren skulle hinna förstå vad
+  // som gäller). Subtil sin-våg på spineX + rootZ ger levande balansering.
   "floor:handstand": {
     lockMode: "hands",
-    holdZones: [{ tStart: 0.05, tEnd: 0.45, label: "Handst\u00e5ende", pointsPerSec: 50 }],
+    holdZones: [{ tStart: 0.3, tEnd: 3.2, label: "Handst\u00e5ende", pointsPerSec: 50 }],
     kfs: [
       { t: 0, pose: { ...ZERO,
-        spineX: -0.073185307179586,
-        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        spineX: -0.09,
+        lShX: -P, rShX: -P,
         rootY: 0.03,
-        rootRotX: 3.141592653589793 } },
-      { t: 0.25, pose: { ...ZERO,
-        spineX: 0.076814692820414,
-        lShX: -3.141592653589793, rShX: -3.141592653589793,
-        rootY: 0.029756551564592337, rootZ: 0.13415392700899345,
-        rootRotX: 3.141592653589793 } },
-      { t: 0.5, pose: { ...ZERO,
-        spineX: -0.073185307179586,
-        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        rootRotX: P } },
+      { t: 0.9, pose: { ...ZERO,
+        spineX: 0.06,
+        lShX: -P, rShX: -P,
+        rootY: 0.035, rootZ: 0.08,
+        rootRotX: P } },
+      { t: 1.75, pose: { ...ZERO,
+        spineX: -0.04,
+        lShX: -P, rShX: -P,
+        rootY: 0.03, rootZ: -0.04,
+        rootRotX: P } },
+      { t: 2.6, pose: { ...ZERO,
+        spineX: 0.08,
+        lShX: -P, rShX: -P,
+        rootY: 0.035, rootZ: 0.1,
+        rootRotX: P } },
+      { t: 3.5, pose: { ...ZERO,
+        spineX: -0.09,
+        lShX: -P, rShX: -P,
         rootY: 0.03,
-        rootRotX: 3.141592653589793 } },
+        rootRotX: P } },
     ],
   },
 
@@ -673,28 +685,38 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Hopp ───────────────────────────────────────────────────────────────────
 
-  // Handstående på hoppbord – 3 KFs importerade från studion. lockMode
-  // hands håller händerna mot bordet, spineX + rootZ-vågningen ger en
-  // levande balansering ovanpå.
+  // Handstående på hoppbord – lockMode "hands" håller händerna mot bordet.
+  // Längre cykel (3.5 s) så hold-fönstret är lätt att förstå; spineX + rootZ-
+  // vågningen ger fortfarande levande balansering ovanpå.
   "vault:handstand": {
     lockMode: "hands",
-    holdZones: [{ tStart: 0.1, tEnd: 0.9, label: "Handst\u00e5ende", pointsPerSec: 55 }],
+    holdZones: [{ tStart: 0.3, tEnd: 3.2, label: "Handst\u00e5ende", pointsPerSec: 55 }],
     kfs: [
       { t: 0, pose: { ...ZERO,
-        spineX: -0.09424777960769379,
-        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        spineX: -0.10,
+        lShX: -P, rShX: -P,
         rootY: 0.17,
-        rootRotX: 3.141592653589793 } },
-      { t: 0.5, pose: { ...ZERO,
-        spineX: 0.076814692820414,
-        lShX: -3.141592653589793, rShX: -3.141592653589793,
-        rootY: 0.17133316519169073, rootZ: 0.1529426709093971,
-        rootRotX: 3.141592653589793 } },
-      { t: 1, pose: { ...ZERO,
-        spineX: -0.09424777960769379,
-        lShX: -3.141592653589793, rShX: -3.141592653589793,
+        rootRotX: P } },
+      { t: 0.9, pose: { ...ZERO,
+        spineX: 0.07,
+        lShX: -P, rShX: -P,
+        rootY: 0.175, rootZ: 0.09,
+        rootRotX: P } },
+      { t: 1.75, pose: { ...ZERO,
+        spineX: -0.03,
+        lShX: -P, rShX: -P,
+        rootY: 0.17, rootZ: -0.05,
+        rootRotX: P } },
+      { t: 2.6, pose: { ...ZERO,
+        spineX: 0.09,
+        lShX: -P, rShX: -P,
+        rootY: 0.175, rootZ: 0.11,
+        rootRotX: P } },
+      { t: 3.5, pose: { ...ZERO,
+        spineX: -0.10,
+        lShX: -P, rShX: -P,
         rootY: 0.17,
-        rootRotX: 3.141592653589793 } },
+        rootRotX: P } },
     ],
   },
 
