@@ -116,6 +116,14 @@ export function GameGymnast3D({
   const camPos  = useRef(new THREE.Vector3());
   const camLook = useRef(new THREE.Vector3());
 
+  // Trigga kamera-reset på mount så första framen positionerar kameran
+  // korrekt bakom gymnasten. Utan detta startar camPos/camLook på (0,0,0)
+  // vilket gör att spelare som autojoinar via ?room= ser kameran stå kvar
+  // i origo tills de manuellt trycker "återställ kamera".
+  useEffect(() => {
+    cameraResetRef.current = true;
+  }, [cameraResetRef]);
+
   // Tangenter + edge-triggers
   const keys = useRef(new Set<string>());
   const spaceDown = useRef(false);
