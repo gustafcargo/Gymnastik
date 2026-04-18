@@ -99,18 +99,14 @@ export default function App() {
     if (is3D) setHas3DLoaded(true);
   }, [is3D]);
 
-  // Autojoin multiplayer-rum från URL-parametern ?room=CODE. Den som
-  // öppnar en delad länk hoppar alltid direkt in i spelläget, och om
-  // Supabase-env är satt ansluts de även till rummet.
+  // Autojoin multiplayer-rum från URL-parametern ?room=CODE.
+  // Spelläget aktiveras redan synkront i usePlanStore-init (läser URL
+  // direkt), så här behöver vi bara trigga själva Supabase-anslutningen.
   useEffect(() => {
+    if (!isMultiplayerEnabled) return;
     const params = new URLSearchParams(window.location.search);
     const code = params.get("room");
     if (!code) return;
-    // Hoppa direkt in i spelläget för mottagaren av en delad länk.
-    usePlanStore.getState().setGameMode(true);
-    if (!isMultiplayerEnabled) return;
-    const existing = useMultiplayerStore.getState().roomCode;
-    if (existing) return;
     void useMultiplayerStore.getState().join(code);
   }, []);
 
