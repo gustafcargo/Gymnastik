@@ -49,6 +49,11 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
     });
     return {
       lockMode: "hands",
+      tricks: [
+        // Tkachev-liknande släpp på vägen upp framåt – tydligt visuellt ögonblick
+        // där gymnasten är ungefär horisontell och har stor fart.
+        { t: 0.4, type: "release", label: "Släpp!", windowMs: 280, difficulty: 1.5 },
+      ],
       kfs: [
         mk(0,     0,                       0,                        -0.05,  0,                    0),
         mk(0.08,  0.012360679774997897,   -0.027811529493745265,      0.01, -0.31,                 0.3141592653589793),
@@ -82,6 +87,10 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   // KFs utan `locked` så rootY/rootZ där behandlas som fritt definierade.
   "high-bar:kip": {
     lockMode: "hands",
+    tricks: [
+      // Toppen av kip-uppsvinget: stöd-fasen börjar (handstöd öppnar t≈2.04).
+      { t: 2.04, type: "catch", label: "Fatta st\u00f6d!", windowMs: 240, difficulty: 1.3 },
+    ],
     kfs: [
       { t: 0, pose: { ...ZERO,
         lShX: 3.141592653589793, rShX: 3.141592653589793,
@@ -337,7 +346,9 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   },
 
   // Hopp bom – knäböj inför hopp + mjuk landning (−Z-konvention)
-  "beam:jump": { baseRotY: P / 2, kfs: [
+  "beam:jump": { baseRotY: P / 2, tricks: [
+    { t: 1.05, type: "landing", label: "Landa!", windowMs: 220, difficulty: 1.2 },
+  ], kfs: [
     { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 0.25, pose: { ...ZERO, lHipX: P*0.22, rHipX: P*0.22, lKnX:-P*0.32, rKnX:-P*0.32,
                        spineX:-P*0.08,
@@ -354,15 +365,22 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   ] },
 
   // Stå (bom) – armar ut åt sidan, subtil andning
-  "beam:stand": { baseRotY: P / 2, kfs: [
-    { t: 0,   pose: { ...ZERO, ...ARMS_SIDE } },
-    { t: 2.0, pose: { ...ZERO, ...ARMS_SIDE, spineX:P*0.015, rootY:0.008, spineZ:0.01 } },
-    { t: 4.0, pose: { ...ZERO, ...ARMS_SIDE } },
-  ] },
+  "beam:stand": {
+    baseRotY: P / 2,
+    holdZones: [{ tStart: 0.5, tEnd: 3.5, label: "St\u00e5 stilla", pointsPerSec: 25 }],
+    kfs: [
+      { t: 0,   pose: { ...ZERO, ...ARMS_SIDE } },
+      { t: 2.0, pose: { ...ZERO, ...ARMS_SIDE, spineX:P*0.015, rootY:0.008, spineZ:0.01 } },
+      { t: 4.0, pose: { ...ZERO, ...ARMS_SIDE } },
+    ],
+  },
 
   // Arabesque – vänster ben bak (höger = stödben), torso framåt, huvud lyft
   //   Konvention (ansikte −Z): negativ hipX = ben bakåt (+Z)
-  "beam:arabesque": { baseRotY: P / 2, kfs: [
+  "beam:arabesque": {
+    baseRotY: P / 2,
+    holdZones: [{ tStart: 0.9, tEnd: 2.6, label: "Arabesque", pointsPerSec: 40 }],
+    kfs: [
     { t: 0,   pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 0.70, pose: { ...ZERO,
         lHipX: -P*0.50, lKnX: 0,
@@ -381,10 +399,13 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
         headX: P*0.12,
         rootY: 0.01 } },
     { t: 3.50, pose: { ...ZERO, ...ARMS_SIDE } },
-  ] },
+    ],
+  },
 
   // Knähopp (tuck jump) – knäböj → tuck (knän mot bröst) → landning
-  "beam:tuck-jump": { baseRotY: P / 2, kfs: [
+  "beam:tuck-jump": { baseRotY: P / 2, tricks: [
+    { t: 1.05, type: "landing", label: "Landa!", windowMs: 200, difficulty: 1.4 },
+  ], kfs: [
     { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 0.22, pose: { ...ZERO, lHipX: P*0.20, rHipX: P*0.20, lKnX:-P*0.32, rKnX:-P*0.32,
                        spineX:-P*0.08,
@@ -580,7 +601,9 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
 
   // ── Ringar ─────────────────────────────────────────────────────────────────
 
-  "rings:swing": { kfs: (() => {
+  "rings:swing": { tricks: [
+    { t: 0.9, type: "release", label: "Sl\u00e4pp i topp!", windowMs: 250, difficulty: 1.3 },
+  ], kfs: (() => {
     const a = P * 0.26;
     const fwd: Pose = { ...HANG_STRAIGHT, lShZ:-0.10, rShZ:0.10, rootRotX: a, lHipX: P*0.08, rHipX: P*0.08, ...pend( a) };
     const bak: Pose = { ...HANG_STRAIGHT, lShZ:-0.10, rShZ:0.10, rootRotX:-a, lHipX:-P*0.06, rHipX:-P*0.06, ...pend(-a) };
@@ -592,11 +615,14 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   })() },
 
   // Kors – armar åt sidan, rootY kompenserar för att händerna är vid axelhöjd (ej ovanför)
-  "rings:cross": { kfs: [
-    { t: 0,   pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.51 } },
-    { t: 2.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.10, rElX:P*0.10, rootY:0.54, spineX:P*0.02 } },
-    { t: 4.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.51 } },
-  ] },
+  "rings:cross": {
+    holdZones: [{ tStart: 0.4, tEnd: 3.6, label: "Korset", pointsPerSec: 60 }],
+    kfs: [
+      { t: 0,   pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.51 } },
+      { t: 2.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.10, rElX:P*0.10, rootY:0.54, spineX:P*0.02 } },
+      { t: 4.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.51 } },
+    ],
+  },
 
   // ── Fristående ─────────────────────────────────────────────────────────────
 
@@ -605,6 +631,7 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   // spineX-oscillation ger en levande "vågning".
   "floor:handstand": {
     lockMode: "hands",
+    holdZones: [{ tStart: 0.05, tEnd: 0.45, label: "Handst\u00e5ende", pointsPerSec: 50 }],
     kfs: [
       { t: 0, pose: { ...ZERO,
         spineX: -0.073185307179586,
@@ -651,6 +678,7 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   // levande balansering ovanpå.
   "vault:handstand": {
     lockMode: "hands",
+    holdZones: [{ tStart: 0.1, tEnd: 0.9, label: "Handst\u00e5ende", pointsPerSec: 55 }],
     kfs: [
       { t: 0, pose: { ...ZERO,
         spineX: -0.09424777960769379,
@@ -675,7 +703,12 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   // Studs – 6 KFs importerade från studion. Huk → topp → landning →
   // retur-huk. Armarna öppnar i top- och landningsfas, knä böjda i
   // huk-faserna.
-  "mini-tramp:bounce": { kfs: [
+  "mini-tramp:bounce": { tricks: [
+    // I toppen = max-höjd: tajming här ger bästa pop-känsla.
+    { t: 0.45, type: "twist", label: "Skruva!", windowMs: 220, difficulty: 1.3 },
+    // Landning på trampetten igen — kort fönster, hög svårighet.
+    { t: 0.85, type: "landing", label: "Landa!", windowMs: 200, difficulty: 1.2 },
+  ], kfs: [
     { t: 0, pose: { ...ZERO } },
     { t: 0.2, pose: { ...ZERO,
       spineX: -0.18849555921538758,
@@ -776,7 +809,10 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   // kring gymnastens längdaxel, rootRotY vrider in ansiktet i färdriktningen
   // under själva svängen, rootZ driver förflyttning ~3 m framåt. Sista KF
   // landar med spineZ/hipZ nollställda så gymnasten står rakt efter hjulet.
-  "floor:cartwheel": { kfs: [
+  "floor:cartwheel": { tricks: [
+    // Landning på fötterna — sista KF (t≈1.4), tajma "klick" precis vid touchdown.
+    { t: 1.4, type: "landing", label: "Landa hjul!", windowMs: 240, difficulty: 1.3 },
+  ], kfs: [
     { t: 0, pose: { ...ZERO,
       lShX: -3.16318530717959, lShZ: -0.47123889803846897,
       rShX: -3.16318530717959, rShZ:  0.47123889803846897 } },
@@ -826,7 +862,9 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   ] },
 
   // Knähopp fristående (som beam:tuck-jump men på golv utan baseRotY)
-  "floor:tuck-jump": { kfs: [
+  "floor:tuck-jump": { tricks: [
+    { t: 0.95, type: "landing", label: "Landa!", windowMs: 220, difficulty: 1.2 },
+  ], kfs: [
     { t: 0,    pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 0.20, pose: { ...ZERO, lHipX: P*0.20, rHipX: P*0.20, lKnX:-P*0.32, rKnX:-P*0.32,
                        spineX:-P*0.08, rootY:-0.07,

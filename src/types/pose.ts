@@ -41,6 +41,33 @@ export type KF = {
   locked?: boolean;
 };
 
+/**
+ * Trick-fönster: ögonblick i en övning där spelaren kan tjäna poäng genom
+ * att trycka på trick-knappen exakt på rätt tid. Används av "Proffs"-läget
+ * för att gradera släpp/fångst/landning. `t` är cykeltid i sekunder,
+ * `windowMs` är toleransen ±. Default 250ms tolerans, 1.0× difficulty.
+ */
+export type TrickType = "release" | "catch" | "landing" | "twist";
+export type TrickWindow = {
+  t: number;
+  type: TrickType;
+  label?: string;
+  windowMs?: number;
+  difficulty?: number;
+};
+
+/**
+ * Hold-zon: tidsintervall där gymnasten ska hållas stilla (joystick i mitten).
+ * Spelaren samlar `pointsPerSec` × multiplikator per sekund stillsamt i zonen.
+ * Reseta uppsamlad tid när spelaren rör joysticken eller scrubbar ut ur zonen.
+ */
+export type HoldZone = {
+  tStart: number;
+  tEnd: number;
+  label?: string;
+  pointsPerSec?: number;
+};
+
 export type ExerciseDef = {
   kfs: KF[];
   advance?: number;   // meter framåt per cykel
@@ -54,6 +81,10 @@ export type ExerciseDef = {
    * befintliga rootY/rootZ tolkas som "offset" ovanpå lås-formeln.
    */
   lockMode?: LockMode;
+  /** Tidpunkter i cykeln där spelaren kan tjäna poäng via trick-knappen. */
+  tricks?: TrickWindow[];
+  /** Statiska poser där spelaren samlar poäng genom att hålla stilla. */
+  holdZones?: HoldZone[];
 };
 
 export const POSE_KEYS: (keyof Pose)[] = [

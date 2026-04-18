@@ -157,6 +157,152 @@ export function playStep(): void {
   osc.stop(t0 + 0.08);
 }
 
+/** Triumferande arpeggio – PERFEKT-trick. */
+export function playPerfect(): void {
+  const p = canPlay();
+  if (!p) return;
+  const { ac, master } = p;
+  const t0 = ac.currentTime;
+  // Major-arpeggio C-E-G-C ger "vinst"-känsla.
+  [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    osc.connect(g);
+    g.connect(master);
+    const start = t0 + i * 0.05;
+    g.gain.setValueAtTime(0, start);
+    g.gain.linearRampToValueAtTime(0.28, start + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
+    osc.start(start);
+    osc.stop(start + 0.34);
+  });
+}
+
+/** Glad tvåton – BRA-trick. */
+export function playGood(): void {
+  const p = canPlay();
+  if (!p) return;
+  const { ac, master } = p;
+  const t0 = ac.currentTime;
+  [659.25, 880].forEach((freq, i) => {
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    osc.connect(g);
+    g.connect(master);
+    const start = t0 + i * 0.05;
+    g.gain.setValueAtTime(0, start);
+    g.gain.linearRampToValueAtTime(0.22, start + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+    osc.start(start);
+    osc.stop(start + 0.24);
+  });
+}
+
+/** OK-trick: enklare singel-bekräftelse. */
+export function playOk(): void {
+  const p = canPlay();
+  if (!p) return;
+  const { ac, master } = p;
+  const t0 = ac.currentTime;
+  const osc = ac.createOscillator();
+  const g = ac.createGain();
+  osc.type = "triangle";
+  osc.frequency.value = 523.25;
+  osc.connect(g);
+  g.connect(master);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(0.18, t0 + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+  osc.start(t0);
+  osc.stop(t0 + 0.22);
+}
+
+/** Miss – kort sjunkande sur ton. */
+export function playMiss(): void {
+  const p = canPlay();
+  if (!p) return;
+  const { ac, master } = p;
+  const t0 = ac.currentTime;
+  const osc = ac.createOscillator();
+  const g = ac.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(220, t0);
+  osc.frequency.exponentialRampToValueAtTime(110, t0 + 0.3);
+  osc.connect(g);
+  g.connect(master);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(0.15, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
+  osc.start(t0);
+  osc.stop(t0 + 0.34);
+}
+
+/** Combo-blinking – kort hög "ding" som spelas när combo-multiplikator stiger.
+ *  Tonhöjden kliver upp med tiers (1.5×→2×→3×→5×). */
+export function playCombo(tier: number): void {
+  const p = canPlay();
+  if (!p) return;
+  const { ac, master } = p;
+  const t0 = ac.currentTime;
+  const baseFreqs = [880, 1046.5, 1318.5, 1567.98]; // A5 / C6 / E6 / G6
+  const freq = baseFreqs[Math.min(tier, baseFreqs.length - 1)];
+  const osc = ac.createOscillator();
+  const g = ac.createGain();
+  osc.type = "sine";
+  osc.frequency.value = freq;
+  osc.connect(g);
+  g.connect(master);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(0.22, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+  osc.start(t0);
+  osc.stop(t0 + 0.2);
+}
+
+/** Countdown-tick: kort metronom-pip. */
+export function playCountdownTick(emphasize = false): void {
+  const p = canPlay();
+  if (!p) return;
+  const { ac, master } = p;
+  const t0 = ac.currentTime;
+  const osc = ac.createOscillator();
+  const g = ac.createGain();
+  osc.type = "square";
+  osc.frequency.value = emphasize ? 880 : 660;
+  osc.connect(g);
+  g.connect(master);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(emphasize ? 0.22 : 0.15, t0 + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+  osc.start(t0);
+  osc.stop(t0 + 0.14);
+}
+
+/** Slut-på-runda gong – två lågfrekventa toner med svag harmoni. */
+export function playRoundEnd(): void {
+  const p = canPlay();
+  if (!p) return;
+  const { ac, master } = p;
+  const t0 = ac.currentTime;
+  [196, 261.63].forEach((freq) => {
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    osc.connect(g);
+    g.connect(master);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(0.32, t0 + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4);
+    osc.start(t0);
+    osc.stop(t0 + 1.45);
+  });
+}
+
 /** "Upptaget"-ton – när ett redskap är låst av en annan spelare. */
 export function playDenied(): void {
   const p = canPlay();
