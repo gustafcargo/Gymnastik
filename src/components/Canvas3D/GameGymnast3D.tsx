@@ -21,7 +21,7 @@ import type { EffectsHandle } from "./EffectsLayer";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { useGymnastTuning } from "../../store/useGymnastTuning";
 import { useGameConfig, isPlayerScrubbing, isProffsMode } from "../../store/useGameConfig";
-import { useGameScore, type TrickGrade } from "../../store/useGameScore";
+import { useGameScore, type TrickGrade, MAX_MISSES_PER_EQUIPMENT } from "../../store/useGameScore";
 import { useGameMode } from "../../store/useGameMode";
 import { sendState } from "../../lib/multiplayer";
 
@@ -255,6 +255,42 @@ export function GameGymnast3D({
     mountTriggerRef.current = false;
     spaceDown.current = false;
 
+    // Helper: namn på ett redskap (för FAIL-toast och ljud).
+    const nameFor = (id: string): string => {
+      const e = station.equipment.find((x) => x.id === id);
+      const t0 = e ? getEquipmentById(e.typeId) : null;
+      return e?.label ?? t0?.name ?? "redskapet";
+    };
+
+    // Proffs-läge: force-dismount om miss-räknaren triggat fail på aktuellt redskap.
+    // Kontrolleras innan vanlig mount-logik så spelaren kliver ner direkt samma
+    // frame som den andra missen registrerades.
+    {
+      const pfd = useGameScore.getState().pendingForceDismount;
+      if (pfd && mounted.current && pfd.eqId === mounted.current.eqId) {
+        useGameScore.getState().consumePendingForceDismount();
+        mounted.current = null;
+        lastMountedExerciseId.current = null;
+        consumedTricksRef.current = new Set();
+        pendingTrickRef.current = null;
+        holdZoneKeyRef.current = null;
+        holdElapsedRef.current = 0;
+        useGameScore.getState().setPendingTrick(null);
+        useGameScore.getState().setActiveHold(null);
+        useGameScore.getState().endMount();
+        onMountedExercisesRef.current(null);
+        playDismount();
+        nearEq.current = null;
+        onNearEquipment(null);
+        // Hoppa över resten av trigger-logiken denna frame så en samtidig
+        // space-tryckning inte omedelbart hoppar upp igen.
+        triggerMount = false;
+      } else if (pfd && !mounted.current) {
+        // Gymnasten är redan nere — bara konsumera signalen.
+        useGameScore.getState().consumePendingForceDismount();
+      }
+    }
+
     // Proffs-läge: när spelaren är monterad och ett trick-fönster är öppet
     // ska tryck på trick-knappen gradera tricket istället för att demontera.
     // Ett kort cooldown-fönster på 400ms efter ett konsumerat trick håller en
@@ -269,11 +305,20 @@ export function GameGymnast3D({
             offsetMs < 40 ? "perfect" :
             offsetMs < 100 ? "great" :
             offsetMs < 200 ? "good" : "miss";
+          const trickLabel = pending.trick.label ?? pending.trick.type;
+          const mountedEqId = mounted.current.eqId;
           useGameScore.getState().recordTrick(
             grade,
-            pending.trick.label ?? pending.trick.type,
+            trickLabel,
             pending.trick.difficulty ?? 1,
           );
+          // Kolla om denna miss slog taket för fail på aktuellt redskap.
+          if (grade === "miss") {
+            const misses = useGameScore.getState().equipmentMisses[mountedEqId] ?? 0;
+            if (misses >= MAX_MISSES_PER_EQUIPMENT) {
+              useGameScore.getState().failCurrentEquipment(nameFor(mountedEqId));
+            }
+          }
           // Markera trick som konsumerat för aktuell cykel.
           const def0 = lookupExercise(mounted.current.exerciseId);
           if (def0) {
@@ -297,6 +342,7 @@ export function GameGymnast3D({
         holdElapsedRef.current = 0;
         useGameScore.getState().setPendingTrick(null);
         useGameScore.getState().setActiveHold(null);
+        useGameScore.getState().endMount();
         onMountedExercisesRef.current(null);
         playDismount();
         // Rensa proximity-state så etiketten försvinner
@@ -336,7 +382,9 @@ export function GameGymnast3D({
         // Multiplayer-lås: om en fjärrspelare redan är på detta redskap, neka.
         const mpPlayers = useMultiplayerStore.getState().players;
         const taken = eq ? Object.values(mpPlayers).some((p) => p.mountedEqId === eq.id) : false;
-        if (taken) {
+        // Lokalt fail-lås: redskapet är låst för denna spelare efter fail.
+        const selfFailed = eq ? useGameScore.getState().failedEquipment.includes(eq.id) : false;
+        if (taken || selfFailed) {
           playDenied();
         } else if (eq && type) {
           const kind = type.detail?.kind ?? "";
@@ -352,6 +400,7 @@ export function GameGymnast3D({
               : type.physicalHeightM + H_THIGH + H_SHIN;
             mounted.current = { eqId: eq.id, exerciseId: exs[0].id, baseY };
             pos.current = { x: eq.x, z: eq.y };
+            useGameScore.getState().beginMount(eq.id);
             playMount();
             effectsRef?.current?.spawn({ kind: "ring", pos: { x: eq.x, y: 0.05, z: eq.y } });
             // Rensa nearEq så etiketten försvinner direkt
@@ -505,6 +554,12 @@ export function GameGymnast3D({
           if (cur > tr.t + win && cur - tr.t < dur / 2) {
             consumedTricksRef.current.add(key);
             useGameScore.getState().recordTrick("miss", tr.label ?? tr.type, tr.difficulty ?? 1);
+            // Kolla fail-tröskel direkt så force-dismount hinner triggas nästa frame.
+            const misses = useGameScore.getState().equipmentMisses[eqId] ?? 0;
+            if (misses >= MAX_MISSES_PER_EQUIPMENT) {
+              useGameScore.getState().failCurrentEquipment(nameFor(eqId));
+              break;
+            }
           }
         }
 
