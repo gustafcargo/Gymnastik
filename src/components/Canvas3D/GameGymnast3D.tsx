@@ -423,11 +423,13 @@ export function GameGymnast3D({
       let newX = pos.current.x + Math.sin(rotY.current) * moveD;
       let newZ = pos.current.z - Math.cos(rotY.current) * moveD;
 
-      // Kollision + proximity (kombinerad loop). Mäter avstånd till
-      // REDSKAPETS KANT (inte centrum) och roterar rundan korrekt så knappen
-      // "Hoppa upp" triggas hela vägen runt även på långa/vridna redskap
-      // som bom — tidigare var radius centrum-baserad, vilket missade
-      // gymnaster som stod nära en ände utanför 1.8 m-cirkeln från mitten.
+      // Kollision + proximity. Mäter avstånd till REDSKAPETS KANT (inte
+      // centrum) i roterat lokalt frame så långa/vridna redskap hanteras
+      // korrekt. Kollisionen är axel-separerad (slide): om diagonal rörelse
+      // blockeras försöker vi X-axel och Z-axel var för sig, så gymnasten
+      // glider längs kanten istället för att fastna på hörnen.
+      type Box = { x: number; y: number; c: number; s: number; halfW: number; halfD: number };
+      const boxes: Box[] = [];
       let closest: { id: string; name: string } | null = null;
       let minDist = PROX;
       for (const eq of station.equipment) {
@@ -437,6 +439,7 @@ export function GameGymnast3D({
         const c = Math.cos(eqRot), s = Math.sin(eqRot);
         const halfW = (eqType.widthM  * eq.scaleX) / 2;
         const halfD = (eqType.heightM * eq.scaleY) / 2;
+        boxes.push({ x: eq.x, y: eq.y, c, s, halfW, halfD });
 
         // World → equipment-local: invers av R_y(eqRot)
         const dx = pos.current.x - eq.x;
@@ -451,17 +454,39 @@ export function GameGymnast3D({
           minDist = edgeDist;
           closest = { id: eq.id, name: eq.label ?? eqType.name };
         }
-        // AABB-kollision i roterat lokalt frame (skippa nära redskap så
-        // montering fungerar).
-        if (edgeDist > PROX) {
-          const ndx = newX - eq.x;
-          const ndz = newZ - eq.y;
-          const nLocalX = ndx * c - ndz * s;
-          const nLocalZ = ndx * s + ndz * c;
-          if (Math.abs(nLocalX) < halfW + 0.3 && Math.abs(nLocalZ) < halfD + 0.3) {
-            newX = pos.current.x;
+      }
+
+      const PAD = 0.3;
+      const inBox = (b: Box, wx: number, wz: number) => {
+        const ddx = wx - b.x;
+        const ddz = wz - b.y;
+        const lx = ddx * b.c - ddz * b.s;
+        const lz = ddx * b.s + ddz * b.c;
+        return Math.abs(lx) < b.halfW + PAD && Math.abs(lz) < b.halfD + PAD;
+      };
+      const blocked = (wx: number, wz: number) => boxes.some((b) => inBox(b, wx, wz));
+
+      // Om gymnasten redan är inuti ett redskap (t.ex. efter demontering)
+      // stängs kollisionen av tills hon tar sig ut, annars kan hon fastna.
+      const wasInside = blocked(pos.current.x, pos.current.z);
+      if (!wasInside && blocked(newX, newZ)) {
+        const canX = !blocked(newX, pos.current.z);
+        const canZ = !blocked(pos.current.x, newZ);
+        if (canX && !canZ) {
+          newZ = pos.current.z;
+        } else if (!canX && canZ) {
+          newX = pos.current.x;
+        } else if (canX && canZ) {
+          // Båda axlarna OK var för sig men inte samtidigt (diagonal klämning
+          // mellan två redskap). Välj axeln som flyttar mest.
+          if (Math.abs(newX - pos.current.x) >= Math.abs(newZ - pos.current.z)) {
             newZ = pos.current.z;
+          } else {
+            newX = pos.current.x;
           }
+        } else {
+          newX = pos.current.x;
+          newZ = pos.current.z;
         }
       }
 
