@@ -48,6 +48,12 @@ class ThreeDErrorBoundary extends Component<
   componentDidCatch(err: Error) {
     console.warn("[3D] krasch – återgår till 2D:", err.message);
     usePlanStore.getState().setViewMode("2D");
+    // Om 3D kraschar under spelläget fastnar iPad:en annars i en blank
+    // gameMode-vy utan HUD — toolbaren finns inte där heller. Stäng
+    // spelläget så användaren hamnar i editorn och kan försöka igen.
+    if (usePlanStore.getState().gameMode) {
+      usePlanStore.getState().setGameMode(false);
+    }
   }
   render() {
     if (this.state.crashed) return null;
