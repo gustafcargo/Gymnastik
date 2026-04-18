@@ -21,7 +21,7 @@ import type { EffectsHandle } from "./EffectsLayer";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { useGymnastTuning } from "../../store/useGymnastTuning";
 import { useGameConfig, isPlayerScrubbing, isProffsMode } from "../../store/useGameConfig";
-import { useGameScore, type TrickGrade, MAX_MISSES_PER_EQUIPMENT } from "../../store/useGameScore";
+import { useGameScore, type TrickGrade, MAX_MISSES_PER_ATTEMPT } from "../../store/useGameScore";
 import { useGameMode } from "../../store/useGameMode";
 import { sendState } from "../../lib/multiplayer";
 
@@ -315,7 +315,7 @@ export function GameGymnast3D({
           // Kolla om denna miss slog taket för fail på aktuellt redskap.
           if (grade === "miss") {
             const misses = useGameScore.getState().equipmentMisses[mountedEqId] ?? 0;
-            if (misses >= MAX_MISSES_PER_EQUIPMENT) {
+            if (misses >= MAX_MISSES_PER_ATTEMPT) {
               useGameScore.getState().failCurrentEquipment(nameFor(mountedEqId));
             }
           }
@@ -556,7 +556,7 @@ export function GameGymnast3D({
             useGameScore.getState().recordTrick("miss", tr.label ?? tr.type, tr.difficulty ?? 1);
             // Kolla fail-tröskel direkt så force-dismount hinner triggas nästa frame.
             const misses = useGameScore.getState().equipmentMisses[eqId] ?? 0;
-            if (misses >= MAX_MISSES_PER_EQUIPMENT) {
+            if (misses >= MAX_MISSES_PER_ATTEMPT) {
               useGameScore.getState().failCurrentEquipment(nameFor(eqId));
               break;
             }
