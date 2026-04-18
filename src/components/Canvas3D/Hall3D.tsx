@@ -15,6 +15,9 @@ import { Equipment3D } from "./Equipment3D";
 import { Gymnast3D } from "./Gymnast3D";
 import { GameGymnast3D, type MountedExerciseInfo } from "./GameGymnast3D";
 import { GameHUD } from "./GameHUD";
+import { EffectsLayer, type EffectsHandle } from "./EffectsLayer";
+import { RemoteGymnast3D } from "./RemoteGymnast3D";
+import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { exercisesForKind } from "../../catalog/exercises";
 import { computeStackInfo } from "../../lib/stackGroups";
 import type { Station } from "../../types";
@@ -27,7 +30,21 @@ type Props = { className?: string };
 
 const GYMNAST_COLOR = "#c026d3";
 
-function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRef, cameraOrbitRef, freeCamEnabled, onNearEquipment, onMountedExercises, onFreeCamChange }: {
+/** Render alla fjärrspelare i det aktiva multiplayer-rummet. */
+function RemotePlayers() {
+  const players = useMultiplayerStore((s) => s.players);
+  const ids = Object.keys(players);
+  if (!ids.length) return null;
+  return (
+    <>
+      {ids.map((id) => (
+        <RemoteGymnast3D key={id} player={players[id]} />
+      ))}
+    </>
+  );
+}
+
+function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRef, cameraOrbitRef, freeCamEnabled, effectsRef, onNearEquipment, onMountedExercises, onFreeCamChange }: {
   W: number; H: number;
   joystickRef: React.MutableRefObject<{ dx: number; dz: number }>;
   mountTriggerRef: React.MutableRefObject<boolean>;
@@ -35,6 +52,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
   cameraResetRef: React.MutableRefObject<boolean>;
   cameraOrbitRef: React.MutableRefObject<{ yaw: number; pitch: number; distScale: number }>;
   freeCamEnabled: boolean;
+  effectsRef: React.MutableRefObject<EffectsHandle | null>;
   onNearEquipment: (name: string | null) => void;
   onMountedExercises: (info: MountedExerciseInfo | null) => void;
   onFreeCamChange: (on: boolean) => void;
@@ -646,12 +664,15 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
           cameraResetRef={cameraResetRef}
           cameraOrbitRef={cameraOrbitRef}
           color={GYMNAST_COLOR}
+          effectsRef={effectsRef}
           onNearEquipment={onNearEquipment}
           onMountedExercises={onMountedExercises}
           onFreeCamChange={onFreeCamChange}
           onExit={() => setGameMode(false)}
         />
       )}
+      {gameMode && <EffectsLayer ref={effectsRef} />}
+      {gameMode && <RemotePlayers />}
     </>
   );
 }
@@ -683,6 +704,7 @@ export function Hall3D({ className }: Props) {
   const [nearEquipment, setNearEquipment] = useState<string | null>(null);
   const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);
+  const effectsRef = useRef<EffectsHandle | null>(null);
 
   return (
     <div className={className} style={{ position: "relative" }}>
@@ -716,6 +738,7 @@ export function Hall3D({ className }: Props) {
           cameraResetRef={cameraResetRef}
           cameraOrbitRef={cameraOrbitRef}
           freeCamEnabled={freeCamEnabled}
+          effectsRef={effectsRef}
           onNearEquipment={setNearEquipment}
           onMountedExercises={setMountedExerciseInfo}
           onFreeCamChange={setFreeCamEnabled}

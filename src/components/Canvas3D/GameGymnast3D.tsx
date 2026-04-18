@@ -16,6 +16,10 @@ import {
   type BodyRefs,
 } from "./GymnastBody";
 import { type Pose, type KF, ZERO, evalKF, evalExercise, pend as _pend } from "../../types/pose";
+import { playMount, playDismount, playTrick, playLanding, playStep, playDenied } from "../../lib/sfx";
+import type { EffectsHandle } from "./EffectsLayer";
+import { useMultiplayerStore } from "../../store/useMultiplayerStore";
+import { sendState } from "../../lib/multiplayer";
 
 const P = Math.PI;
 
@@ -68,6 +72,7 @@ type Props = {
   onFreeCamChange: (on: boolean) => void;
   onExit: () => void;
   color?: string;
+  effectsRef?: React.MutableRefObject<EffectsHandle | null>;
 };
 
 const TURN_SPEED = 2.5;   // rad/s
@@ -77,7 +82,7 @@ const CAM_HEIGHT = 2.2;   // m ovanför höfterna
 
 export function GameGymnast3D({
   station, hallW, hallH, joystickRef, mountTriggerRef, speedRef, cameraResetRef,
-  cameraOrbitRef,
+  cameraOrbitRef, effectsRef,
   onNearEquipment, onMountedExercises, onFreeCamChange, onExit, color = "#C2185B",
 }: Props) {
   const SKIN = "#E8C99A";
@@ -116,6 +121,10 @@ export function GameGymnast3D({
   const spaceDown = useRef(false);
   const eCycleRef = useRef(false);
   const freeCamRef = useRef(false);
+  // Senaste steg-tid (s) för throttlad stegklickljud under walk.
+  const lastStepT = useRef(0);
+  // Senaste broadcast-tid (s) för multiplayer-throttling (~15 Hz).
+  const lastBroadcastT = useRef(0);
 
   const rootRef  = useRef<THREE.Group>(null);
   const bodyRefs: BodyRefs = {
@@ -216,6 +225,7 @@ export function GameGymnast3D({
       if (mounted.current) {
         mounted.current = null;
         onMountedExercisesRef.current(null);
+        playDismount();
         // Rensa proximity-state så etiketten försvinner
         nearEq.current = null;
         onNearEquipment(null);
@@ -241,11 +251,21 @@ export function GameGymnast3D({
             startZ: pos.current.z,
             startRotY: rotY.current,
           };
+          playTrick();
+          effectsRef?.current?.spawn({
+            kind: "sparkle",
+            pos: { x: pos.current.x, y: 0.3, z: pos.current.z },
+          });
         }
       } else if (nearEq.current) {
         const eq = station.equipment.find(e => e.id === nearEq.current!.id);
         const type = eq ? getEquipmentById(eq.typeId) : null;
-        if (eq && type) {
+        // Multiplayer-lås: om en fjärrspelare redan är på detta redskap, neka.
+        const mpPlayers = useMultiplayerStore.getState().players;
+        const taken = eq ? Object.values(mpPlayers).some((p) => p.mountedEqId === eq.id) : false;
+        if (taken) {
+          playDenied();
+        } else if (eq && type) {
           const kind = type.detail?.kind ?? "";
           const exs  = exercisesForKind(kind);
           if (exs.length) {
@@ -259,6 +279,8 @@ export function GameGymnast3D({
               : type.physicalHeightM + H_THIGH + H_SHIN;
             mounted.current = { eqId: eq.id, exerciseId: exs[0].id, baseY };
             pos.current = { x: eq.x, z: eq.y };
+            playMount();
+            effectsRef?.current?.spawn({ kind: "ring", pos: { x: eq.x, y: 0.05, z: eq.y } });
             // Rensa nearEq så etiketten försvinner direkt
             nearEq.current = null;
             onNearEquipment(null);
@@ -294,7 +316,16 @@ export function GameGymnast3D({
     if (oneShot.current) {
       const def = lookupExercise(oneShot.current.exerciseId);
       const dur = def?.kfs.length ? def.kfs[def.kfs.length - 1].t : 0;
-      if (!def || t - oneShot.current.startT >= dur) oneShot.current = null;
+      if (!def || t - oneShot.current.startT >= dur) {
+        const landX = pos.current.x;
+        const landZ = pos.current.z;
+        oneShot.current = null;
+        playLanding();
+        effectsRef?.current?.spawn({
+          kind: "dust",
+          pos: { x: landX, y: 0.05, z: landZ },
+        });
+      }
     }
 
     if (mounted.current) {
@@ -501,6 +532,12 @@ export function GameGymnast3D({
       // Välj animation
       const kfs  = moving ? WALK_KFS : IDLE_KFS;
       pose       = evalKF(kfs, t);
+
+      // Stegklick var 0.3 s när gymnasten går (matchar walk-cykelns halva).
+      if (moving && t - lastStepT.current > 0.3) {
+        lastStepT.current = t;
+        playStep();
+      }
       pose.rootX = 0;
       pose.rootZ = 0;
       pose.rootRotY = -rotY.current;
@@ -566,6 +603,30 @@ export function GameGymnast3D({
       const box = new THREE.Box3().setFromObject(rootRef.current);
       if (isFinite(box.min.y) && box.min.y < 0) {
         rootRef.current.position.y -= box.min.y;
+      }
+    }
+
+    // ── Multiplayer-broadcast (~15 Hz) + GC av stale spelare ──────────────
+    if (t - lastBroadcastT.current > 0.066) {
+      lastBroadcastT.current = t;
+      const mp = useMultiplayerStore.getState();
+      if (mp.channel && mp.roomCode) {
+        // Skicka endast numeriska pose-fält (inte objekt) för mindre payload.
+        const poseOut: Record<string, number> = {};
+        for (const key of Object.keys(pose) as Array<keyof Pose>) {
+          poseOut[key] = (pose as Pose)[key];
+        }
+        sendState(mp.channel, {
+          id: mp.playerId,
+          name: mp.playerName,
+          color: mp.playerColor,
+          pos: { x: pos.current.x, y: pose.rootY, z: pos.current.z },
+          rotY: -rotY.current,
+          pose: poseOut,
+          mountedEqId: mounted.current?.eqId ?? null,
+          t: Date.now(),
+        });
+        mp.reapStale(8000);
       }
     }
   });
