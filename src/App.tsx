@@ -99,20 +99,19 @@ export default function App() {
     if (is3D) setHas3DLoaded(true);
   }, [is3D]);
 
-  // Autojoin multiplayer-rum från URL-parametern ?room=CODE. Kräver att
-  // Supabase-env är satt; annars händer ingenting. Går även igång om
-  // appen laddas i spelläget via en delad länk – GameHUD startar rum-UI
-  // direkt när storen har en kod.
+  // Autojoin multiplayer-rum från URL-parametern ?room=CODE. Den som
+  // öppnar en delad länk hoppar alltid direkt in i spelläget, och om
+  // Supabase-env är satt ansluts de även till rummet.
   useEffect(() => {
-    if (!isMultiplayerEnabled) return;
     const params = new URLSearchParams(window.location.search);
     const code = params.get("room");
     if (!code) return;
+    // Hoppa direkt in i spelläget för mottagaren av en delad länk.
+    usePlanStore.getState().setGameMode(true);
+    if (!isMultiplayerEnabled) return;
     const existing = useMultiplayerStore.getState().roomCode;
     if (existing) return;
     void useMultiplayerStore.getState().join(code);
-    // Aktivera spelläget så man ser sig själv och andra direkt
-    usePlanStore.getState().setGameMode(true);
   }, []);
 
   const [paletteOpen, setPaletteOpen] = useState(false);

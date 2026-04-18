@@ -706,11 +706,25 @@ export function Hall3D({ className }: Props) {
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);
   const effectsRef = useRef<EffectsHandle | null>(null);
 
+  // Äldre iPads (pre-A12) orkar inte med full DPR + skuggor. Detektera
+  // via UA och sänk kvalitet. Safari på iPadOS 13+ maskerar sig som
+  // "Macintosh" så vi kollar även touch-stöd för iPad-desktop-mode.
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isIpad =
+    /iPad/.test(ua) ||
+    (/Macintosh/.test(ua) && typeof navigator !== "undefined" && navigator.maxTouchPoints > 1);
+  const isLowEnd =
+    isIpad ||
+    (typeof navigator !== "undefined" &&
+      "deviceMemory" in navigator &&
+      typeof (navigator as Navigator & { deviceMemory?: number }).deviceMemory === "number" &&
+      ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4);
+
   return (
     <div className={className} style={{ position: "relative" }}>
       <Canvas
-        shadows
-        dpr={[1, 2]}
+        shadows={!isLowEnd}
+        dpr={isLowEnd ? [1, 1.25] : [1, 2]}
         camera={{
           position: [cx + camDist * 0.55, camDist * 0.55, cz + camDist * 0.85],
           fov: 38,
@@ -718,7 +732,7 @@ export function Hall3D({ className }: Props) {
           far: 500,
         }}
         gl={{
-          antialias: true,
+          antialias: !isLowEnd,
           powerPreference: "high-performance",
           preserveDrawingBuffer: true,
         }}
