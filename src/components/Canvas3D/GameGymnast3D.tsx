@@ -985,6 +985,8 @@ export function GameGymnast3D({
             ? modeState.roundEndsAt
             : null,
           roundActive: inProffs && modeState.roundState === "running",
+          equipmentBestClear: inProffs ? scoreState.equipmentBestClear : undefined,
+          failedEquipment: inProffs ? scoreState.failedEquipment : undefined,
         });
         mp.reapStale(8000);
       }
