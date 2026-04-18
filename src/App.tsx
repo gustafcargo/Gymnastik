@@ -12,6 +12,8 @@ import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
 import { GymnastTuningPanel } from "./components/GymnastTuningPanel";
 import { ExerciseStudio } from "./components/ExerciseStudio/ExerciseStudio";
 import { useStudioStore } from "./store/useStudioStore";
+import { useMultiplayerStore } from "./store/useMultiplayerStore";
+import { isMultiplayerEnabled } from "./lib/multiplayer";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { usePlanStore } from "./store/usePlanStore";
@@ -96,6 +98,22 @@ export default function App() {
   useEffect(() => {
     if (is3D) setHas3DLoaded(true);
   }, [is3D]);
+
+  // Autojoin multiplayer-rum från URL-parametern ?room=CODE. Kräver att
+  // Supabase-env är satt; annars händer ingenting. Går även igång om
+  // appen laddas i spelläget via en delad länk – GameHUD startar rum-UI
+  // direkt när storen har en kod.
+  useEffect(() => {
+    if (!isMultiplayerEnabled) return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("room");
+    if (!code) return;
+    const existing = useMultiplayerStore.getState().roomCode;
+    if (existing) return;
+    void useMultiplayerStore.getState().join(code);
+    // Aktivera spelläget så man ser sig själv och andra direkt
+    usePlanStore.getState().setGameMode(true);
+  }, []);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [propertyOpen, setPropertyOpen] = useState(false);

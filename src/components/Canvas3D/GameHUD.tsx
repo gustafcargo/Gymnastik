@@ -4,9 +4,11 @@
  * Touch: virtuell joystick (vänster) + hoppa-upp-knapp (höger).
  */
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, Sparkles } from "lucide-react";
+import { Camera, X, Sparkles, Volume2, VolumeX } from "lucide-react";
 import type { MountedExerciseInfo } from "./GameGymnast3D";
 import { GymnastStylePanel } from "./GymnastStylePanel";
+import { useAudioStore } from "../../store/useAudioStore";
+import { RoomPanel } from "./RoomPanel";
 
 type Props = {
   nearEquipment: string | null;
@@ -24,6 +26,8 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   const [isTouch, setIsTouch] = useState(false);
   const [speedDisplay, setSpeedDisplay] = useState(speedRef.current);
   const [styleOpen, setStyleOpen] = useState(false);
+  const muted = useAudioStore((s) => s.muted);
+  const toggleMute = useAudioStore((s) => s.toggle);
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
   const joyKnobRef = useRef<HTMLDivElement>(null);
@@ -206,6 +210,28 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
       >
         <Sparkles size={13} /> Stil
       </button>
+
+      {/* Ljud-toggle – alla ljud på/av */}
+      <button
+        type="button"
+        onClick={toggleMute}
+        aria-label={muted ? "Slå på ljud" : "Stäng av ljud"}
+        style={{
+          position: "absolute", top: freeCamActive ? 214 : 178, right: 14,
+          display: "flex", alignItems: "center", gap: 6,
+          background: muted ? "rgba(100,116,139,0.78)" : "rgba(10,18,32,0.78)",
+          backdropFilter: "blur(6px)",
+          border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
+          color: "#f1f5f9", fontSize: 11, fontWeight: 600, padding: "6px 12px",
+          cursor: "pointer", pointerEvents: "all",
+        }}
+      >
+        {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+        {muted ? "Ljud av" : "Ljud på"}
+      </button>
+
+      {/* Rum-panel uppe till vänster (döljs när övningsmenyn visas där) */}
+      {!mountedExerciseInfo && <RoomPanel />}
 
       {/* Övningsmeny – visas när gymnast är monterad på redskap (uppe till vänster) */}
       {mountedExerciseInfo && (
