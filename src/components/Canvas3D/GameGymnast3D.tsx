@@ -423,24 +423,42 @@ export function GameGymnast3D({
       let newX = pos.current.x + Math.sin(rotY.current) * moveD;
       let newZ = pos.current.z - Math.cos(rotY.current) * moveD;
 
-      // Kollision + proximity (kombinerad loop)
+      // Kollision + proximity (kombinerad loop). Mäter avstånd till
+      // REDSKAPETS KANT (inte centrum) och roterar rundan korrekt så knappen
+      // "Hoppa upp" triggas hela vägen runt även på långa/vridna redskap
+      // som bom — tidigare var radius centrum-baserad, vilket missade
+      // gymnaster som stod nära en ände utanför 1.8 m-cirkeln från mitten.
       let closest: { id: string; name: string } | null = null;
       let minDist = PROX;
       for (const eq of station.equipment) {
         const eqType = getEquipmentById(eq.typeId);
         if (!eqType) continue;
-        const dx = eq.x - pos.current.x;
-        const dz = eq.y - pos.current.z;
-        const d  = Math.sqrt(dx * dx + dz * dz);
-        if (d < minDist) {
-          minDist = d;
+        const eqRot = -(eq.rotation * Math.PI) / 180;
+        const c = Math.cos(eqRot), s = Math.sin(eqRot);
+        const halfW = (eqType.widthM  * eq.scaleX) / 2;
+        const halfD = (eqType.heightM * eq.scaleY) / 2;
+
+        // World → equipment-local: invers av R_y(eqRot)
+        const dx = pos.current.x - eq.x;
+        const dz = pos.current.z - eq.y;
+        const localX = dx * c - dz * s;
+        const localZ = dx * s + dz * c;
+        const ex = Math.max(0, Math.abs(localX) - halfW);
+        const ez = Math.max(0, Math.abs(localZ) - halfD);
+        const edgeDist = Math.sqrt(ex * ex + ez * ez);
+
+        if (edgeDist < minDist) {
+          minDist = edgeDist;
           closest = { id: eq.id, name: eq.label ?? eqType.name };
         }
-        // AABB-kollision (skippa nära redskap så montering fungerar)
-        if (d > PROX && eqType) {
-          const hw = (eqType.widthM * eq.scaleX) / 2 + 0.3;
-          const hd = (eqType.heightM * eq.scaleY) / 2 + 0.3;
-          if (Math.abs(newX - eq.x) < hw && Math.abs(newZ - eq.y) < hd) {
+        // AABB-kollision i roterat lokalt frame (skippa nära redskap så
+        // montering fungerar).
+        if (edgeDist > PROX) {
+          const ndx = newX - eq.x;
+          const ndz = newZ - eq.y;
+          const nLocalX = ndx * c - ndz * s;
+          const nLocalZ = ndx * s + ndz * c;
+          if (Math.abs(nLocalX) < halfW + 0.3 && Math.abs(nLocalZ) < halfD + 0.3) {
             newX = pos.current.x;
             newZ = pos.current.z;
           }
