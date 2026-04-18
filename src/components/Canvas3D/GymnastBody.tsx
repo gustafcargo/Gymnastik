@@ -382,8 +382,8 @@ function Foot({ skin }: { skin: string }) {
 
 // ─── Huvud-komponent ──────────────────────────────────────────────────────────
 type Props = {
-  color: string;
-  skin: string;
+  color?: string;
+  skin?: string;
   hair: string;
   refs: BodyRefs;
 };
@@ -395,10 +395,11 @@ export const GymnastBody = forwardRef<THREE.Group, Props>(function GymnastBody(
   const torsoT = useGymnastTuning((s) => s.torso);
   const colors = useGymnastTuning((s) => s.colors);
   const sparkle = useGymnastTuning((s) => s.sparkle.amount);
-  // Leotard-färg = tuning (så panelen kan styra). color-prop från parent
-  // fungerar som fallback om någon kallar komponenten utan tuning-override.
-  const color = colors.leotard || colorProp;
-  const skin  = colors.skin    || skinProp;
+  // Explicit color-prop vinner (används av RemoteGymnast3D för att rendera
+  // varje fjärrspelare i sin egen färg). Tuning-panelens färg är fallback
+  // och styr bara den lokala gymnasten (som anropas utan color-prop).
+  const color = colorProp ?? colors.leotard;
+  const skin  = skinProp  ?? colors.skin;
   const torsoProfile = useMemo(() => buildTorsoProfile(torsoT), [torsoT]);
   // Pre-beräknade leotard-material med sparkle-booster (torso, bröst, axel-yoke)
   const matTorso = leotardMat({ metalness: 0.18, roughness: 0.35, clearcoat: 0.55, clearcoatRoughness: 0.22 }, sparkle);

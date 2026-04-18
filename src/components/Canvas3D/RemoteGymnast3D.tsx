@@ -140,6 +140,18 @@ export function RemoteGymnast3D({ player }: { player: RemotePlayer }) {
     if (r.lKnRef.current)     r.lKnRef.current.rotation.x  = p.lKnX;
     if (r.rHipRef.current)  { r.rHipRef.current.rotation.x = p.rHipX; r.rHipRef.current.rotation.z = p.rHipZ; }
     if (r.rKnRef.current)     r.rKnRef.current.rotation.x  = p.rKnX;
+
+    // Golv-clamp: GameGymnast3D lyfter sin egen rootRef när one-shot-tricks
+    // har negativa rootY-värden, men skickar broadcast med pre-clamp-värdet.
+    // Utan samma clamp här sjunker fjärrspelaren ner i golvet under t.ex.
+    // kullerbytta och framåtrullning.
+    if (rootRef.current) {
+      rootRef.current.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(rootRef.current);
+      if (isFinite(box.min.y) && box.min.y < 0) {
+        rootRef.current.position.y -= box.min.y;
+      }
+    }
   });
 
   // Namnetikett ovanför huvudet

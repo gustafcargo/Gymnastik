@@ -28,8 +28,6 @@ type Props = { className?: string };
 // Inner scene – lives inside Canvas so it can call useThree
 // ---------------------------------------------------------------------------
 
-const GYMNAST_COLOR = "#c026d3";
-
 /** Render alla fjärrspelare i det aktiva multiplayer-rummet. */
 function RemotePlayers() {
   const players = useMultiplayerStore((s) => s.players);
@@ -663,7 +661,6 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
           speedRef={speedRef}
           cameraResetRef={cameraResetRef}
           cameraOrbitRef={cameraOrbitRef}
-          color={GYMNAST_COLOR}
           effectsRef={effectsRef}
           onNearEquipment={onNearEquipment}
           onMountedExercises={onMountedExercises}
