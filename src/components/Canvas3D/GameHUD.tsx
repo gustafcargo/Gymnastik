@@ -19,8 +19,14 @@ import { TrickOverlay } from "./TrickOverlay";
 import { RoundOverlay, RoundTimer } from "./RoundOverlay";
 import { Leaderboard } from "./Leaderboard";
 import { FailToast } from "./FailToast";
+import { ClearToast } from "./ClearToast";
 import { PreGameMenu } from "./PreGameMenu";
 import { EndGameSummary } from "./EndGameSummary";
+import { PROFFS_STATION } from "../../catalog/proffsArena";
+import { getEquipmentById } from "../../catalog/equipment";
+import { exercisesForKind } from "../../catalog/exercises";
+import { BUILT_IN_EXERCISES } from "./Gymnast3D";
+import { useCustomExercisesStore } from "../../store/useCustomExercisesStore";
 
 type Props = {
   nearEquipment: string | null;
@@ -45,6 +51,10 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   // End-summary visas när spelaren trycker "Avsluta spelläge" och har poäng att
   // visa upp. Gäller primärt fri-läge (tävling har sin egen scorecard).
   const [showEndSummary, setShowEndSummary] = useState(false);
+  // Lokalt failedEquipment-set för auto-end i proffs-läget: när spelaren låst
+  // alla poänggivande redskap (MAX_ATTEMPTS_PER_EQUIPMENT uppnått på samtliga)
+  // avslutas spelet automatiskt och sammanfattningen visas.
+  const failedEquipment = useGameScore((s) => s.failedEquipment);
   const muted = useAudioStore((s) => s.muted);
   const toggleMute = useAudioStore((s) => s.toggle);
   const difficulty = useGameConfig((s) => s.difficulty);
@@ -59,15 +69,9 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
   const joyKnobRef = useRef<HTMLDivElement>(null);
-  // Kamera-drag + pinch (touch). Per pointer sparar vi startpunkt + moved-flagga
-  // så dead-zone kan suppressa små skakningar med tummen innan kameran börjar
-  // rotera. Utan detta "följer" kameran minsta tumskakning vilket gör att
-  // barn upplever styrningen som ryckig.
-  type CamPointer = { x: number; y: number; startX: number; startY: number; moved: boolean };
-  const camPointers = useRef<Map<number, CamPointer>>(new Map());
+  // Kamera-drag + pinch (touch)
+  const camPointers = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchDistRef = useRef<number | null>(null);
-  const pinchStartDistRef = useRef<number | null>(null);
-  const pinchMovedRef = useRef(false);
 
   useEffect(() => {
     const check = () => setIsTouch(window.matchMedia("(pointer: coarse)").matches);
@@ -87,6 +91,41 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
     };
   }, []);
 
+  // Auto-end i proffs-läget: när spelaren har använt alla försök på samtliga
+  // poänggivande redskap i proffs-arenan triggas sammanfattningen. Listan
+  // över förväntade redskap är hämtad ur PROFFS_STATION, filtrerad till
+  // redskap som faktiskt har minst en scoring-övning.
+  useEffect(() => {
+    if (!isProffsMode(difficulty)) return;
+    if (!started || showEndSummary) return;
+    const customDefs = useCustomExercisesStore.getState().customExercises.reduce(
+      (acc, e) => {
+        acc[e.id] = e;
+        return acc;
+      },
+      {} as Record<string, unknown>,
+    );
+    const hasScoringExercise = (kind: string) => {
+      const list = exercisesForKind(kind);
+      return list.some((ex) => {
+        const def = (customDefs[ex.id] as { tricks?: unknown[]; holdZones?: unknown[] } | undefined)
+          ?? (BUILT_IN_EXERCISES as Record<string, { tricks?: unknown[]; holdZones?: unknown[] }>)[ex.id];
+        if (!def) return false;
+        return (def.tricks?.length ?? 0) > 0 || (def.holdZones?.length ?? 0) > 0;
+      });
+    };
+    const playableIds = PROFFS_STATION.equipment
+      .filter((eq) => {
+        const type = getEquipmentById(eq.typeId);
+        const kind = type?.detail?.kind ?? "";
+        return kind ? hasScoringExercise(kind) : false;
+      })
+      .map((eq) => eq.id);
+    if (playableIds.length === 0) return;
+    const allLocked = playableIds.every((id) => failedEquipment.includes(id));
+    if (allLocked) setShowEndSummary(true);
+  }, [difficulty, started, showEndSummary, failedEquipment]);
+
   // ── Joystick-logik ──────────────────────────────────────────────────────────
   const onJoyDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -95,12 +134,6 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
     joyOrigin.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   };
 
-  // Dead-zone som andel av joystickens radie. Rörelser inom denna radie
-  // räknas som 0, vilket gör att gymnasten står helt still när tummen vilar
-  // mot mitten av joysticken. Utan dead-zone skapade float-brus små glid-
-  // rörelser som förvirrade barnen.
-  const JOY_DEADZONE_FRAC = 0.18;
-
   const onJoyMove = (e: React.PointerEvent) => {
     if (joyPointerId.current !== e.pointerId || !joyOrigin.current) return;
     const maxR = 40;
@@ -108,18 +141,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
     let dz = e.clientY - joyOrigin.current.y;
     const len = Math.sqrt(dx * dx + dz * dz);
     if (len > maxR) { dx = dx / len * maxR; dz = dz / len * maxR; }
-    // Knoppen följer alltid fingret (visuell feedback), men output-vektorn
-    // dead-zonas + omskalas så 0..1 sträcker sig från dead-zone-kanten till
-    // full amplitud. Det ger jämn kontroll från 0 upp till max utan hopp.
-    const mag = Math.hypot(dx, dz) / maxR;
-    if (mag < JOY_DEADZONE_FRAC) {
-      joystickRef.current = { dx: 0, dz: 0 };
-    } else {
-      const scaled = (mag - JOY_DEADZONE_FRAC) / (1 - JOY_DEADZONE_FRAC);
-      const nx = dx / (mag * maxR);
-      const nz = dz / (mag * maxR);
-      joystickRef.current = { dx: nx * scaled, dz: nz * scaled };
-    }
+    joystickRef.current = { dx: dx / maxR, dz: dz / maxR };
     if (joyKnobRef.current) {
       joyKnobRef.current.style.transform = `translate(${dx}px, ${dz}px)`;
     }
@@ -135,73 +157,31 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
 
   // ── Kameradrag + pinch-zoom (touch, överallt utanför joystick/knappar) ────
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-  // Minsta pixelförflyttning innan drag börjar påverka kameran. Suppressar
-  // tumskakningar så att barn kan vila tummen mot skärmen utan att råka
-  // svänga kameran.
-  const CAM_DEADZONE_PX = 12;
-  const PINCH_DEADZONE_PX = 8;
 
   const onCamDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    camPointers.current.set(e.pointerId, {
-      x: e.clientX, y: e.clientY,
-      startX: e.clientX, startY: e.clientY,
-      moved: false,
-    });
+    camPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (camPointers.current.size === 2) {
       const [a, b] = Array.from(camPointers.current.values());
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      pinchDistRef.current = d;
-      pinchStartDistRef.current = d;
-      pinchMovedRef.current = false;
+      pinchDistRef.current = Math.hypot(a.x - b.x, a.y - b.y);
     }
   };
 
   const onCamMove = (e: React.PointerEvent) => {
     const prev = camPointers.current.get(e.pointerId);
     if (!prev) return;
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    camPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (camPointers.current.size === 1) {
-      // Enhandsdragning → rotera kamera (yaw + pitch) med dead-zone.
-      // Först när fingret har flyttats > CAM_DEADZONE_PX från start börjar
-      // kameran röra sig, och då räknar vi deltat från tröskel-punkten
-      // (inte start-punkten) så kameran inte hoppar i första frame.
-      if (!prev.moved) {
-        const totalDx = e.clientX - prev.startX;
-        const totalDy = e.clientY - prev.startY;
-        if (Math.hypot(totalDx, totalDy) < CAM_DEADZONE_PX) {
-          // Stanna i dead-zone — uppdatera inte prev.x/y, håll nollpunkten.
-          return;
-        }
-        // Tröskel passerad. Markera och resetta referenspunkt till nuvarande
-        // position så första rörelsen inte "ackumulerar" dead-zone-deltat.
-        prev.moved = true;
-        prev.x = e.clientX;
-        prev.y = e.clientY;
-        return;
-      }
-      const dx = e.clientX - prev.x;
-      const dy = e.clientY - prev.y;
-      prev.x = e.clientX;
-      prev.y = e.clientY;
+      // Enhandsdragning → rotera kamera (yaw + pitch)
       cameraOrbitRef.current.yaw   -= dx * 0.006;
       cameraOrbitRef.current.pitch  = clamp(cameraOrbitRef.current.pitch - dy * 0.004, -0.5, 0.9);
     } else if (camPointers.current.size === 2) {
-      // Tvåfingers-pinch → zoom. Dead-zone: |current - start| måste över­stiga
-      // PINCH_DEADZONE_PX innan distScale börjar ändras.
-      prev.x = e.clientX;
-      prev.y = e.clientY;
+      // Tvåfingers-pinch → zoom
       const [a, b] = Array.from(camPointers.current.values());
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (!pinchMovedRef.current && pinchStartDistRef.current != null) {
-        if (Math.abs(d - pinchStartDistRef.current) < PINCH_DEADZONE_PX) {
-          pinchDistRef.current = d;
-          return;
-        }
-        pinchMovedRef.current = true;
-        pinchDistRef.current = d;
-        return;
-      }
       if (pinchDistRef.current != null && pinchDistRef.current > 0) {
         const ratio = pinchDistRef.current / d; // större avstånd = mindre distScale
         cameraOrbitRef.current.distScale = clamp(cameraOrbitRef.current.distScale * ratio, 0.4, 3.5);
@@ -212,11 +192,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
 
   const onCamUp = (e: React.PointerEvent) => {
     camPointers.current.delete(e.pointerId);
-    if (camPointers.current.size < 2) {
-      pinchDistRef.current = null;
-      pinchStartDistRef.current = null;
-      pinchMovedRef.current = false;
-    }
+    if (camPointers.current.size < 2) pinchDistRef.current = null;
   };
 
   // Pre-game-meny: visa alltid före spel. Döljer hela HUD:et tills spelaren
@@ -632,6 +608,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
       {isProffsMode(difficulty) && <RoundOverlay />}
       {isProffsMode(difficulty) && <Leaderboard />}
       {isProffsMode(difficulty) && <FailToast />}
+      {isProffsMode(difficulty) && <ClearToast />}
       <GymnastStylePanel open={styleOpen} onClose={() => setStyleOpen(false)} />
       <InviteModal />
     </div>
