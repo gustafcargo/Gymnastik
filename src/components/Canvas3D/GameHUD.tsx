@@ -4,10 +4,11 @@
  * Touch: virtuell joystick (vänster) + hoppa-upp-knapp (höger).
  */
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { Camera, X, Sparkles, Volume2, VolumeX, Gamepad2, Dumbbell } from "lucide-react";
 import type { MountedExerciseInfo } from "./GameGymnast3D";
 import { GymnastStylePanel } from "./GymnastStylePanel";
 import { useAudioStore } from "../../store/useAudioStore";
+import { useGameConfig } from "../../store/useGameConfig";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { isMultiplayerEnabled } from "../../lib/multiplayer";
 import { RoomPanel } from "./RoomPanel";
@@ -31,6 +32,12 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   const [styleOpen, setStyleOpen] = useState(false);
   const muted = useAudioStore((s) => s.muted);
   const toggleMute = useAudioStore((s) => s.toggle);
+  const difficulty = useGameConfig((s) => s.difficulty);
+  const toggleDifficulty = useGameConfig((s) => s.toggleDifficulty);
+  const [difficultyHintSeen, setDifficultyHintSeen] = useState<boolean>(() => {
+    try { return localStorage.getItem("gymnast-difficulty-hint-seen") === "1"; }
+    catch { return true; }
+  });
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
   const joyKnobRef = useRef<HTMLDivElement>(null);
@@ -244,6 +251,53 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
         {muted ? "Ljud av" : "Ljud på"}
       </button>
 
+      {/* Svårighetsgrad-toggle – auto vs manuell styrning av övningen */}
+      <div style={{
+        position: "absolute", top: freeCamActive ? 250 : 214, right: 14,
+        display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4,
+        pointerEvents: "all",
+      }}>
+        <button
+          type="button"
+          onClick={() => {
+            toggleDifficulty();
+            if (!difficultyHintSeen) {
+              setDifficultyHintSeen(true);
+              try { localStorage.setItem("gymnast-difficulty-hint-seen", "1"); } catch { /* ignore */ }
+            }
+          }}
+          aria-label={difficulty === "manuell" ? "Byt till auto-läge" : "Byt till manuell-läge"}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: difficulty === "manuell"
+              ? "linear-gradient(135deg, rgba(34,197,94,0.88), rgba(16,185,129,0.88))"
+              : "rgba(10,18,32,0.78)",
+            backdropFilter: "blur(6px)",
+            border: `1px solid ${difficulty === "manuell" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)"}`,
+            borderRadius: 8,
+            color: "#f1f5f9", fontSize: 11, fontWeight: 700, padding: "6px 12px",
+            cursor: "pointer",
+            boxShadow: difficulty === "manuell" ? "0 2px 10px rgba(34,197,94,0.35)" : "none",
+          }}
+        >
+          {difficulty === "manuell" ? <Dumbbell size={13} /> : <Gamepad2 size={13} />}
+          {difficulty === "manuell" ? "Manuell" : "Auto"}
+        </button>
+        {difficulty === "manuell" && !difficultyHintSeen && (
+          <div style={{
+            background: "rgba(15,23,42,0.95)",
+            border: "1px solid rgba(34,197,94,0.4)",
+            borderRadius: 6,
+            padding: "5px 9px",
+            color: "#cbd5e1", fontSize: 10, fontWeight: 500,
+            maxWidth: 180, textAlign: "right", lineHeight: 1.35,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+          }}>
+            Styr övningen själv med joysticken framåt/bakåt
+          </div>
+        )}
+      </div>
+
       {/* Rum-panel uppe till vänster (döljs när övningsmenyn visas där) */}
       {!mountedExerciseInfo && <RoomPanel />}
 
@@ -285,6 +339,17 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
           <div style={{ marginTop: 10, fontSize: 10, color: "#475569", textAlign: "center" }}>
             E = Nästa övning · Space = Kliv ned
           </div>
+          {difficulty === "manuell" && (
+            <div style={{
+              marginTop: 8, fontSize: 10, fontWeight: 600,
+              color: "#22c55e", textAlign: "center",
+              background: "rgba(34,197,94,0.12)",
+              border: "1px solid rgba(34,197,94,0.25)",
+              borderRadius: 6, padding: "4px 6px",
+            }}>
+              💪 Manuell: {isTouch ? "dra joysticken upp/ner" : "W/S eller ↑/↓"} för att styra rörelsen
+            </div>
+          )}
         </div>
       )}
 

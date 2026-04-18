@@ -20,6 +20,7 @@ import { playMount, playDismount, playTrick, playLanding, playStep, playDenied }
 import type { EffectsHandle } from "./EffectsLayer";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { useGymnastTuning } from "../../store/useGymnastTuning";
+import { useGameConfig } from "../../store/useGameConfig";
 import { sendState } from "../../lib/multiplayer";
 
 const P = Math.PI;
@@ -134,6 +135,11 @@ export function GameGymnast3D({
   const lastStepT = useRef(0);
   // Senaste broadcast-tid (s) för multiplayer-throttling (~15 Hz).
   const lastBroadcastT = useRef(0);
+  // Lokal övnings-tid när gymnasten är monterad. Separat från wall-clock
+  // så svårighetsgraden "manuell" kan låta spelaren skrubba tidslinjen via
+  // joysticken. Resetas vid varje mount och vid övningsbyte.
+  const exerciseT = useRef(0);
+  const lastMountedExerciseId = useRef<string | null>(null);
 
   const rootRef  = useRef<THREE.Group>(null);
   const bodyRefs: BodyRefs = {
@@ -233,6 +239,7 @@ export function GameGymnast3D({
     if (triggerMount) {
       if (mounted.current) {
         mounted.current = null;
+        lastMountedExerciseId.current = null;
         onMountedExercisesRef.current(null);
         playDismount();
         // Rensa proximity-state så etiketten försvinner
@@ -343,18 +350,47 @@ export function GameGymnast3D({
       const eq = station.equipment.find(e => e.id === eqId);
       const type = eq ? getEquipmentById(eq.typeId) : null;
       const def = lookupExercise(exerciseId);
-      pose = def ? evalExercise(def, t) : evalKF(IDLE_KFS, t);
+
+      // Drift av övningstiden. I auto-läge rullar den konstant framåt
+      // som tidigare. I manuell-läge styr spelaren den via joystickens
+      // framåt/bakåt-axel (och W/S på tangentbord). Reseta vid mount och
+      // vid övningsbyte så man alltid börjar övningen från början.
+      const dur = def ? def.kfs[def.kfs.length - 1].t : 1;
+      if (lastMountedExerciseId.current !== exerciseId) {
+        exerciseT.current = 0;
+        lastMountedExerciseId.current = exerciseId;
+      }
+      const difficulty = useGameConfig.getState().difficulty;
+      if (difficulty === "manuell") {
+        // -joy.dz = framåt på joysticken. WASD räknas också in för desktop.
+        const joyFwd  = -joy.dz;
+        const keyFwd  = (k.has("w") || k.has("arrowup"))   ? 1 : 0;
+        const keyBack = (k.has("s") || k.has("arrowdown")) ? 1 : 0;
+        const rawInput = Math.max(-1, Math.min(1, joyFwd + keyFwd - keyBack));
+        // Hastighet: 1.2 övnings-cykler per sekund vid full joystick. Bra
+        // balans — tillräckligt snabb för att svinga i tid men inte så snabb
+        // att posen blir ett hack. Kan justeras vid behov.
+        exerciseT.current += rawInput * 1.2 * delta;
+      } else {
+        exerciseT.current += delta;
+      }
+      // Modulo så vi alltid är inom [0, dur)
+      exerciseT.current = ((exerciseT.current % dur) + dur) % dur;
+
+      pose = def ? evalExercise(def, exerciseT.current) : evalKF(IDLE_KFS, t);
       if (def?.baseRotY) pose.rootRotY += def.baseRotY;
 
       // Advance-logik (ping-pong gång, t.ex. bom).
       // Övningar med baseRotY har ansiktet mot lokal −Z → världens −X (vid baseRotY=PI/2).
       // Vi negerar rootX-förflyttningen så att gymnasten rör sig i sin blickriktning (−X).
       if (def?.advance && def.advance > 0) {
-        const dur = def.kfs[def.kfs.length - 1].t;
-        const dist = (t / dur) * def.advance;
+        // Använd exerciseT (driven av auto/manuell) istället för wall-clock,
+        // så att "framgång genom övningen" även flyttar gymnasten längs bommen
+        // i manuell-läge.
+        const dist = (exerciseT.current / dur) * def.advance;
         const range = def.range ?? 3.0;
         const period = range * 2;
-        const phase = dist % period;
+        const phase = ((dist % period) + period) % period;
         if (phase <= range) {
           pose.rootX -= phase - range / 2;        // framåt i blickriktningen (−X)
         } else {
