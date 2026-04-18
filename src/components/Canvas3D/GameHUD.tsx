@@ -31,9 +31,15 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
   const joyKnobRef = useRef<HTMLDivElement>(null);
-  // Kamera-drag + pinch (touch)
-  const camPointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  // Kamera-drag + pinch (touch). `start` är den punkt där pekaren först
+  // lades ned; vi använder den för att avgöra om dead-zone passerats innan
+  // vi börjar rotera kameran. `moved`=true när tröskeln passerats, därefter
+  // används senaste position som delta-referens så kameran inte hoppar.
+  type CamPt = { x: number; y: number; startX: number; startY: number; moved: boolean };
+  const camPointers = useRef<Map<number, CamPt>>(new Map());
   const pinchDistRef = useRef<number | null>(null);
+  const pinchStartRef = useRef<number | null>(null);
+  const pinchActiveRef = useRef(false);
 
   useEffect(() => {
     const check = () => setIsTouch(window.matchMedia("(pointer: coarse)").matches);
@@ -53,14 +59,27 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   const onJoyMove = (e: React.PointerEvent) => {
     if (joyPointerId.current !== e.pointerId || !joyOrigin.current) return;
     const maxR = 40;
+    // Dead-zone: 18% av maxR. Små skakningar i tummen får inte gymnasten
+    // att smyga iväg. Vi skalar om (0.18 .. 1.0) → (0.0 .. 1.0) så att
+    // kontrollen är jämn ända från tröskeln till full hastighet.
+    const DEAD = 0.18;
     let dx = e.clientX - joyOrigin.current.x;
     let dz = e.clientY - joyOrigin.current.y;
     const len = Math.sqrt(dx * dx + dz * dz);
     if (len > maxR) { dx = dx / len * maxR; dz = dz / len * maxR; }
-    joystickRef.current = { dx: dx / maxR, dz: dz / maxR };
+    // Visuell knopp följer fingret rakt av (ingen dead-zone i visualen)
     if (joyKnobRef.current) {
       joyKnobRef.current.style.transform = `translate(${dx}px, ${dz}px)`;
     }
+    const mag = Math.min(1, len / maxR);
+    if (mag < DEAD) {
+      joystickRef.current = { dx: 0, dz: 0 };
+      return;
+    }
+    const scaled = (mag - DEAD) / (1 - DEAD);
+    const nx = dx / (len || 1);
+    const nz = dz / (len || 1);
+    joystickRef.current = { dx: nx * scaled, dz: nz * scaled };
   };
 
   const onJoyUp = (e: React.PointerEvent) => {
@@ -74,30 +93,66 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   // ── Kameradrag + pinch-zoom (touch, överallt utanför joystick/knappar) ────
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+  // Dead-zone-tröskel i pixlar för kamera-rotation. Finns för att undvika
+  // att minsta skakning med tummen på iPad/iPhone tolkas som en avsiktlig
+  // kamerarotation. Först efter att pekaren förflyttats > CAM_DEADZONE_PX
+  // börjar vi rotera — och vi använder den punkten (inte start) som ny
+  // referens för att undvika ett ryckigt hopp när tröskeln passeras.
+  const CAM_DEADZONE_PX = 12;
+  const PINCH_DEADZONE_PX = 8;
+
   const onCamDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    camPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    camPointers.current.set(e.pointerId, {
+      x: e.clientX, y: e.clientY,
+      startX: e.clientX, startY: e.clientY,
+      moved: false,
+    });
     if (camPointers.current.size === 2) {
       const [a, b] = Array.from(camPointers.current.values());
-      pinchDistRef.current = Math.hypot(a.x - b.x, a.y - b.y);
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      pinchDistRef.current = d;
+      pinchStartRef.current = d;
+      pinchActiveRef.current = false;
     }
   };
 
   const onCamMove = (e: React.PointerEvent) => {
     const prev = camPointers.current.get(e.pointerId);
     if (!prev) return;
-    const dx = e.clientX - prev.x;
-    const dy = e.clientY - prev.y;
-    camPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (camPointers.current.size === 1) {
-      // Enhandsdragning → rotera kamera (yaw + pitch)
+      // Enhandsdragning → rotera kamera (yaw + pitch), men först efter
+      // dead-zone har passerats.
+      if (!prev.moved) {
+        const totalDx = e.clientX - prev.startX;
+        const totalDy = e.clientY - prev.startY;
+        if (Math.hypot(totalDx, totalDy) < CAM_DEADZONE_PX) {
+          // Uppdatera lagrad position så efterföljande delta inte blir stort
+          camPointers.current.set(e.pointerId, { ...prev, x: e.clientX, y: e.clientY });
+          return;
+        }
+        // Precis passerat tröskeln — sätt den nuvarande punkten som referens
+        prev.moved = true;
+      }
+      const dx = e.clientX - prev.x;
+      const dy = e.clientY - prev.y;
+      camPointers.current.set(e.pointerId, { ...prev, x: e.clientX, y: e.clientY });
       cameraOrbitRef.current.yaw   -= dx * 0.006;
       cameraOrbitRef.current.pitch  = clamp(cameraOrbitRef.current.pitch - dy * 0.004, -0.5, 0.9);
     } else if (camPointers.current.size === 2) {
-      // Tvåfingers-pinch → zoom
+      // Tvåfingers-pinch → zoom, med egen dead-zone så liten skakning
+      // mellan fingrarna inte triggar zoom.
+      camPointers.current.set(e.pointerId, { ...prev, x: e.clientX, y: e.clientY });
       const [a, b] = Array.from(camPointers.current.values());
       const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (!pinchActiveRef.current) {
+        if (pinchStartRef.current != null && Math.abs(d - pinchStartRef.current) < PINCH_DEADZONE_PX) {
+          pinchDistRef.current = d;
+          return;
+        }
+        pinchActiveRef.current = true;
+      }
       if (pinchDistRef.current != null && pinchDistRef.current > 0) {
         const ratio = pinchDistRef.current / d; // större avstånd = mindre distScale
         cameraOrbitRef.current.distScale = clamp(cameraOrbitRef.current.distScale * ratio, 0.4, 3.5);
@@ -108,7 +163,11 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
 
   const onCamUp = (e: React.PointerEvent) => {
     camPointers.current.delete(e.pointerId);
-    if (camPointers.current.size < 2) pinchDistRef.current = null;
+    if (camPointers.current.size < 2) {
+      pinchDistRef.current = null;
+      pinchStartRef.current = null;
+      pinchActiveRef.current = false;
+    }
   };
 
   return (
