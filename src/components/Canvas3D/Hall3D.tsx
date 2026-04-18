@@ -20,6 +20,8 @@ import { RemoteGymnast3D } from "./RemoteGymnast3D";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { exercisesForKind } from "../../catalog/exercises";
 import { computeStackInfo } from "../../lib/stackGroups";
+import { useGameConfig, isProffsMode } from "../../store/useGameConfig";
+import { PROFFS_HALL, PROFFS_STATION } from "../../catalog/proffsArena";
 import type { Station } from "../../types";
 
 type Props = { className?: string };
@@ -56,7 +58,14 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
   onFreeCamChange: (on: boolean) => void;
 }) {
   const plan = usePlanStore((s) => s.plan);
-  const station = plan.stations.find((s) => s.id === plan.activeStationId);
+  const planStation = plan.stations.find((s) => s.id === plan.activeStationId);
+  const gameModeActive = usePlanStore((s) => s.gameMode);
+  const difficulty = useGameConfig((s) => s.difficulty);
+  // I proffs-läget visas alltid samma fasta arena — oberoende av användarens
+  // egna planer — så att highscore mellan spelare är jämförbart. I plan- och
+  // övriga spellägen används den aktiva stationen som vanligt.
+  const proffsArenaActive = gameModeActive && isProffsMode(difficulty);
+  const station = proffsArenaActive ? PROFFS_STATION : planStation;
   const selectedId = usePlanStore((s) => s.selectedEquipmentId);
   const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const gameMode = usePlanStore((s) => s.gameMode);
@@ -682,9 +691,12 @@ export function Hall3D({ className }: Props) {
   const plan        = usePlanStore((s) => s.plan);
   const gameMode    = usePlanStore((s) => s.gameMode);
   const setGameMode = usePlanStore((s) => s.setGameMode);
+  const difficulty  = useGameConfig((s) => s.difficulty);
 
-  const W = plan.hall.widthM;
-  const H = plan.hall.heightM;
+  // Proffs-läget tvingar fast arena-storlek. Övriga lägen följer användarens plan.
+  const proffsArenaActive = gameMode && isProffsMode(difficulty);
+  const W = proffsArenaActive ? PROFFS_HALL.widthM  : plan.hall.widthM;
+  const H = proffsArenaActive ? PROFFS_HALL.heightM : plan.hall.heightM;
   const cx = W / 2;
   const cz = H / 2;
   const camDist = Math.max(W, H) * 0.95;

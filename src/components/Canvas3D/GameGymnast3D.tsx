@@ -39,7 +39,7 @@ function lookupExercise(id: string) {
 function isScoringExerciseId(id: string): boolean {
   const def = lookupExercise(id);
   if (!def) return false;
-  return (def.tricks && def.tricks.length > 0) || (def.holdZones && def.holdZones.length > 0);
+  return (def.tricks?.length ?? 0) > 0 || (def.holdZones?.length ?? 0) > 0;
 }
 
 // Gångcykel – 4 nyckelbilder, 0.6 s/cykel

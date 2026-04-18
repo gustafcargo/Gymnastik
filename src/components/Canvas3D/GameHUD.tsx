@@ -19,8 +19,14 @@ import { TrickOverlay } from "./TrickOverlay";
 import { RoundOverlay, RoundTimer } from "./RoundOverlay";
 import { Leaderboard } from "./Leaderboard";
 import { FailToast } from "./FailToast";
+import { ClearToast } from "./ClearToast";
 import { PreGameMenu } from "./PreGameMenu";
 import { EndGameSummary } from "./EndGameSummary";
+import { PROFFS_STATION } from "../../catalog/proffsArena";
+import { getEquipmentById } from "../../catalog/equipment";
+import { exercisesForKind } from "../../catalog/exercises";
+import { BUILT_IN_EXERCISES } from "./Gymnast3D";
+import { useCustomExercisesStore } from "../../store/useCustomExercisesStore";
 
 type Props = {
   nearEquipment: string | null;
@@ -45,6 +51,10 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   // End-summary visas när spelaren trycker "Avsluta spelläge" och har poäng att
   // visa upp. Gäller primärt fri-läge (tävling har sin egen scorecard).
   const [showEndSummary, setShowEndSummary] = useState(false);
+  // Lokalt failedEquipment-set för auto-end i proffs-läget: när spelaren låst
+  // alla poänggivande redskap (MAX_ATTEMPTS_PER_EQUIPMENT uppnått på samtliga)
+  // avslutas spelet automatiskt och sammanfattningen visas.
+  const failedEquipment = useGameScore((s) => s.failedEquipment);
   const muted = useAudioStore((s) => s.muted);
   const toggleMute = useAudioStore((s) => s.toggle);
   const difficulty = useGameConfig((s) => s.difficulty);
@@ -80,6 +90,41 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
       void useMultiplayerStore.getState().disconnectLobby();
     };
   }, []);
+
+  // Auto-end i proffs-läget: när spelaren har använt alla försök på samtliga
+  // poänggivande redskap i proffs-arenan triggas sammanfattningen. Listan
+  // över förväntade redskap är hämtad ur PROFFS_STATION, filtrerad till
+  // redskap som faktiskt har minst en scoring-övning.
+  useEffect(() => {
+    if (!isProffsMode(difficulty)) return;
+    if (!started || showEndSummary) return;
+    const customDefs = useCustomExercisesStore.getState().customExercises.reduce(
+      (acc, e) => {
+        acc[e.id] = e;
+        return acc;
+      },
+      {} as Record<string, unknown>,
+    );
+    const hasScoringExercise = (kind: string) => {
+      const list = exercisesForKind(kind);
+      return list.some((ex) => {
+        const def = (customDefs[ex.id] as { tricks?: unknown[]; holdZones?: unknown[] } | undefined)
+          ?? (BUILT_IN_EXERCISES as Record<string, { tricks?: unknown[]; holdZones?: unknown[] }>)[ex.id];
+        if (!def) return false;
+        return (def.tricks?.length ?? 0) > 0 || (def.holdZones?.length ?? 0) > 0;
+      });
+    };
+    const playableIds = PROFFS_STATION.equipment
+      .filter((eq) => {
+        const type = getEquipmentById(eq.typeId);
+        const kind = type?.detail?.kind ?? "";
+        return kind ? hasScoringExercise(kind) : false;
+      })
+      .map((eq) => eq.id);
+    if (playableIds.length === 0) return;
+    const allLocked = playableIds.every((id) => failedEquipment.includes(id));
+    if (allLocked) setShowEndSummary(true);
+  }, [difficulty, started, showEndSummary, failedEquipment]);
 
   // ── Joystick-logik ──────────────────────────────────────────────────────────
   const onJoyDown = (e: React.PointerEvent) => {
@@ -563,6 +608,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
       {isProffsMode(difficulty) && <RoundOverlay />}
       {isProffsMode(difficulty) && <Leaderboard />}
       {isProffsMode(difficulty) && <FailToast />}
+      {isProffsMode(difficulty) && <ClearToast />}
       <GymnastStylePanel open={styleOpen} onClose={() => setStyleOpen(false)} />
       <InviteModal />
     </div>
