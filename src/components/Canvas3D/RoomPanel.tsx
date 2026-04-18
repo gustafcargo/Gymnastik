@@ -1,17 +1,16 @@
 /**
  * RoomPanel – multiplayer-widget i spellägets HUD.
  *
- * Hanterar två lägen:
- *   inte i rum → knapp "Bjud in" (skapar kod, kopierar URL) + input för
- *                 att manuellt joina en befintlig kod.
- *   i rum      → lista aktiva spelare + "Lämna"-knapp.
+ * Kollapserad: liten rund knapp (Users-ikon) med badge = antal spelare.
+ * Expanderad: full panel med invite/join (inte i rum) eller spelarlista
+ * + länk/lämna (i rum).
  *
- * Allt körs klient-sidigt; själva realtidssynken sker via
- * `useMultiplayerStore` mot Supabase Realtime. Om Supabase-env saknas
- * (isMultiplayerEnabled=false) renderas en info-ruta istället.
+ * Allt körs klient-sidigt; realtidssynken sker via `useMultiplayerStore`
+ * mot Supabase Realtime. Om Supabase-env saknas (isMultiplayerEnabled=
+ * false) renderas inget alls.
  */
 import { useState } from "react";
-import { Users, Copy, LogOut, Plus } from "lucide-react";
+import { Users, Copy, LogOut, Plus, X } from "lucide-react";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { isMultiplayerEnabled, makeRoomCode } from "../../lib/multiplayer";
 
@@ -25,6 +24,7 @@ export function RoomPanel() {
   const join = useMultiplayerStore((s) => s.join);
   const leave = useMultiplayerStore((s) => s.leave);
 
+  const [open, setOpen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
@@ -56,6 +56,39 @@ export function RoomPanel() {
     setJoinCode("");
   };
 
+  const totalPlayers = roomCode ? 1 + Object.keys(players).length : 0;
+
+  const iconBtnStyle: React.CSSProperties = {
+    position: "absolute", top: 14, left: 14,
+    width: 40, height: 40, borderRadius: 20,
+    display: "grid", placeItems: "center",
+    background: "rgba(10,18,32,0.88)", backdropFilter: "blur(8px)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    color: "#f1f5f9", cursor: "pointer", pointerEvents: "all",
+    boxShadow: "0 6px 20px rgba(0,0,0,0.4)", padding: 0,
+  };
+  const badgeStyle: React.CSSProperties = {
+    position: "absolute", top: -4, right: -4,
+    minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9,
+    background: "#22c55e", color: "#052e16",
+    fontSize: 10, fontWeight: 800, lineHeight: "18px",
+    textAlign: "center", border: "1.5px solid rgba(10,18,32,0.88)",
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={iconBtnStyle}
+        aria-label={roomCode ? `Multiplayer – ${totalPlayers} spelare` : "Multiplayer"}
+      >
+        <Users size={18} />
+        {roomCode && <span style={badgeStyle}>{totalPlayers}</span>}
+      </button>
+    );
+  }
+
   const panelStyle: React.CSSProperties = {
     position: "absolute", top: 14, left: 14,
     background: "rgba(10,18,32,0.88)", backdropFilter: "blur(8px)",
@@ -77,13 +110,33 @@ export function RoomPanel() {
     background: "rgba(255,255,255,0.08)",
     border: "1px solid rgba(255,255,255,0.15)",
   };
+  const closeBtn: React.CSSProperties = {
+    display: "grid", placeItems: "center",
+    width: 22, height: 22, borderRadius: 11,
+    background: "rgba(255,255,255,0.08)", border: "none",
+    color: "#cbd5e1", cursor: "pointer", padding: 0,
+  };
+  const headerRow: React.CSSProperties = {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    gap: 6, marginBottom: 8,
+  };
+  const headerLabel: React.CSSProperties = {
+    display: "flex", alignItems: "center", gap: 6,
+    fontSize: 10, color: "#94a3b8", fontWeight: 700,
+    textTransform: "uppercase", letterSpacing: "0.06em",
+  };
 
   if (roomCode) {
     const list = Object.values(players);
     return (
       <div style={panelStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-          <Users size={12} /> Rum {roomCode}
+        <div style={headerRow}>
+          <span style={headerLabel}>
+            <Users size={12} /> Rum {roomCode}
+          </span>
+          <button type="button" style={closeBtn} onClick={() => setOpen(false)} aria-label="Stäng">
+            <X size={13} />
+          </button>
         </div>
 
         {/* Spelarlista (inkl. dig själv överst) */}
@@ -127,8 +180,11 @@ export function RoomPanel() {
 
   return (
     <div style={panelStyle}>
-      <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-        Multiplayer
+      <div style={headerRow}>
+        <span style={headerLabel}>Multiplayer</span>
+        <button type="button" style={closeBtn} onClick={() => setOpen(false)} aria-label="Stäng">
+          <X size={13} />
+        </button>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
