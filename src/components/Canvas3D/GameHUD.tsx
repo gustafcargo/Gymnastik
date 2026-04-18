@@ -4,11 +4,15 @@
  * Touch: virtuell joystick (vänster) + hoppa-upp-knapp (höger).
  */
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { Camera, X, Sparkles, Volume2, VolumeX, Gamepad2, Dumbbell } from "lucide-react";
 import type { MountedExerciseInfo } from "./GameGymnast3D";
 import { GymnastStylePanel } from "./GymnastStylePanel";
 import { useAudioStore } from "../../store/useAudioStore";
+import { useGameConfig } from "../../store/useGameConfig";
+import { useMultiplayerStore } from "../../store/useMultiplayerStore";
+import { isMultiplayerEnabled } from "../../lib/multiplayer";
 import { RoomPanel } from "./RoomPanel";
+import { InviteModal } from "./InviteModal";
 
 type Props = {
   nearEquipment: string | null;
@@ -28,24 +32,35 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   const [styleOpen, setStyleOpen] = useState(false);
   const muted = useAudioStore((s) => s.muted);
   const toggleMute = useAudioStore((s) => s.toggle);
+  const difficulty = useGameConfig((s) => s.difficulty);
+  const toggleDifficulty = useGameConfig((s) => s.toggleDifficulty);
+  const [difficultyHintSeen, setDifficultyHintSeen] = useState<boolean>(() => {
+    try { return localStorage.getItem("gymnast-difficulty-hint-seen") === "1"; }
+    catch { return true; }
+  });
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
   const joyKnobRef = useRef<HTMLDivElement>(null);
-  // Kamera-drag + pinch (touch). `start` är den punkt där pekaren först
-  // lades ned; vi använder den för att avgöra om dead-zone passerats innan
-  // vi börjar rotera kameran. `moved`=true när tröskeln passerats, därefter
-  // används senaste position som delta-referens så kameran inte hoppar.
-  type CamPt = { x: number; y: number; startX: number; startY: number; moved: boolean };
-  const camPointers = useRef<Map<number, CamPt>>(new Map());
+  // Kamera-drag + pinch (touch)
+  const camPointers = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchDistRef = useRef<number | null>(null);
-  const pinchStartRef = useRef<number | null>(null);
-  const pinchActiveRef = useRef(false);
 
   useEffect(() => {
     const check = () => setIsTouch(window.matchMedia("(pointer: coarse)").matches);
     check();
     window.matchMedia("(pointer: coarse)").addEventListener("change", check);
     return () => window.matchMedia("(pointer: coarse)").removeEventListener("change", check);
+  }, []);
+
+  // Lobby-anslutning bara under spelläget. `GameHUD` mountas just då, så
+  // vi använder dess livscykel som signal.
+  useEffect(() => {
+    if (!isMultiplayerEnabled) return;
+    const mp = useMultiplayerStore.getState();
+    void mp.connectLobby();
+    return () => {
+      void useMultiplayerStore.getState().disconnectLobby();
+    };
   }, []);
 
   // ── Joystick-logik ──────────────────────────────────────────────────────────
@@ -59,27 +74,14 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   const onJoyMove = (e: React.PointerEvent) => {
     if (joyPointerId.current !== e.pointerId || !joyOrigin.current) return;
     const maxR = 40;
-    // Dead-zone: 18% av maxR. Små skakningar i tummen får inte gymnasten
-    // att smyga iväg. Vi skalar om (0.18 .. 1.0) → (0.0 .. 1.0) så att
-    // kontrollen är jämn ända från tröskeln till full hastighet.
-    const DEAD = 0.18;
     let dx = e.clientX - joyOrigin.current.x;
     let dz = e.clientY - joyOrigin.current.y;
     const len = Math.sqrt(dx * dx + dz * dz);
     if (len > maxR) { dx = dx / len * maxR; dz = dz / len * maxR; }
-    // Visuell knopp följer fingret rakt av (ingen dead-zone i visualen)
+    joystickRef.current = { dx: dx / maxR, dz: dz / maxR };
     if (joyKnobRef.current) {
       joyKnobRef.current.style.transform = `translate(${dx}px, ${dz}px)`;
     }
-    const mag = Math.min(1, len / maxR);
-    if (mag < DEAD) {
-      joystickRef.current = { dx: 0, dz: 0 };
-      return;
-    }
-    const scaled = (mag - DEAD) / (1 - DEAD);
-    const nx = dx / (len || 1);
-    const nz = dz / (len || 1);
-    joystickRef.current = { dx: nx * scaled, dz: nz * scaled };
   };
 
   const onJoyUp = (e: React.PointerEvent) => {
@@ -93,66 +95,30 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   // ── Kameradrag + pinch-zoom (touch, överallt utanför joystick/knappar) ────
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-  // Dead-zone-tröskel i pixlar för kamera-rotation. Finns för att undvika
-  // att minsta skakning med tummen på iPad/iPhone tolkas som en avsiktlig
-  // kamerarotation. Först efter att pekaren förflyttats > CAM_DEADZONE_PX
-  // börjar vi rotera — och vi använder den punkten (inte start) som ny
-  // referens för att undvika ett ryckigt hopp när tröskeln passeras.
-  const CAM_DEADZONE_PX = 12;
-  const PINCH_DEADZONE_PX = 8;
-
   const onCamDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    camPointers.current.set(e.pointerId, {
-      x: e.clientX, y: e.clientY,
-      startX: e.clientX, startY: e.clientY,
-      moved: false,
-    });
+    camPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (camPointers.current.size === 2) {
       const [a, b] = Array.from(camPointers.current.values());
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      pinchDistRef.current = d;
-      pinchStartRef.current = d;
-      pinchActiveRef.current = false;
+      pinchDistRef.current = Math.hypot(a.x - b.x, a.y - b.y);
     }
   };
 
   const onCamMove = (e: React.PointerEvent) => {
     const prev = camPointers.current.get(e.pointerId);
     if (!prev) return;
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    camPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (camPointers.current.size === 1) {
-      // Enhandsdragning → rotera kamera (yaw + pitch), men först efter
-      // dead-zone har passerats.
-      if (!prev.moved) {
-        const totalDx = e.clientX - prev.startX;
-        const totalDy = e.clientY - prev.startY;
-        if (Math.hypot(totalDx, totalDy) < CAM_DEADZONE_PX) {
-          // Uppdatera lagrad position så efterföljande delta inte blir stort
-          camPointers.current.set(e.pointerId, { ...prev, x: e.clientX, y: e.clientY });
-          return;
-        }
-        // Precis passerat tröskeln — sätt den nuvarande punkten som referens
-        prev.moved = true;
-      }
-      const dx = e.clientX - prev.x;
-      const dy = e.clientY - prev.y;
-      camPointers.current.set(e.pointerId, { ...prev, x: e.clientX, y: e.clientY });
+      // Enhandsdragning → rotera kamera (yaw + pitch)
       cameraOrbitRef.current.yaw   -= dx * 0.006;
       cameraOrbitRef.current.pitch  = clamp(cameraOrbitRef.current.pitch - dy * 0.004, -0.5, 0.9);
     } else if (camPointers.current.size === 2) {
-      // Tvåfingers-pinch → zoom, med egen dead-zone så liten skakning
-      // mellan fingrarna inte triggar zoom.
-      camPointers.current.set(e.pointerId, { ...prev, x: e.clientX, y: e.clientY });
+      // Tvåfingers-pinch → zoom
       const [a, b] = Array.from(camPointers.current.values());
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (!pinchActiveRef.current) {
-        if (pinchStartRef.current != null && Math.abs(d - pinchStartRef.current) < PINCH_DEADZONE_PX) {
-          pinchDistRef.current = d;
-          return;
-        }
-        pinchActiveRef.current = true;
-      }
       if (pinchDistRef.current != null && pinchDistRef.current > 0) {
         const ratio = pinchDistRef.current / d; // större avstånd = mindre distScale
         cameraOrbitRef.current.distScale = clamp(cameraOrbitRef.current.distScale * ratio, 0.4, 3.5);
@@ -163,11 +129,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
 
   const onCamUp = (e: React.PointerEvent) => {
     camPointers.current.delete(e.pointerId);
-    if (camPointers.current.size < 2) {
-      pinchDistRef.current = null;
-      pinchStartRef.current = null;
-      pinchActiveRef.current = false;
-    }
+    if (camPointers.current.size < 2) pinchDistRef.current = null;
   };
 
   return (
@@ -289,6 +251,53 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
         {muted ? "Ljud av" : "Ljud på"}
       </button>
 
+      {/* Svårighetsgrad-toggle – auto vs manuell styrning av övningen */}
+      <div style={{
+        position: "absolute", top: freeCamActive ? 250 : 214, right: 14,
+        display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4,
+        pointerEvents: "all",
+      }}>
+        <button
+          type="button"
+          onClick={() => {
+            toggleDifficulty();
+            if (!difficultyHintSeen) {
+              setDifficultyHintSeen(true);
+              try { localStorage.setItem("gymnast-difficulty-hint-seen", "1"); } catch { /* ignore */ }
+            }
+          }}
+          aria-label={difficulty === "manuell" ? "Byt till auto-läge" : "Byt till manuell-läge"}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: difficulty === "manuell"
+              ? "linear-gradient(135deg, rgba(34,197,94,0.88), rgba(16,185,129,0.88))"
+              : "rgba(10,18,32,0.78)",
+            backdropFilter: "blur(6px)",
+            border: `1px solid ${difficulty === "manuell" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)"}`,
+            borderRadius: 8,
+            color: "#f1f5f9", fontSize: 11, fontWeight: 700, padding: "6px 12px",
+            cursor: "pointer",
+            boxShadow: difficulty === "manuell" ? "0 2px 10px rgba(34,197,94,0.35)" : "none",
+          }}
+        >
+          {difficulty === "manuell" ? <Dumbbell size={13} /> : <Gamepad2 size={13} />}
+          {difficulty === "manuell" ? "Manuell" : "Auto"}
+        </button>
+        {difficulty === "manuell" && !difficultyHintSeen && (
+          <div style={{
+            background: "rgba(15,23,42,0.95)",
+            border: "1px solid rgba(34,197,94,0.4)",
+            borderRadius: 6,
+            padding: "5px 9px",
+            color: "#cbd5e1", fontSize: 10, fontWeight: 500,
+            maxWidth: 180, textAlign: "right", lineHeight: 1.35,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+          }}>
+            Styr övningen själv med joysticken framåt/bakåt
+          </div>
+        )}
+      </div>
+
       {/* Rum-panel uppe till vänster (döljs när övningsmenyn visas där) */}
       {!mountedExerciseInfo && <RoomPanel />}
 
@@ -330,6 +339,17 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
           <div style={{ marginTop: 10, fontSize: 10, color: "#475569", textAlign: "center" }}>
             E = Nästa övning · Space = Kliv ned
           </div>
+          {difficulty === "manuell" && (
+            <div style={{
+              marginTop: 8, fontSize: 10, fontWeight: 600,
+              color: "#22c55e", textAlign: "center",
+              background: "rgba(34,197,94,0.12)",
+              border: "1px solid rgba(34,197,94,0.25)",
+              borderRadius: 6, padding: "4px 6px",
+            }}>
+              💪 Manuell: {isTouch ? "dra joysticken upp/ner" : "W/S eller ↑/↓"} för att styra rörelsen
+            </div>
+          )}
         </div>
       )}
 
@@ -416,6 +436,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
       )}
 
       <GymnastStylePanel open={styleOpen} onClose={() => setStyleOpen(false)} />
+      <InviteModal />
     </div>
   );
 }
