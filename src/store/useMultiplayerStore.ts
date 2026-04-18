@@ -88,9 +88,13 @@ export const useMultiplayerStore = create<Store>()(
       setPlayerColor: (color) => set({ playerColor: color }),
 
       join: async (code) => {
-        const { channel: existing, playerId } = get();
-        if (existing) await leaveRoom(existing);
+        const { channel: existing, playerId, roomCode: currentRoom } = get();
         const normalized = code.toUpperCase().slice(0, 6);
+        // Om vi redan är i samma rum med en aktiv kanal: gör inget. Skyddar
+        // mot React strict-mode double-invokes och mot att autojoin fyras
+        // av flera gånger.
+        if (existing && currentRoom === normalized) return;
+        if (existing) await leaveRoom(existing);
         set({
           roomCode: normalized,
           channel: null,

@@ -219,6 +219,18 @@ function initialPlan(): Plan {
   return createPlan();
 }
 
+/** Om URL:en innehåller ?room=CODE startas appen direkt i spelläget.
+ *  Körs synkront vid store-init så gameMode är sann redan innan App
+ *  renderas första gången – inga race conditions med useEffect. */
+function initialGameMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return new URLSearchParams(window.location.search).has("room");
+  } catch {
+    return false;
+  }
+}
+
 function withActiveStation(
   plan: Plan,
   mutator: (station: Station) => Station,
@@ -243,7 +255,7 @@ export const usePlanStore = create<PlanStore>()(
       equipmentEditorOpen: false,
       showLabels: true,
       showNotes: true,
-      gameMode: false,
+      gameMode: initialGameMode(),
 
       newPlan: (name) =>
         set(() => {
