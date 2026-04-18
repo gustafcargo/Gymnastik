@@ -19,6 +19,7 @@ import { type Pose, type KF, ZERO, evalKF, evalExercise, pend as _pend } from ".
 import { playMount, playDismount, playTrick, playLanding, playStep, playDenied } from "../../lib/sfx";
 import type { EffectsHandle } from "./EffectsLayer";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
+import { useGymnastTuning } from "../../store/useGymnastTuning";
 import { sendState } from "../../lib/multiplayer";
 
 const P = Math.PI;
@@ -83,7 +84,7 @@ const CAM_HEIGHT = 2.2;   // m ovanför höfterna
 export function GameGymnast3D({
   station, hallW, hallH, joystickRef, mountTriggerRef, speedRef, cameraResetRef,
   cameraOrbitRef, effectsRef,
-  onNearEquipment, onMountedExercises, onFreeCamChange, onExit, color = "#C2185B",
+  onNearEquipment, onMountedExercises, onFreeCamChange, onExit, color,
 }: Props) {
   const SKIN = "#E8C99A";
   const HAIR = "#2d1a08";
@@ -624,10 +625,13 @@ export function GameGymnast3D({
         for (const key of Object.keys(pose) as Array<keyof Pose>) {
           poseOut[key] = (pose as Pose)[key];
         }
+        // Skicka lokal leotard-färg (inte den statiska mp.playerColor) så
+        // fjärrspelare ser den faktiska färgen från tuning-panelen.
+        const localColor = useGymnastTuning.getState().colors.leotard || mp.playerColor;
         sendState(mp.channel, {
           id: mp.playerId,
           name: mp.playerName,
-          color: mp.playerColor,
+          color: localColor,
           pos: { x: pos.current.x, y: pose.rootY, z: pos.current.z },
           rotY: -rotY.current,
           pose: poseOut,
