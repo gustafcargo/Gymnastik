@@ -21,7 +21,7 @@ import type { EffectsHandle } from "./EffectsLayer";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { useGymnastTuning } from "../../store/useGymnastTuning";
 import { useGameConfig, isPlayerScrubbing, isProffsMode } from "../../store/useGameConfig";
-import { useGameScore, type TrickGrade, MAX_MISSES_PER_ATTEMPT } from "../../store/useGameScore";
+import { useGameScore, type TrickGrade, MAX_MISSES_PER_ATTEMPT, HITS_TO_CLEAR } from "../../store/useGameScore";
 import { useGameMode } from "../../store/useGameMode";
 import { sendState } from "../../lib/multiplayer";
 
@@ -31,6 +31,15 @@ const P = Math.PI;
 function lookupExercise(id: string) {
   const custom = useCustomExercisesStore.getState().customDefs[id];
   return custom ?? BUILT_IN_EXERCISES[id];
+}
+
+// En övning ger poäng i proffs-läge om den har minst ett trick-fönster eller
+// en hold-zon. Övningar utan dessa (rena animationer) filtreras bort i proffs
+// så spelaren inte kan välja en "poänglös" variant.
+function isScoringExerciseId(id: string): boolean {
+  const def = lookupExercise(id);
+  if (!def) return false;
+  return (def.tricks && def.tricks.length > 0) || (def.holdZones && def.holdZones.length > 0);
 }
 
 // Gångcykel – 4 nyckelbilder, 0.6 s/cykel
@@ -145,6 +154,11 @@ export function GameGymnast3D({
   // gymnasten kan gå hela bommens längd (annars klamps `dist` till en cykel).
   const exerciseProgress = useRef(0);
   const lastMountedExerciseId = useRef<string | null>(null);
+  // Uppstart efter mount: tidslinjen är frusen ~WARMUP_SEC så gymnasten
+  // hinner upp på redskapet innan första trick-fönster börjar räkna. Utan
+  // det blev bom-hoppet nästan omöjligt (tryck-fönstret öppnades på frame 1).
+  const mountedAtRef = useRef<number>(0);
+  const WARMUP_SEC = 1.5;
   // Proffs-läge: vilken trick som spelaren just nu kan/försöker tajma.
   // Uppdateras varje frame i mounted-blocket; läses av trigger-handler för
   // att avgöra om Space/knappen ska gradera tricket eller demontera.
@@ -229,22 +243,31 @@ export function GameGymnast3D({
       const meq = station.equipment.find(e => e.id === mounted.current!.eqId);
       const mt = meq ? getEquipmentById(meq.typeId) : null;
       if (meq && mt) {
-        const exs = exercisesForKind(mt.detail?.kind ?? "");
-        const idx = exs.findIndex(ex => ex.id === mounted.current!.exerciseId);
-        const nid = exs[(idx + 1) % exs.length].id;
-        mounted.current.exerciseId = nid;
-        const makeOnChange = (exercises: typeof exs) => {
-          const handler = (id: string) => {
-            if (!mounted.current) return;
-            mounted.current.exerciseId = id;
-            onMountedExercisesRef.current({ exercises, exerciseId: id, onChange: handler });
+        const allExs = exercisesForKind(mt.detail?.kind ?? "");
+        const proffsActive = isProffsMode(useGameConfig.getState().difficulty);
+        const exs = proffsActive
+          ? allExs.filter((ex) => isScoringExerciseId(ex.id))
+          : allExs;
+        if (exs.length) {
+          const idx = exs.findIndex(ex => ex.id === mounted.current!.exerciseId);
+          const nid = exs[(idx + 1) % exs.length].id;
+          mounted.current.exerciseId = nid;
+          // När spelaren byter övning i proffs räknas det fortfarande som
+          // samma försök på redskapet — equipmentAttempts uppdateras bara
+          // av fail/clear, så ingen extra räkning behövs här.
+          const makeOnChange = (exercises: typeof exs) => {
+            const handler = (id: string) => {
+              if (!mounted.current) return;
+              mounted.current.exerciseId = id;
+              onMountedExercisesRef.current({ exercises, exerciseId: id, onChange: handler });
+            };
+            return handler;
           };
-          return handler;
-        };
-        onMountedExercisesRef.current({
-          exercises: exs, exerciseId: nid,
-          onChange: makeOnChange(exs),
-        });
+          onMountedExercisesRef.current({
+            exercises: exs, exerciseId: nid,
+            onChange: makeOnChange(exs),
+          });
+        }
       }
     } else {
       eCycleRef.current = false;
@@ -301,10 +324,14 @@ export function GameGymnast3D({
         const winSec = (pending.trick.windowMs ?? 250) / 1000;
         const offsetMs = Math.abs(pending.dt) * 1000;
         if (Math.abs(pending.dt) <= winSec) {
+          // Fem grad-nivåer: perfect (< 30ms), great (< 70), good (< 120),
+          // ok (< 180), annars miss. Ger tydlig differentiering mellan
+          // "nästan perfekt" och "bara lite sent".
           const grade: TrickGrade =
-            offsetMs < 40 ? "perfect" :
-            offsetMs < 100 ? "great" :
-            offsetMs < 200 ? "good" : "miss";
+            offsetMs < 30 ? "perfect" :
+            offsetMs < 70 ? "great" :
+            offsetMs < 120 ? "good" :
+            offsetMs < 180 ? "ok" : "miss";
           const trickLabel = pending.trick.label ?? pending.trick.type;
           const mountedEqId = mounted.current.eqId;
           useGameScore.getState().recordTrick(
@@ -317,6 +344,13 @@ export function GameGymnast3D({
             const misses = useGameScore.getState().equipmentMisses[mountedEqId] ?? 0;
             if (misses >= MAX_MISSES_PER_ATTEMPT) {
               useGameScore.getState().failCurrentEquipment(nameFor(mountedEqId));
+            }
+          } else {
+            // Hit-grade: räkna upp mot clear-tröskeln. När vi når HITS_TO_CLEAR
+            // räknas försöket som avklarat och gymnasten kliver ner.
+            const hits = useGameScore.getState().equipmentHits[mountedEqId] ?? 0;
+            if (hits >= HITS_TO_CLEAR) {
+              useGameScore.getState().clearCurrentEquipment(nameFor(mountedEqId));
             }
           }
           // Markera trick som konsumerat för aktuell cykel.
@@ -388,8 +422,17 @@ export function GameGymnast3D({
           playDenied();
         } else if (eq && type) {
           const kind = type.detail?.kind ?? "";
-          const exs  = exercisesForKind(kind);
-          if (exs.length) {
+          const allExs = exercisesForKind(kind);
+          // I proffs-läge: bara övningar som faktiskt kan ge poäng. Finns
+          // ingen sådan på redskapet nekas mounten (playDenied) så man inte
+          // fastnar i en icke-scorande pose.
+          const proffsActive = isProffsMode(useGameConfig.getState().difficulty);
+          const exs = proffsActive
+            ? allExs.filter((ex) => isScoringExerciseId(ex.id))
+            : allExs;
+          if (!exs.length) {
+            playDenied();
+          } else {
             const isHang = ["high-bar","rings","rings-free","uneven-bars"].includes(kind);
             const isRings = kind === "rings" || kind === "rings-free";
             const isSupport = ["parallel-bars","pommel-horse"].includes(kind);
@@ -400,6 +443,7 @@ export function GameGymnast3D({
               : type.physicalHeightM + H_THIGH + H_SHIN;
             mounted.current = { eqId: eq.id, exerciseId: exs[0].id, baseY };
             pos.current = { x: eq.x, z: eq.y };
+            mountedAtRef.current = t;
             useGameScore.getState().beginMount(eq.id);
             playMount();
             effectsRef?.current?.spawn({ kind: "ring", pos: { x: eq.x, y: 0.05, z: eq.y } });
@@ -490,6 +534,12 @@ export function GameGymnast3D({
         exerciseDelta = rawInput * 1.2 * delta;
       } else {
         exerciseDelta = delta;
+      }
+      // Warmup: första WARMUP_SEC efter mount fryses tidslinjen så spelaren
+      // hinner orientera sig. Gäller alla svårighetsgrader — i manuell är
+      // det extra viktigt eftersom joysticken kan sätta fart direkt annars.
+      if (t - mountedAtRef.current < WARMUP_SEC) {
+        exerciseDelta = 0;
       }
       exerciseT.current += exerciseDelta;
       exerciseProgress.current += exerciseDelta;
