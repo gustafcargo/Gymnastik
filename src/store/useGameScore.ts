@@ -60,6 +60,11 @@ export const MAX_MISSES_PER_ATTEMPT = 3;
 /** Antal lyckade trick-grade (ej miss) som krävs för att KLARA ett försök. */
 export const HITS_TO_CLEAR = 10;
 
+/** Hur många "hits" ett fullbordat hold-fönster räknas som mot clear-tröskeln.
+ *  Större tal => pure-hold-övningar (t.ex. handstående, kors) klaras på färre
+ *  completions. Vi valde 3 så ~3-4 completions räcker för clear. */
+export const HOLD_COMPLETION_HITS = 3;
+
 /** Max antal försök (fail + clear sammanlagt) per redskap per spelomgång. */
 export const MAX_ATTEMPTS_PER_EQUIPMENT = 2;
 
@@ -163,6 +168,10 @@ type ScoreState = {
   setActiveHold: (h: ActiveHold | null) => void;
   recordTrick: (grade: TrickGrade, label: string, difficulty: number) => void;
   addHoldPoints: (deltaPts: number, label: string) => void;
+  /** Kallas när spelaren har stått stilla igenom ett helt hold-fönster.
+   *  Registreras som HOLD_COMPLETION_HITS hits mot clear-tröskeln + stor
+   *  poäng-bonus ("great"-grad). Gör pure-hold-övningar möjliga att klara. */
+  recordHoldCompletion: (label: string) => void;
   resetCombo: () => void;
   resetScore: () => void;
   commitSessionBest: () => void;
@@ -239,6 +248,37 @@ export const useGameScore = create<ScoreState>()(
           lastEvent: {
             grade,
             label: `${GRADE_LABELS[grade]} ${label}`,
+            points,
+            multiplier: mult,
+            at: Date.now(),
+          },
+        });
+      },
+
+      recordHoldCompletion: (label) => {
+        if (scoreLocked()) return;
+        const s = get();
+        const newCombo = s.combo + 1;
+        const mult = comboMultiplier(newCombo);
+        const base = GRADE_POINTS.great; // 80 baspoäng per fullbordad hold
+        const points = Math.round(base * mult);
+        const newScore = s.score + points;
+        const eqId = s.currentEqId;
+        const nextEqScore = { ...s.equipmentScore };
+        const nextEqHits = { ...s.equipmentHits };
+        if (eqId) {
+          nextEqScore[eqId] = (nextEqScore[eqId] ?? 0) + points;
+          nextEqHits[eqId] = (nextEqHits[eqId] ?? 0) + HOLD_COMPLETION_HITS;
+        }
+        set({
+          score: newScore,
+          combo: newCombo,
+          sessionBest: Math.max(s.sessionBest, newScore),
+          equipmentScore: nextEqScore,
+          equipmentHits: nextEqHits,
+          lastEvent: {
+            grade: "great",
+            label: `H\u00e5ll klart: ${label}`,
             points,
             multiplier: mult,
             at: Date.now(),
