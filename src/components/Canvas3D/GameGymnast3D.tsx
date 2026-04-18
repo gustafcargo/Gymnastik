@@ -134,12 +134,6 @@ export function GameGymnast3D({
   const lastStepT = useRef(0);
   // Senaste broadcast-tid (s) för multiplayer-throttling (~15 Hz).
   const lastBroadcastT = useRef(0);
-  // Anti-stuck watchdog: när spelaren försöker röra sig men blockeras av
-  // ett redskap sätts `stuckSinceT` till aktuell tid. Efter ~0.9 s utan
-  // progression puttas gymnasten mjukt bort från närmsta redskap.
-  const stuckSinceT = useRef<number | null>(null);
-  const nudgeUntilT = useRef<number>(0);
-  const nudgeDir = useRef<{ x: number; z: number }>({ x: 0, z: 0 });
 
   const rootRef  = useRef<THREE.Group>(null);
   const bodyRefs: BodyRefs = {
@@ -453,13 +447,11 @@ export function GameGymnast3D({
       const left = (k.has("a") || k.has("arrowleft"))  ? 1 : 0;
       const rgt  = (k.has("d") || k.has("arrowright")) ? 1 : 0;
 
-      // Joystick-input (touch). Dead-zone hanteras i GameHUD → joy är
-      // garanterat exakt {0,0} inom dead-zone, så här räcker en stram
-      // tröskel mot float-brus.
+      // Joystick-input (touch)
       const joyFwd  = -joy.dz;
       const joyTurn =  joy.dx;
-      const turning = left || rgt || Math.abs(joyTurn) > 0.01;
-      const moving  = fwd || back || Math.abs(joyFwd) > 0.01 || turning;
+      const turning = left || rgt || Math.abs(joyTurn) > 0.1;
+      const moving  = fwd || back || Math.abs(joyFwd) > 0.1 || turning;
 
       // Rotera gymnast (rotY) + lät kamera följa med fördröjning (camYaw)
       rotY.current += (rgt - left + joyTurn) * TURN_SPEED * delta;
@@ -535,59 +527,6 @@ export function GameGymnast3D({
         } else {
           newX = pos.current.x;
           newZ = pos.current.z;
-        }
-      }
-
-      // ── Anti-stuck watchdog ────────────────────────────────────────────
-      // Om spelaren försöker röra sig framåt men hela rörelsen blockeras
-      // (intentX/intentZ != 0 men newX/newZ stannar kvar vid pos.current)
-      // startar vi en timer. Efter ~0.9 s mutar vi gymnasten bort från
-      // närmsta redskap i ~400 ms. Det låter barnen komma loss utan att
-      // behöva manövrera exakt med kameran.
-      const intentForward = fwd - back + joyFwd;
-      const wantsMove = Math.abs(intentForward) > 0.01;
-      const movedX = Math.abs(newX - pos.current.x);
-      const movedZ = Math.abs(newZ - pos.current.z);
-      const didntMove = movedX < 1e-4 && movedZ < 1e-4;
-      if (wantsMove && didntMove && !mounted.current) {
-        if (stuckSinceT.current === null) stuckSinceT.current = t;
-      } else {
-        stuckSinceT.current = null;
-      }
-      if (
-        stuckSinceT.current !== null &&
-        t - stuckSinceT.current > 0.9 &&
-        t > nudgeUntilT.current &&
-        closest
-      ) {
-        // Peka bort från närmaste redskaps centrum
-        const eq = station.equipment.find((e) => e.id === closest.id);
-        if (eq) {
-          let dxv = pos.current.x - eq.x;
-          let dzv = pos.current.z - eq.y;
-          let len = Math.hypot(dxv, dzv);
-          if (len < 1e-3) {
-            // Inuti/centrum – välj bakåt relativt gymnastens blick
-            dxv = -Math.sin(rotY.current);
-            dzv = Math.cos(rotY.current);
-            len = 1;
-          }
-          nudgeDir.current = { x: dxv / len, z: dzv / len };
-          nudgeUntilT.current = t + 0.4;
-          stuckSinceT.current = null;
-        }
-      }
-      if (t < nudgeUntilT.current) {
-        const step = 2.4 * delta; // m/s nudge
-        newX = pos.current.x + nudgeDir.current.x * step;
-        newZ = pos.current.z + nudgeDir.current.z * step;
-        // Klampa mot samma boxar som ovan
-        if (!wasInside && blocked(newX, newZ)) {
-          const canX = !blocked(newX, pos.current.z);
-          const canZ = !blocked(pos.current.x, newZ);
-          if (canX && !canZ) newZ = pos.current.z;
-          else if (!canX && canZ) newX = pos.current.x;
-          else if (!canX && !canZ) { newX = pos.current.x; newZ = pos.current.z; }
         }
       }
 

@@ -2,17 +2,19 @@
  * RoomPanel – multiplayer-widget i spellägets HUD.
  *
  * Kollapserad: liten rund knapp (Users-ikon) med badge = antal spelare.
- * Expanderad: full panel med invite/join (inte i rum) eller spelarlista
- * + länk/lämna (i rum).
+ * Expanderad: full panel. Layout beror på tillstånd:
+ *  - Utan rum  → namninput + "Skapa rum" + kod-join + vänner
+ *  - I rum     → stor synlig kod + dela + spelarlista + lämna + vänner
  *
- * Allt körs klient-sidigt; realtidssynken sker via `useMultiplayerStore`
- * mot Supabase Realtime. Om Supabase-env saknas (isMultiplayerEnabled=
- * false) renderas inget alls.
+ * Vänner via `useFriendsStore` (4-siffriga koder bytta manuellt). När en
+ * vän är online i lobby:n visas "Bjud in"-knapp. Inkommande inbjudningar
+ * renderas av `InviteModal` (separat komponent).
  */
 import { useState } from "react";
-import { Users, Copy, LogOut, Plus, X } from "lucide-react";
+import { Users, Copy, LogOut, Plus, X, Share2 } from "lucide-react";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
 import { isMultiplayerEnabled, makeRoomCode } from "../../lib/multiplayer";
+import { FriendsSection } from "./FriendsSection";
 
 export function RoomPanel() {
   const playerId = useMultiplayerStore((s) => s.playerId);
@@ -37,16 +39,12 @@ export function RoomPanel() {
     setTimeout(() => setToast(null), 2200);
   };
 
+  const buildInviteUrl = (code: string) =>
+    `${location.origin}${location.pathname}?room=${code}`;
+
   const handleInvite = async () => {
     const code = makeRoomCode();
     await join(code);
-    const url = `${location.origin}${location.pathname}?room=${code}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast("Länk kopierad!");
-    } catch {
-      showToast(`Rum: ${code}`);
-    }
   };
 
   const handleJoin = async () => {
@@ -54,6 +52,40 @@ export function RoomPanel() {
     if (code.length < 4) return;
     await join(code);
     setJoinCode("");
+  };
+
+  const handleShareLink = async () => {
+    if (!roomCode) return;
+    const url = buildInviteUrl(roomCode);
+    const shareData = {
+      title: "Spela gymnastik med mig!",
+      text: `Kom och spela! Kod: ${roomCode}`,
+      url,
+    };
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch {
+      // Användaren avbröt eller share misslyckades – fall through till clipboard
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Länk kopierad!");
+    } catch {
+      showToast(`Rum: ${roomCode}`);
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!roomCode) return;
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      showToast("Kod kopierad!");
+    } catch {
+      showToast(`Kod: ${roomCode}`);
+    }
   };
 
   const totalPlayers = roomCode ? 1 + Object.keys(players).length : 0;
@@ -91,10 +123,11 @@ export function RoomPanel() {
 
   const panelStyle: React.CSSProperties = {
     position: "absolute", top: 14, left: 14,
-    background: "rgba(10,18,32,0.88)", backdropFilter: "blur(8px)",
+    background: "rgba(10,18,32,0.9)", backdropFilter: "blur(8px)",
     border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12,
     padding: "10px 12px", pointerEvents: "all",
-    minWidth: 200, maxWidth: 260,
+    minWidth: 240, maxWidth: 280,
+    maxHeight: "calc(100vh - 28px)", overflowY: "auto",
     color: "#f1f5f9", fontSize: 12, fontFamily: "system-ui, sans-serif",
     boxShadow: "0 6px 20px rgba(0,0,0,0.4)",
   };
@@ -132,46 +165,71 @@ export function RoomPanel() {
       <div style={panelStyle}>
         <div style={headerRow}>
           <span style={headerLabel}>
-            <Users size={12} /> Rum {roomCode}
+            <Users size={12} /> Rum
           </span>
           <button type="button" style={closeBtn} onClick={() => setOpen(false)} aria-label="Stäng">
             <X size={13} />
           </button>
         </div>
 
+        {/* Stor synlig kod – den som behövs för att dela */}
+        <button
+          type="button"
+          onClick={() => void handleCopyCode()}
+          title="Tryck för att kopiera koden"
+          style={{
+            display: "block", width: "100%",
+            background: "rgba(59,130,246,0.15)",
+            border: "1px dashed rgba(59,130,246,0.6)",
+            borderRadius: 10, padding: "10px 12px",
+            marginBottom: 8, cursor: "pointer",
+            color: "#f1f5f9", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 28, fontWeight: 800, letterSpacing: "0.22em",
+            textAlign: "center",
+          }}
+        >
+          {roomCode}
+        </button>
+
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <button
+            type="button"
+            style={{ ...btn, flex: 1, justifyContent: "center" }}
+            onClick={() => void handleShareLink()}
+          >
+            <Share2 size={12} /> Dela länk
+          </button>
+          <button
+            type="button"
+            style={subtleBtn}
+            onClick={() => void handleCopyCode()}
+            aria-label="Kopiera kod"
+          >
+            <Copy size={12} />
+          </button>
+        </div>
+
         {/* Spelarlista (inkl. dig själv överst) */}
+        <div style={{ ...headerLabel, marginBottom: 4 }}>
+          Spelare ({totalPlayers})
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
           <PlayerRow color={playerColor} name={`${playerName} (du)`} selfId={playerId} isSelf />
           {list.map((p) => (
             <PlayerRow key={p.id} color={p.color} name={p.name} selfId={p.id} />
           ))}
           {list.length === 0 && (
-            <div style={{ fontSize: 10, color: "#64748b", padding: "4px 0" }}>
+            <div style={{ fontSize: 10, color: "#64748b", padding: "2px 0" }}>
               Väntar på att någon ansluter…
             </div>
           )}
         </div>
 
-        <div style={{ display: "flex", gap: 6 }}>
-          <button
-            type="button"
-            style={subtleBtn}
-            onClick={async () => {
-              const url = `${location.origin}${location.pathname}?room=${roomCode}`;
-              try {
-                await navigator.clipboard.writeText(url);
-                showToast("Länk kopierad!");
-              } catch {
-                showToast(`Rum: ${roomCode}`);
-              }
-            }}
-          >
-            <Copy size={12} /> Länk
-          </button>
-          <button type="button" style={subtleBtn} onClick={() => void leave()}>
-            <LogOut size={12} /> Lämna
-          </button>
-        </div>
+        <button type="button" style={{ ...subtleBtn, width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => void leave()}>
+          <LogOut size={12} /> Lämna rum
+        </button>
+
+        <FriendsSection onToast={showToast} />
 
         {toast && <Toast msg={toast} />}
       </div>
@@ -204,10 +262,10 @@ export function RoomPanel() {
       </div>
 
       <button type="button" style={{ ...btn, width: "100%", justifyContent: "center", marginBottom: 8 }} onClick={() => void handleInvite()}>
-        <Plus size={12} /> Bjud in (skapa rum)
+        <Plus size={12} /> Skapa rum
       </button>
 
-      <div style={{ display: "flex", gap: 6 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
         <input
           type="text"
           placeholder="Kod"
@@ -227,6 +285,8 @@ export function RoomPanel() {
           Anslut
         </button>
       </div>
+
+      <FriendsSection onToast={showToast} />
 
       {toast && <Toast msg={toast} />}
     </div>
