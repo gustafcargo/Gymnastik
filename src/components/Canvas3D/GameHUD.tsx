@@ -255,10 +255,16 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
         />
       )}
 
-      {/* Avsluta-knapp – övre höger */}
+      {/* Avsluta-knapp – övre höger.
+          `touchAction: manipulation` förhindrar iOS-browserns 300ms-fördröjning
+          och eventuella double-tap-zoom-missar. `onPointerDown stopPropagation`
+          gör så att kamera-draglagrets pointer-capture aldrig hinner ta över
+          detta tryck — barnen klagade över att avsluta-knappen ibland blev
+          "låst" på iPad, och det var pga. pointer-capture-krockar. */}
       <button
         type="button"
         onClick={handleExitClick}
+        onPointerDown={(e) => e.stopPropagation()}
         style={{
           position: "absolute", top: 14, right: 14,
           display: "flex", alignItems: "center", gap: 6,
@@ -266,6 +272,8 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
           border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
           color: "#f1f5f9", fontSize: 12, fontWeight: 600, padding: "6px 12px",
           cursor: "pointer", pointerEvents: "all",
+          touchAction: "manipulation",
+          zIndex: 230,
         }}
       >
         <X size={14} /> Avsluta spelläge

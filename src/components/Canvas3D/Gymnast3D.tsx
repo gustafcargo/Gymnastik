@@ -649,43 +649,44 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   // ── Fristående ─────────────────────────────────────────────────────────────
 
   // Handstående – balansera på händerna upp-och-ned.
-  // lockMode: "hands" håller händerna mot golvet. Cykeln är ~3.5 s så hold-
-  // fönstret är långt nog för att kännas som ett "riktigt" handstand-håll
-  // (tidigare 0.5 s räckte inte för att spelaren skulle hinna förstå vad
-  // som gäller). Subtil sin-våg på spineX + rootZ ger levande balansering.
+  // lockMode: "hands" håller händerna mot golvet. Cykeln är ~3.5 s. Kroppen
+  // vickar tydligt fram-och-tillbaka (spineX ±0.22 rad ≈ 12°) — spelaren
+  // måste trycka "Räta upp!" precis när gymnasten tippat maximalt för att
+  // motverka fallrörelsen. Tricks är inriktade vid lut-topparna (t=0.9,
+  // 1.75, 2.6) så visuell tippning = tryck-cue.
   "floor:handstand": {
     lockMode: "hands",
     holdZones: [{ tStart: 0.3, tEnd: 3.2, label: "Handst\u00e5ende", pointsPerSec: 50 }],
     tricks: [
-      { t: 0.8, type: "twist", label: "Balansera!", windowMs: 300, difficulty: 1.1 },
-      { t: 1.7, type: "twist", label: "H\u00e5ll linjen!", windowMs: 300, difficulty: 1.1 },
-      { t: 2.6, type: "twist", label: "Str\u00e4ck!", windowMs: 300, difficulty: 1.1 },
+      { t: 0.9, type: "twist", label: "R\u00e4ta upp!", windowMs: 320, difficulty: 1.1 },
+      { t: 1.75, type: "twist", label: "Motverka!", windowMs: 320, difficulty: 1.1 },
+      { t: 2.6, type: "twist", label: "R\u00e4ta upp!", windowMs: 320, difficulty: 1.1 },
     ],
     kfs: [
       { t: 0, pose: { ...ZERO,
-        spineX: -0.09,
+        spineX: -0.22,
         lShX: -P, rShX: -P,
-        rootY: 0.03,
+        rootY: 0.03, rootZ: -0.12,
         rootRotX: P } },
       { t: 0.9, pose: { ...ZERO,
-        spineX: 0.06,
+        spineX: 0.22,
         lShX: -P, rShX: -P,
-        rootY: 0.035, rootZ: 0.08,
+        rootY: 0.04, rootZ: 0.18,
         rootRotX: P } },
       { t: 1.75, pose: { ...ZERO,
-        spineX: -0.04,
+        spineX: -0.20,
         lShX: -P, rShX: -P,
-        rootY: 0.03, rootZ: -0.04,
+        rootY: 0.03, rootZ: -0.15,
         rootRotX: P } },
       { t: 2.6, pose: { ...ZERO,
-        spineX: 0.08,
+        spineX: 0.24,
         lShX: -P, rShX: -P,
-        rootY: 0.035, rootZ: 0.1,
+        rootY: 0.04, rootZ: 0.20,
         rootRotX: P } },
       { t: 3.5, pose: { ...ZERO,
-        spineX: -0.09,
+        spineX: -0.22,
         lShX: -P, rShX: -P,
-        rootY: 0.03,
+        rootY: 0.03, rootZ: -0.12,
         rootRotX: P } },
     ],
   },
@@ -713,41 +714,41 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   // ── Hopp ───────────────────────────────────────────────────────────────────
 
   // Handstående på hoppbord – lockMode "hands" håller händerna mot bordet.
-  // Längre cykel (3.5 s) så hold-fönstret är lätt att förstå; spineX + rootZ-
-  // vågningen ger fortfarande levande balansering ovanpå.
+  // Tydlig visuell tippning (spineX ±0.22 rad) så spelaren ser när hon ska
+  // trycka. Tricks vid t=0.9/1.75/2.6 matchar lut-topparna.
   "vault:handstand": {
     lockMode: "hands",
     holdZones: [{ tStart: 0.3, tEnd: 3.2, label: "Handst\u00e5ende", pointsPerSec: 55 }],
     tricks: [
-      { t: 0.8, type: "twist", label: "Balansera!", windowMs: 280, difficulty: 1.2 },
-      { t: 1.7, type: "twist", label: "H\u00e5ll linjen!", windowMs: 280, difficulty: 1.2 },
-      { t: 2.6, type: "twist", label: "Str\u00e4ck!", windowMs: 280, difficulty: 1.2 },
+      { t: 0.9, type: "twist", label: "R\u00e4ta upp!", windowMs: 300, difficulty: 1.2 },
+      { t: 1.75, type: "twist", label: "Motverka!", windowMs: 300, difficulty: 1.2 },
+      { t: 2.6, type: "twist", label: "R\u00e4ta upp!", windowMs: 300, difficulty: 1.2 },
     ],
     kfs: [
       { t: 0, pose: { ...ZERO,
-        spineX: -0.10,
+        spineX: -0.22,
         lShX: -P, rShX: -P,
-        rootY: 0.17,
+        rootY: 0.17, rootZ: -0.12,
         rootRotX: P } },
       { t: 0.9, pose: { ...ZERO,
-        spineX: 0.07,
+        spineX: 0.22,
         lShX: -P, rShX: -P,
-        rootY: 0.175, rootZ: 0.09,
+        rootY: 0.18, rootZ: 0.18,
         rootRotX: P } },
       { t: 1.75, pose: { ...ZERO,
-        spineX: -0.03,
+        spineX: -0.20,
         lShX: -P, rShX: -P,
-        rootY: 0.17, rootZ: -0.05,
+        rootY: 0.17, rootZ: -0.15,
         rootRotX: P } },
       { t: 2.6, pose: { ...ZERO,
-        spineX: 0.09,
+        spineX: 0.24,
         lShX: -P, rShX: -P,
-        rootY: 0.175, rootZ: 0.11,
+        rootY: 0.18, rootZ: 0.20,
         rootRotX: P } },
       { t: 3.5, pose: { ...ZERO,
-        spineX: -0.10,
+        spineX: -0.22,
         lShX: -P, rShX: -P,
-        rootY: 0.17,
+        rootY: 0.17, rootZ: -0.12,
         rootRotX: P } },
     ],
   },

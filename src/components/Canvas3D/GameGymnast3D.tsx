@@ -534,7 +534,13 @@ export function GameGymnast3D({
       }
       const difficulty = useGameConfig.getState().difficulty;
       let exerciseDelta: number;
-      if (isPlayerScrubbing(difficulty)) {
+      // Hold-övningar (handstående, kors, arabesque, stå-på-bom, kors) handlar
+      // om att stå STILL. Då ska tiden flyta på automatiskt — annars måste
+      // spelaren pusha joysticken för att föra fram tidslinjen, vilket är
+      // motsatsen till "håll stilla" och gör att balance-tricks passerar
+      // slumpmässigt så fort man nuddar styret.
+      const hasHoldZones = (def?.holdZones?.length ?? 0) > 0;
+      if (isPlayerScrubbing(difficulty) && !hasHoldZones) {
         // -joy.dz = framåt på joysticken. WASD räknas också in för desktop.
         const joyFwd  = -joy.dz;
         const keyFwd  = (k.has("w") || k.has("arrowup"))   ? 1 : 0;
