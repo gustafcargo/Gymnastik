@@ -57,6 +57,16 @@ export function useClubs() {
   const createClub = useCallback(async (name: string) => {
     const c = supabase();
     if (!c || !user) throw new Error("Inte inloggad");
+    // Sanity: verifiera att klienten har en aktiv session innan vi försöker
+    // insertet. Annars skickas requesten med bara anon-key och RLS-policyn
+    // "clubs: any insert" (to authenticated) matchar inte → 42501 blir ett
+    // kryptiskt "new row violates row-level security policy".
+    const sess = await c.auth.getSession();
+    if (!sess.data.session) {
+      throw new Error(
+        "Din inloggning verkar ha gått ut. Logga ut och in igen och försök på nytt.",
+      );
+    }
     const { data, error: err } = await c
       .from("clubs")
       .insert({ name: name.trim(), created_by: user.id })
@@ -65,7 +75,7 @@ export function useClubs() {
     if (err) {
       throw sbError(
         err,
-        "Kunde inte skapa förening. Kör migrationen i Supabase och försök igen.",
+        "Kunde inte skapa förening. Kontrollera inloggningen och försök igen.",
         "clubs.createClub",
       );
     }
