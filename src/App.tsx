@@ -30,23 +30,27 @@ const Hall3D = lazy(() =>
  *  Nu ser spelaren vad som hände och kan trycka Försök igen. */
 class ThreeDErrorBoundary extends Component<
   { children: ReactNode; is3D: boolean },
-  { crashed: boolean; message: string | null }
+  { crashed: boolean; message: string | null; stackTop: string | null }
 > {
-  state = { crashed: false, message: null as string | null };
+  state = { crashed: false, message: null as string | null, stackTop: null as string | null };
 
   // Nollställ felet automatiskt när användaren växlar bort från 3D och
   // tillbaka — annars skulle ett gammalt fel ligga kvar efter att vi
   // sett error-UI:t och gått till 2D och tillbaka via toolbaren.
   static getDerivedStateFromProps(
     props: { is3D: boolean },
-    state: { crashed: boolean; message: string | null },
+    state: { crashed: boolean; message: string | null; stackTop: string | null },
   ) {
-    if (!props.is3D && state.crashed) return { crashed: false, message: null };
+    if (!props.is3D && state.crashed) return { crashed: false, message: null, stackTop: null };
     return null;
   }
 
   static getDerivedStateFromError(err: Error) {
-    return { crashed: true, message: err.message || String(err) };
+    const stack = err.stack ?? "";
+    // Plocka första "intressanta" raden ur stacken — hoppa över själva
+    // Error-raden så vi får var det smällde.
+    const top = stack.split("\n").slice(1).find((l) => l.trim().length > 0)?.trim() ?? null;
+    return { crashed: true, message: err.message || String(err), stackTop: top };
   }
   componentDidCatch(err: Error) {
     console.warn("[3D] krasch:", err);
@@ -57,14 +61,24 @@ class ThreeDErrorBoundary extends Component<
     } catch { /* ignoreras */ }
   }
   private retry = () => {
-    this.setState({ crashed: false, message: null });
+    this.setState({ crashed: false, message: null, stackTop: null });
   };
   private exitToEditor = () => {
     usePlanStore.getState().setViewMode("2D");
     if (usePlanStore.getState().gameMode) {
       usePlanStore.getState().setGameMode(false);
     }
-    this.setState({ crashed: false, message: null });
+    this.setState({ crashed: false, message: null, stackTop: null });
+  };
+  private hardReload = () => {
+    // Tvinga omladdning av bundle + SW cache. Hjälper när iPad ligger
+    // kvar på en äldre chunk efter att appen har uppdaterats.
+    try {
+      if ("caches" in window) {
+        caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
+      }
+    } catch { /* ignoreras */ }
+    window.location.reload();
   };
   render() {
     if (this.state.crashed) {
@@ -77,7 +91,12 @@ class ThreeDErrorBoundary extends Component<
           <div className="max-w-md text-xs text-slate-400">
             {this.state.message ?? "Okänt fel"}
           </div>
-          <div className="flex gap-2">
+          {this.state.stackTop && (
+            <div className="max-w-md break-all font-mono text-[10px] text-slate-500">
+              {this.state.stackTop}
+            </div>
+          )}
+          <div className="flex flex-wrap justify-center gap-2">
             <button
               type="button"
               onClick={this.retry}
@@ -91,6 +110,13 @@ class ThreeDErrorBoundary extends Component<
               className="rounded-md bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 active:opacity-80"
             >
               Tillbaka till 2D
+            </button>
+            <button
+              type="button"
+              onClick={this.hardReload}
+              className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 active:opacity-80"
+            >
+              Ladda om
             </button>
           </div>
         </div>

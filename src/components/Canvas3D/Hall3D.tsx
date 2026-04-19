@@ -1,4 +1,5 @@
-import { Suspense, useRef, useEffect, useCallback, useMemo, useState } from "react";
+import { Component, Suspense, useRef, useEffect, useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import {
   Environment,
@@ -25,6 +26,27 @@ import { PROFFS_HALL, PROFFS_STATION } from "../../catalog/proffsArena";
 import type { Station } from "../../types";
 
 type Props = { className?: string };
+
+// ---------------------------------------------------------------------------
+// Tyst felgräns för icke-kritiska R3F-barn (t.ex. HDR-Environment på äldre
+// iPad/Safari där RGBE-loadern kan smälla). Vi fångar felet och renderar
+// ingenting, så 3D-vyn i övrigt är fortfarande användbar.
+// ---------------------------------------------------------------------------
+class SilentR3FBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(err: Error) {
+    console.warn("[3D] non-fatal:", err?.message ?? err);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Export helpers
@@ -428,100 +450,133 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       });
     };
 
-    // Komponerar 3D-canvasen på en off-screen canvas med vit header så
-    // passets rubrik hamnar i övre vänstra hörnet på den exporterade
-    // bilden. 3D-canvasen är normalt svart där den är tom, vilket blir
-    // fult i utskrift — därför vit bakgrund.
-    const composeWithHeader = () => {
+    // Exporterna görs på off-screen-canvasar som kan bli stora på
+    // iPad (DPR×skärmstorlek). För att undvika OOM-krascher i Safari
+    // skalar vi ner källan om den är större än MAX_EXPORT_DIM, och
+    // använder toBlob + object-URL istället för toDataURL (base64
+    // allokerar ~4/3× källans pixelvolym i strängform).
+    const MAX_EXPORT_DIM = 2400;
+
+    const computeScale = (srcW: number, srcH: number) => {
+      const longest = Math.max(srcW, srcH);
+      return longest > MAX_EXPORT_DIM ? MAX_EXPORT_DIM / longest : 1;
+    };
+
+    // Returnerar en ny canvas; Source-kopiering via drawImage stöder
+    // nedskalning, så vi behöver inget mellan-canvas-steg.
+    const composeWithHeader = (): HTMLCanvasElement | null => {
       const src = gl.domElement;
       const plan = currentPlan();
       const headerH = 56;
+      const scale = computeScale(src.width, src.height);
+      const imgW = Math.round(src.width * scale);
+      const imgH = Math.round(src.height * scale);
       const out = document.createElement("canvas");
-      out.width = src.width;
-      out.height = src.height + headerH;
+      out.width = imgW;
+      out.height = imgH + headerH;
       const ctx = out.getContext("2d");
-      if (!ctx) return src.toDataURL("image/png");
+      if (!ctx) return null;
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, out.width, out.height);
-      // Titel + subtext i övre vänstra hörnet
       ctx.fillStyle = "#1E3A5F";
       ctx.font = "700 24px InterVariable, Inter, system-ui, sans-serif";
       ctx.textBaseline = "top";
       ctx.fillText(plan.name, 16, 12);
       ctx.fillStyle = "#3A5070";
       ctx.font = "400 13px InterVariable, Inter, system-ui, sans-serif";
-      const active = plan.stations.find((s) => s.id === plan.activeStationId);
-      const stationName = active?.name ?? "";
-      const metaParts = [stationName, plan.hall.name].filter(Boolean);
-      ctx.fillText(metaParts.join("  •  "), 16, 38);
-      ctx.drawImage(src, 0, headerH);
-      drawNotesOnCanvas(ctx, 0, headerH);
-      return out.toDataURL("image/png");
+      ctx.fillText(plan.hall.name, 16, 38);
+      ctx.drawImage(src, 0, 0, src.width, src.height, 0, headerH, imgW, imgH);
+      ctx.save();
+      ctx.scale(scale, scale);
+      drawNotesOnCanvas(ctx, 0, headerH / scale);
+      ctx.restore();
+      return out;
     };
 
-    // Bild utan header för PDF-exporten (PDF:en ritar egen rubrik-text)
-    const composeForPdf = () => {
+    const composeForPdf = (): HTMLCanvasElement | null => {
       const src = gl.domElement;
+      const scale = computeScale(src.width, src.height);
+      const imgW = Math.round(src.width * scale);
+      const imgH = Math.round(src.height * scale);
       const out = document.createElement("canvas");
-      out.width = src.width;
-      out.height = src.height;
+      out.width = imgW;
+      out.height = imgH;
       const ctx = out.getContext("2d");
-      if (!ctx) return src.toDataURL("image/png");
-      ctx.drawImage(src, 0, 0);
+      if (!ctx) return null;
+      ctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, imgW, imgH);
+      ctx.save();
+      ctx.scale(scale, scale);
       drawNotesOnCanvas(ctx, 0, 0);
-      return out.toDataURL("image/png");
+      ctx.restore();
+      return out;
     };
 
-    const onExportPng = () => {
-      const plan = currentPlan();
-      const dataUrl = composeWithHeader();
+    const downloadBlob = (blob: Blob, filename: string) => {
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `${safeName(plan.name)}-3d.png`;
+      a.href = url;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    };
+
+    const onExportPng = () => {
+      try {
+        const plan = currentPlan();
+        const out = composeWithHeader();
+        if (!out) return;
+        out.toBlob((blob) => {
+          if (!blob) return;
+          downloadBlob(blob, `${safeName(plan.name)}-3d.png`);
+        }, "image/png");
+      } catch (err) {
+        console.warn("[3D] PNG-export misslyckades:", err);
+      }
     };
 
     const onExportPdf = async () => {
-      const plan = currentPlan();
-      const dataUrl = composeForPdf();
-      const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({
-        orientation: "landscape",
-        unit: "mm",
-        format: "a4",
-      });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 12;
-      const headerH = 18;
-      // Rubrik i övre vänstra hörnet
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(14);
-      pdf.text(plan.name, margin, margin + 6);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      const active = plan.stations.find((s) => s.id === plan.activeStationId);
-      const stationName = active?.name ?? "";
-      const metaParts = [stationName, plan.hall.name].filter(Boolean);
-      pdf.text(metaParts.join("  •  "), margin, margin + 12);
-      const imgW = gl.domElement.width;
-      const imgH = gl.domElement.height;
-      const availW = pageW - margin * 2;
-      const availH = pageH - margin * 2 - headerH;
-      const ratio = Math.min(availW / imgW, availH / imgH);
-      const w = imgW * ratio;
-      const h = imgH * ratio;
-      pdf.addImage(
-        dataUrl,
-        "PNG",
-        margin + (availW - w) / 2,
-        margin + headerH + (availH - h) / 2,
-        w,
-        h,
-      );
-      pdf.save(`${safeName(plan.name)}-3d.pdf`);
+      try {
+        const plan = currentPlan();
+        const out = composeForPdf();
+        if (!out) return;
+        const { jsPDF } = await import("jspdf");
+        const pdf = new jsPDF({
+          orientation: "landscape",
+          unit: "mm",
+          format: "a4",
+        });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const margin = 12;
+        const headerH = 18;
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(14);
+        pdf.text(plan.name, margin, margin + 6);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.text(plan.hall.name, margin, margin + 12);
+        const imgW = out.width;
+        const imgH = out.height;
+        const availW = pageW - margin * 2;
+        const availH = pageH - margin * 2 - headerH;
+        const ratio = Math.min(availW / imgW, availH / imgH);
+        const w = imgW * ratio;
+        const h = imgH * ratio;
+        // jsPDF accepterar canvas direkt — undviker base64-mellanled
+        pdf.addImage(
+          out,
+          "PNG",
+          margin + (availW - w) / 2,
+          margin + headerH + (availH - h) / 2,
+          w,
+          h,
+        );
+        pdf.save(`${safeName(plan.name)}-3d.pdf`);
+      } catch (err) {
+        console.warn("[3D] PDF-export misslyckades:", err);
+      }
     };
 
     const pdfWrapper = () => { void onExportPdf(); };
@@ -985,9 +1040,11 @@ export function Hall3D({ className }: Props) {
             så läsbarheten i utkanterna inte försämras. */}
         <fog attach="fog" args={["#DDE3E8", camDist * 3, camDist * 7]} />
 
-        <Suspense fallback={null}>
-          <Environment preset="city" background={false} environmentIntensity={0.15} />
-        </Suspense>
+        <SilentR3FBoundary>
+          <Suspense fallback={null}>
+            <Environment preset="city" background={false} environmentIntensity={0.15} />
+          </Suspense>
+        </SilentR3FBoundary>
 
         <HallScene
           W={W} H={H}

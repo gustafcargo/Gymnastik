@@ -18,10 +18,26 @@ const DEFAULT_BUBBLE_W = 130;
 const BUBBLE_PADDING = 7;
 const FONT_SIZE = 11;
 const LINE_HEIGHT = 14;
-const DEFAULT_MAX_LINES = 4;
-const DEFAULT_BUBBLE_H = BUBBLE_PADDING * 2 + LINE_HEIGHT * DEFAULT_MAX_LINES;
+const DEFAULT_MIN_LINES = 4;
+const DEFAULT_BUBBLE_H = BUBBLE_PADDING * 2 + LINE_HEIGHT * DEFAULT_MIN_LINES;
 const MIN_W = 15;
 const MIN_H = 24;
+
+/** Uppskatta bubblans höjd utifrån text och bredd. Räknar radbrytningar
+ *  (`\n`) samt uppskattad word-wrap baserat på textbredd. */
+function estimateBubbleH(text: string, widthPx: number): number {
+  if (!text) return DEFAULT_BUBBLE_H;
+  const innerW = Math.max(1, widthPx - BUBBLE_PADDING * 2);
+  const charW = FONT_SIZE * 0.55;
+  const charsPerLine = Math.max(1, Math.floor(innerW / charW));
+  let lines = 0;
+  for (const paragraph of text.split("\n")) {
+    const len = paragraph.length;
+    lines += len === 0 ? 1 : Math.ceil(len / charsPerLine);
+  }
+  const needed = BUBBLE_PADDING * 2 + Math.max(DEFAULT_MIN_LINES, lines) * LINE_HEIGHT;
+  return Math.max(DEFAULT_BUBBLE_H, needed);
+}
 // Osynlig hit-area för att kunna greppa nedre-höger hörnet. Ingen fill
 // eller stroke — hörnet ska se ut som de övriga tre rundade hörnen.
 const HANDLE_HIT = 14;
@@ -60,9 +76,8 @@ export function EquipmentNoteBubble({
   onStartEdit,
 }: Props) {
   const offset = eq.noteOffset ?? defaultOffset(type);
-  const size = eq.noteSize ?? { w: DEFAULT_BUBBLE_W, h: DEFAULT_BUBBLE_H };
-  const bubbleW = size.w;
-  const bubbleH = size.h;
+  const bubbleW = eq.noteSize?.w ?? DEFAULT_BUBBLE_W;
+  const bubbleH = eq.noteSize?.h ?? estimateBubbleH(eq.notes ?? "", bubbleW);
 
   // Refs så drag av bubbla och resize-handtag kan uppdatera linje + Rect
   // imperativt utan att orsaka React-renders mitt i en drag-gest.
@@ -194,7 +209,6 @@ export function EquipmentNoteBubble({
           lineHeight={LINE_HEIGHT / FONT_SIZE}
           fill="#374151"
           wrap="word"
-          ellipsis
         />
       </Group>
 
