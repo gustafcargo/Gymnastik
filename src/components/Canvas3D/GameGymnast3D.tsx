@@ -769,7 +769,30 @@ export function GameGymnast3D({
       if (def.baseRotY) pose.rootRotY += def.baseRotY;
       // Gymnastens yaw vid start styr vilken riktning tricket utförs åt.
       pose.rootRotY += -startRotY;
-      const baseY = H_THIGH + H_SHIN;
+      // Mat-lift i one-shot-läge: tricket startas där gymnasten står just nu,
+      // så vi kollar om (startX, startZ) ligger inom en platt matta och
+      // lyfter baseY med dess fysiska höjd. Utan detta sjunker kullerbyttor
+      // / hjulningar ner i golv-mattan.
+      let matLift = 0;
+      for (const eq of station.equipment) {
+        const eqType = getEquipmentById(eq.typeId);
+        if (!eqType) continue;
+        const kind = eqType.detail?.kind;
+        if (kind !== "floor" && kind !== "air-track"
+            && kind !== "tumbling-track" && kind !== "landing-mat") continue;
+        const eqRot = -(eq.rotation * Math.PI) / 180;
+        const cc = Math.cos(eqRot), ss = Math.sin(eqRot);
+        const halfW = (eqType.widthM  * eq.scaleX) / 2;
+        const halfD = (eqType.heightM * eq.scaleY) / 2;
+        const dx = startX - eq.x;
+        const dz = startZ - eq.y;
+        const lx = dx * cc - dz * ss;
+        const lz = dx * ss + dz * cc;
+        if (Math.abs(lx) < halfW && Math.abs(lz) < halfD) {
+          if (eqType.physicalHeightM > matLift) matLift = eqType.physicalHeightM;
+        }
+      }
+      const baseY = H_THIGH + H_SHIN + matLift;
       pose.rootY += baseY;
       // rootX/rootZ är lokala offsets i gymnastens frame (hon tittar mot
       // lokal −Z). Gymnastens rendering-rotation är Y-rot(-startRotY), så vi
@@ -910,7 +933,30 @@ export function GameGymnast3D({
       pose.rootZ = 0;
       pose.rootRotY = -rotY.current;
 
-      const baseY = H_THIGH + H_SHIN;
+      // Mat-lift: om gymnasten står inuti en platt matta (fristående-golv,
+      // airtrack, tumbling-track, landningsmatta) ska hon stå OVANPÅ mattan,
+      // inte sjunka ner i den. Vi väljer högsta mattan hon är inom, så
+      // överlappande mattor hanteras korrekt.
+      let matLift = 0;
+      for (const eq of station.equipment) {
+        const eqType = getEquipmentById(eq.typeId);
+        if (!eqType) continue;
+        const kind = eqType.detail?.kind;
+        if (kind !== "floor" && kind !== "air-track"
+            && kind !== "tumbling-track" && kind !== "landing-mat") continue;
+        const eqRot = -(eq.rotation * Math.PI) / 180;
+        const cc = Math.cos(eqRot), ss = Math.sin(eqRot);
+        const halfW = (eqType.widthM  * eq.scaleX) / 2;
+        const halfD = (eqType.heightM * eq.scaleY) / 2;
+        const dx = pos.current.x - eq.x;
+        const dz = pos.current.z - eq.y;
+        const lx = dx * cc - dz * ss;
+        const lz = dx * ss + dz * cc;
+        if (Math.abs(lx) < halfW && Math.abs(lz) < halfD) {
+          if (eqType.physicalHeightM > matLift) matLift = eqType.physicalHeightM;
+        }
+      }
+      const baseY = H_THIGH + H_SHIN + matLift;
       pose.rootY += baseY;
 
       // Kamera bakifrån (skippa om fri kamera) – med touch-orbit-offset

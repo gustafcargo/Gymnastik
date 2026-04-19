@@ -61,9 +61,10 @@ export const MAX_MISSES_PER_ATTEMPT = 3;
 export const HITS_TO_CLEAR = 10;
 
 /** Hur många "hits" ett fullbordat hold-fönster räknas som mot clear-tröskeln.
- *  Större tal => pure-hold-övningar (t.ex. handstående, kors) klaras på färre
- *  completions. Vi valde 3 så ~3-4 completions räcker för clear. */
-export const HOLD_COMPLETION_HITS = 3;
+ *  Pure-hold-övningar har nu aktiva balance-tricks som driver scoringen, så
+ *  completion ger bara 1 hit — en liten extra belöning för att man höll hela
+ *  cykeln, inte ett fribiljett-clear. */
+export const HOLD_COMPLETION_HITS = 1;
 
 /** Max antal försök (fail + clear sammanlagt) per redskap per spelomgång. */
 export const MAX_ATTEMPTS_PER_EQUIPMENT = 2;

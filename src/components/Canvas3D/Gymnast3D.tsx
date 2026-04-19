@@ -364,10 +364,17 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
     { t: 1.40, pose: { ...ZERO, ...ARMS_SIDE } },
   ] },
 
-  // Stå (bom) – armar ut åt sidan, subtil andning
+  // Stå (bom) – armar ut åt sidan, subtil andning.
+  // Balance-tricks: tre tryckmoment per cykel så spelaren inte kan bara
+  // sitta still och vinna — måste aktivt "balansera" via tajmade tryck.
   "beam:stand": {
     baseRotY: P / 2,
     holdZones: [{ tStart: 0.5, tEnd: 3.5, label: "St\u00e5 stilla", pointsPerSec: 25 }],
+    tricks: [
+      { t: 1.1, type: "twist", label: "Balansera!", windowMs: 280, difficulty: 1.0 },
+      { t: 2.0, type: "twist", label: "Balansera!", windowMs: 280, difficulty: 1.0 },
+      { t: 2.9, type: "twist", label: "Balansera!", windowMs: 280, difficulty: 1.0 },
+    ],
     kfs: [
       { t: 0,   pose: { ...ZERO, ...ARMS_SIDE } },
       { t: 2.0, pose: { ...ZERO, ...ARMS_SIDE, spineX:P*0.015, rootY:0.008, spineZ:0.01 } },
@@ -377,9 +384,15 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
 
   // Arabesque – vänster ben bak (höger = stödben), torso framåt, huvud lyft
   //   Konvention (ansikte −Z): negativ hipX = ben bakåt (+Z)
+  //   Balance-tricks: tre tajmade tryck inne i hold-fönstret.
   "beam:arabesque": {
     baseRotY: P / 2,
     holdZones: [{ tStart: 0.9, tEnd: 2.6, label: "Arabesque", pointsPerSec: 40 }],
+    tricks: [
+      { t: 1.2, type: "twist", label: "Peka t\u00e5n!", windowMs: 280, difficulty: 1.1 },
+      { t: 1.8, type: "twist", label: "Peka t\u00e5n!", windowMs: 280, difficulty: 1.1 },
+      { t: 2.4, type: "twist", label: "Peka t\u00e5n!", windowMs: 280, difficulty: 1.1 },
+    ],
     kfs: [
     { t: 0,   pose: { ...ZERO, ...ARMS_SIDE } },
     { t: 0.70, pose: { ...ZERO,
@@ -614,9 +627,18 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
     ];
   })() },
 
-  // Kors – armar åt sidan, rootY kompenserar för att händerna är vid axelhöjd (ej ovanför)
+  // Kors – armar åt sidan, rootY kompenserar för att händerna är vid axelhöjd (ej ovanför).
+  // Balance-tricks: fyra tajmade tryck inne i hold-fönstret (svår armstyrkepose
+  // förtjänar extra utmaning — missar här är lätta straff, korset är ingen
+  // gratisövning).
   "rings:cross": {
     holdZones: [{ tStart: 0.4, tEnd: 3.6, label: "Korset", pointsPerSec: 60 }],
+    tricks: [
+      { t: 0.9, type: "twist", label: "H\u00e5ll korset!", windowMs: 260, difficulty: 1.2 },
+      { t: 1.7, type: "twist", label: "H\u00e5ll korset!", windowMs: 260, difficulty: 1.2 },
+      { t: 2.5, type: "twist", label: "H\u00e5ll korset!", windowMs: 260, difficulty: 1.2 },
+      { t: 3.3, type: "twist", label: "H\u00e5ll korset!", windowMs: 260, difficulty: 1.2 },
+    ],
     kfs: [
       { t: 0,   pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.06, rElX:P*0.06, rootY:0.51 } },
       { t: 2.0, pose: { ...ZERO, lShZ:-P*0.48, rShZ: P*0.48, lElX:P*0.10, rElX:P*0.10, rootY:0.54, spineX:P*0.02 } },
@@ -634,6 +656,11 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   "floor:handstand": {
     lockMode: "hands",
     holdZones: [{ tStart: 0.3, tEnd: 3.2, label: "Handst\u00e5ende", pointsPerSec: 50 }],
+    tricks: [
+      { t: 0.8, type: "twist", label: "Balansera!", windowMs: 300, difficulty: 1.1 },
+      { t: 1.7, type: "twist", label: "H\u00e5ll linjen!", windowMs: 300, difficulty: 1.1 },
+      { t: 2.6, type: "twist", label: "Str\u00e4ck!", windowMs: 300, difficulty: 1.1 },
+    ],
     kfs: [
       { t: 0, pose: { ...ZERO,
         spineX: -0.09,
@@ -691,6 +718,11 @@ export const BUILT_IN_EXERCISES: Record<string, ExerciseDef> = {
   "vault:handstand": {
     lockMode: "hands",
     holdZones: [{ tStart: 0.3, tEnd: 3.2, label: "Handst\u00e5ende", pointsPerSec: 55 }],
+    tricks: [
+      { t: 0.8, type: "twist", label: "Balansera!", windowMs: 280, difficulty: 1.2 },
+      { t: 1.7, type: "twist", label: "H\u00e5ll linjen!", windowMs: 280, difficulty: 1.2 },
+      { t: 2.6, type: "twist", label: "Str\u00e4ck!", windowMs: 280, difficulty: 1.2 },
+    ],
     kfs: [
       { t: 0, pose: { ...ZERO,
         spineX: -0.10,
