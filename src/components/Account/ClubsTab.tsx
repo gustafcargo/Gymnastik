@@ -3,12 +3,14 @@ import { Check, Plus } from "lucide-react";
 import { useAuth } from "../../lib/useAuth";
 import { useClubs } from "../../lib/useClubs";
 import { useAccountStore } from "../../store/useAccountStore";
+import { InvitesSection } from "./InvitesSection";
 
 export function ClubsTab() {
   const { user } = useAuth();
   const { clubs, fetching, error, createClub } = useClubs();
   const activeClubId = useAccountStore((s) => s.activeClubId);
   const setActiveClubId = useAccountStore((s) => s.setActiveClubId);
+  const activeClub = clubs.find((c) => c.id === activeClubId) ?? null;
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -88,6 +90,14 @@ export function ClubsTab() {
           </ul>
         )}
       </div>
+
+      {activeClub && (
+        <InvitesSection
+          kind="club"
+          clubId={activeClub.id}
+          canManage={activeClub.role === "admin"}
+        />
+      )}
 
       <form onSubmit={submit} className="flex flex-col gap-2 rounded-md border border-slate-700 bg-slate-800/40 p-3">
         <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">

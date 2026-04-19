@@ -684,3 +684,69 @@ create policy "invites: creator delete"
   on public.invites for delete
   to authenticated
   using (created_by = auth.uid());
+
+-- Acceptera en inbjudan: matchar token + email mot nuvarande användare,
+-- lägger in club/team-membership med angiven roll och markerar inbjudan
+-- som förbrukad. SECURITY DEFINER så vi kringgår "admin insert"-policyn
+-- på club_members/team_members för just detta flöde.
+create or replace function public.accept_invite(p_token text)
+returns table (club_id uuid, team_id uuid, role public.member_role)
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_invite   public.invites%rowtype;
+  v_email    text;
+begin
+  v_email := lower(coalesce(auth.jwt()->>'email', ''));
+  if v_email = '' then
+    raise exception 'ingen e-post i session' using errcode = '28000';
+  end if;
+
+  select * into v_invite
+  from public.invites
+  where token = p_token
+  limit 1;
+
+  if not found then
+    raise exception 'okänd inbjudan' using errcode = 'P0002';
+  end if;
+  if v_invite.accepted_at is not null then
+    raise exception 'inbjudan redan använd' using errcode = '22023';
+  end if;
+  if v_invite.expires_at < now() then
+    raise exception 'inbjudan har gått ut' using errcode = '22023';
+  end if;
+  if lower(v_invite.email) <> v_email then
+    raise exception 'inbjudan tillhör annan e-post' using errcode = '42501';
+  end if;
+
+  if v_invite.club_id is not null then
+    insert into public.club_members (club_id, user_id, role)
+    values (v_invite.club_id, auth.uid(), v_invite.role)
+    on conflict (club_id, user_id) do update set role = excluded.role;
+  end if;
+
+  if v_invite.team_id is not null then
+    -- Lag kräver att man är klubbmedlem — lägg in som medlem av klubben
+    -- först om behov finns (täcker "inbjudan direkt till lag"-fallet).
+    insert into public.club_members (club_id, user_id, role)
+    select t.club_id, auth.uid(), 'member'::public.member_role
+    from public.teams t
+    where t.id = v_invite.team_id
+    on conflict (club_id, user_id) do nothing;
+
+    insert into public.team_members (team_id, user_id, role)
+    values (v_invite.team_id, auth.uid(), v_invite.role)
+    on conflict (team_id, user_id) do update set role = excluded.role;
+  end if;
+
+  update public.invites
+  set accepted_at = now()
+  where id = v_invite.id;
+
+  return query select v_invite.club_id, v_invite.team_id, v_invite.role;
+end;
+$$;
+
+grant execute on function public.accept_invite(text) to authenticated;

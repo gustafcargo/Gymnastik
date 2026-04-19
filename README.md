@@ -101,6 +101,9 @@ kommentarer i migrationen.
 - `move_inventory(source_id, target_hall_id, quantity)` — flyttar redskap
   mellan hallar inom samma klubb. Mergar kvantiteter om målhallen redan har
   samma typ, raderar källan vid full flytt.
+- `accept_invite(token)` — matchar token + inloggad e-post mot en rad i
+  `invites`, lägger in klubb/lag-medlemskap med angiven roll och markerar
+  inbjudan som förbrukad.
 
 ### Byta till OAuth senare
 

@@ -18,6 +18,7 @@ import { ClubsTab } from "./ClubsTab";
 import { TeamsTab } from "./TeamsTab";
 import { HallsTab } from "./HallsTab";
 import { SignInForm } from "./SignInForm";
+import { InboxBanner } from "./InboxBanner";
 
 const TABS: { id: AccountTab; label: string; Icon: typeof User }[] = [
   { id: "profile", label: "Profil",      Icon: User },
@@ -70,6 +71,8 @@ export function AccountPanel() {
             <X size={16} />
           </button>
         </div>
+
+        {user && <InboxBanner />}
 
         <div className="flex border-b border-slate-700 bg-slate-900/80">
           {TABS.map(({ id, label, Icon }) => {

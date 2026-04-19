@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { Plus, Users } from "lucide-react";
 import { useAccountStore } from "../../store/useAccountStore";
+import { useAuth } from "../../lib/useAuth";
+import { useClubs } from "../../lib/useClubs";
 import { useTeams, useTeamMembers } from "../../lib/useTeams";
+import { InvitesSection } from "./InvitesSection";
 
 export function TeamsTab() {
   const activeClubId = useAccountStore((s) => s.activeClubId);
+  const { clubs } = useClubs();
+  const activeClub = clubs.find((c) => c.id === activeClubId) ?? null;
+  const isClubAdmin = activeClub?.role === "admin";
   const { teams, fetching, error, createTeam } = useTeams(activeClubId);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -71,7 +77,12 @@ export function TeamsTab() {
                     <Users size={14} className="text-slate-400" />
                     <span className="flex-1 font-semibold">{team.name}</span>
                   </button>
-                  {active && <TeamMembersList teamId={team.id} />}
+                  {active && (
+                    <>
+                      <TeamMembersList teamId={team.id} />
+                      <InvitesSectionForTeam teamId={team.id} isClubAdmin={Boolean(isClubAdmin)} />
+                    </>
+                  )}
                 </li>
               );
             })}
@@ -103,6 +114,25 @@ export function TeamsTab() {
           <div className="text-xs text-rose-400">{createError}</div>
         )}
       </form>
+    </div>
+  );
+}
+
+function InvitesSectionForTeam({
+  teamId,
+  isClubAdmin,
+}: {
+  teamId: string;
+  isClubAdmin: boolean;
+}) {
+  const { user } = useAuth();
+  const { members } = useTeamMembers(teamId);
+  const myRole = members.find((m) => m.user_id === user?.id)?.role;
+  const canManage = isClubAdmin || myRole === "coach" || myRole === "admin";
+  if (!canManage) return null;
+  return (
+    <div className="ml-5">
+      <InvitesSection kind="team" teamId={teamId} canManage />
     </div>
   );
 }
