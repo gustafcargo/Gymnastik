@@ -330,7 +330,9 @@ export function HallStage({ className, onStageReady }: Props) {
       onTouchEnd={handleTouchEnd}
       style={{ touchAction: "none" }}
     >
-      {/* Inline note-editing textarea overlay */}
+      {/* Inline note-editing textarea overlay. Håller sig skärm-upprätt
+          även när hallen roterats — note-bubblan counter-roteras i Konva-
+          layern så texten läses alltid horisontellt. */}
       {editingNote && (
         <div
           style={{
@@ -338,8 +340,6 @@ export function HallStage({ className, onStageReady }: Props) {
             left: editingNote.x - 65,
             top: editingNote.y - 35,
             zIndex: 30,
-            transform: hallRotated ? "rotate(90deg)" : undefined,
-            transformOrigin: "center center",
           }}
         >
           <textarea
@@ -458,6 +458,7 @@ export function HallStage({ className, onStageReady }: Props) {
                     eq={eq}
                     type={type}
                     pxPerM={fitScale}
+                    hallRotated={hallRotated}
                     onOffsetChange={(offset) =>
                       setEquipmentNoteOffset(eq.id, offset)
                     }
