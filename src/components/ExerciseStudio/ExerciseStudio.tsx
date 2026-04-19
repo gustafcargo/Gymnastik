@@ -23,6 +23,7 @@ import {
 } from "../../types/pose";
 import { BUILT_IN_EXERCISES } from "../Canvas3D/Gymnast3D";
 import { useCustomExercisesStore } from "../../store/useCustomExercisesStore";
+import { useCustomEquipmentStore } from "../../store/useCustomEquipmentStore";
 import { ALL_EXERCISES, type Exercise } from "../../catalog/exercises";
 
 type Props = {
@@ -104,6 +105,7 @@ export function ExerciseStudio({ open, onClose }: Props) {
   const overrideBuiltIn = useCustomExercisesStore((s) => s.overrideBuiltIn);
   const revertToBuiltIn = useCustomExercisesStore((s) => s.revertToBuiltIn);
   const remove          = useCustomExercisesStore((s) => s.remove);
+  const customEquipTypes = useCustomEquipmentStore((s) => s.customTypes);
 
   // Vald övning (id + metadata). null = ny tom övning.
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -564,9 +566,18 @@ export function ExerciseStudio({ open, onClose }: Props) {
             }
             className="mt-0.5 h-16 w-full rounded bg-slate-700 px-2 py-1"
           >
-            {ALL_APPARATUS.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
+            <optgroup label="Standard">
+              {ALL_APPARATUS.map((a) => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </optgroup>
+            {customEquipTypes.length > 0 && (
+              <optgroup label="Egna redskap">
+                {customEquipTypes.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
         <label className="col-span-1">

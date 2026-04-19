@@ -12,12 +12,12 @@ export function ProfileTab() {
   const playerColor = useMultiplayerStore((s) => s.playerColor);
   const setPlayerColor = useMultiplayerStore((s) => s.setPlayerColor);
   const buddyCode = useFriendsStore((s) => s.buddyCode);
-  const toggleStudio = useStudioStore((s) => s.toggle);
+  const setAppearanceOpen = useStudioStore((s) => s.setAppearanceOpen);
   const closePanel = useAccountStore((s) => s.closePanel);
 
   const openGymnastEditor = () => {
     closePanel();
-    toggleStudio();
+    setAppearanceOpen(true);
   };
 
   return (

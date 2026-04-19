@@ -12,6 +12,7 @@ import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
 import { GymnastTuningPanel } from "./components/GymnastTuningPanel";
 import { ExerciseStudio } from "./components/ExerciseStudio/ExerciseStudio";
 import { AccountPanel } from "./components/Account/AccountPanel";
+import { GymnastStylePanel } from "./components/Canvas3D/GymnastStylePanel";
 import { useStudioStore } from "./store/useStudioStore";
 import { useMultiplayerStore } from "./store/useMultiplayerStore";
 import { isMultiplayerEnabled } from "./lib/multiplayer";
@@ -155,6 +156,8 @@ export default function App() {
 
   const studioOpen = useStudioStore((s) => s.open);
   const setStudioOpen = useStudioStore((s) => s.setOpen);
+  const appearanceOpen = useStudioStore((s) => s.appearanceOpen);
+  const setAppearanceOpen = useStudioStore((s) => s.setAppearanceOpen);
 
   const plan = usePlanStore((s) => s.plan);
   const selectedEq = selectedId
@@ -253,6 +256,7 @@ export default function App() {
         </main>
         <GymnastTuningPanel />
         <ExerciseStudio open={studioOpen} onClose={() => setStudioOpen(false)} />
+        <GymnastStylePanel open={appearanceOpen} onClose={() => setAppearanceOpen(false)} />
         <AccountPanel />
       </div>
     );
@@ -395,6 +399,7 @@ export default function App() {
 
       <GymnastTuningPanel />
       <ExerciseStudio open={studioOpen} onClose={() => setStudioOpen(false)} />
+      <GymnastStylePanel open={appearanceOpen} onClose={() => setAppearanceOpen(false)} />
       <AccountPanel />
     </div>
   );
