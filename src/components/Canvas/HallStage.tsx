@@ -7,6 +7,7 @@ import { EquipmentNode } from "./EquipmentNode";
 import { EquipmentNoteBubble } from "./EquipmentNoteBubble";
 import { A4CropGuide } from "../A4CropGuide";
 import { usePlanStore } from "../../store/usePlanStore";
+import { useViewport } from "../../store/useViewport";
 import { computePixelsPerMeter } from "../../lib/geometry";
 import { computeStackInfo } from "../../lib/stackGroups";
 import { getEquipmentById } from "../../catalog/equipment";
@@ -42,8 +43,14 @@ export function HallStage({ className, onStageReady, onRequestAddEquipment }: Pr
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
-  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
-  const [stageScale, setStageScale] = useState(1);
+  // Pan/zoom persisteras i useViewport så de överlever unmount (2D↔3D,
+  // breakpoint-byten, spelläge). Annars resetas vyn varje gång layouten
+  // runtomkring ändras.
+  const stagePos = useViewport((s) => s.pan);
+  const stageScale = useViewport((s) => s.scale);
+  const setStagePos = useViewport((s) => s.setPan);
+  const setStageScale = useViewport((s) => s.setScale);
+  const resetViewport = useViewport((s) => s.reset2D);
   const [fitScale, setFitScale] = useState(1);
   /**
    * När containern är liggande men hallen är stående (eller vice versa)
@@ -286,9 +293,8 @@ export function HallStage({ className, onStageReady, onRequestAddEquipment }: Pr
   };
 
   const resetView = useCallback(() => {
-    setStagePos({ x: 0, y: 0 });
-    setStageScale(1);
-  }, []);
+    resetViewport();
+  }, [resetViewport]);
 
   // Exponera reset via global event (används av Toolbar-knapp)
   useEffect(() => {

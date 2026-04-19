@@ -19,6 +19,7 @@ import { GameHUD } from "./GameHUD";
 import { EffectsLayer, type EffectsHandle } from "./EffectsLayer";
 import { RemoteGymnast3D } from "./RemoteGymnast3D";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
+import { useViewport } from "../../store/useViewport";
 import { exercisesForKind } from "../../catalog/exercises";
 import { computeStackInfo } from "../../lib/stackGroups";
 import { useGameConfig, isProffsMode } from "../../store/useGameConfig";
@@ -1146,10 +1147,29 @@ export function Hall3D({ className }: Props) {
   const mountTriggerRef = useRef(false);
   const speedRef        = useRef(2.2);
   const cameraResetRef  = useRef(false);
-  // Touch-orbit: dragning + pinch påverkar yaw-offset, pitch och avstånd
-  const cameraOrbitRef  = useRef<{ yaw: number; pitch: number; distScale: number }>({
-    yaw: 0, pitch: 0, distScale: 1,
-  });
+  // Touch-orbit: dragning + pinch påverkar yaw-offset, pitch och avstånd.
+  // Initieras från useViewport så kameran håller sin vinkel över unmounts
+  // (2D↔3D, breakpoint-byten, spelläge). Vi skriver tillbaka vid unmount
+  // och med jämna mellanrum medan HUDen är aktiv.
+  const cameraOrbitRef  = useRef<{ yaw: number; pitch: number; distScale: number }>(
+    { ...useViewport.getState().orbit },
+  );
+  useEffect(() => {
+    const saved = useViewport.getState().orbit;
+    cameraOrbitRef.current.yaw = saved.yaw;
+    cameraOrbitRef.current.pitch = saved.pitch;
+    cameraOrbitRef.current.distScale = saved.distScale;
+    const syncToStore = () => useViewport.getState().setOrbit({
+      yaw: cameraOrbitRef.current.yaw,
+      pitch: cameraOrbitRef.current.pitch,
+      distScale: cameraOrbitRef.current.distScale,
+    });
+    const iv = window.setInterval(syncToStore, 500);
+    return () => {
+      window.clearInterval(iv);
+      syncToStore();
+    };
+  }, []);
   const [nearEquipment, setNearEquipment] = useState<string | null>(null);
   const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);
