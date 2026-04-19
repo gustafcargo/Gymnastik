@@ -450,10 +450,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       ctx.fillText(plan.name, 16, 12);
       ctx.fillStyle = "#3A5070";
       ctx.font = "400 13px InterVariable, Inter, system-ui, sans-serif";
-      const active = plan.stations.find((s) => s.id === plan.activeStationId);
-      const stationName = active?.name ?? "";
-      const metaParts = [stationName, plan.hall.name].filter(Boolean);
-      ctx.fillText(metaParts.join("  •  "), 16, 38);
+      ctx.fillText(plan.hall.name, 16, 38);
       ctx.drawImage(src, 0, headerH);
       drawNotesOnCanvas(ctx, 0, headerH);
       return out.toDataURL("image/png");
@@ -502,10 +499,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       pdf.text(plan.name, margin, margin + 6);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
-      const active = plan.stations.find((s) => s.id === plan.activeStationId);
-      const stationName = active?.name ?? "";
-      const metaParts = [stationName, plan.hall.name].filter(Boolean);
-      pdf.text(metaParts.join("  •  "), margin, margin + 12);
+      pdf.text(plan.hall.name, margin, margin + 12);
       const imgW = gl.domElement.width;
       const imgH = gl.domElement.height;
       const availW = pageW - margin * 2;

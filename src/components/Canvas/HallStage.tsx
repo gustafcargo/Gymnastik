@@ -337,6 +337,8 @@ export function HallStage({ className, onStageReady }: Props) {
             left: editingNote.x - 65,
             top: editingNote.y - 35,
             zIndex: 30,
+            transform: hallRotated ? "rotate(90deg)" : undefined,
+            transformOrigin: "center center",
           }}
         >
           <textarea
