@@ -253,29 +253,97 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
 
   // ── Export events ────────────────────────────────────────────────────────
   useEffect(() => {
+    const currentPlan = () => usePlanStore.getState().plan;
+    const safeName = (s: string) =>
+      s.replace(/[^\w\-]+/g, "_").slice(0, 60) || "pass";
+
+    // Komponerar 3D-canvasen på en off-screen canvas med vit header så
+    // passets rubrik hamnar i övre vänstra hörnet på den exporterade
+    // bilden. 3D-canvasen är normalt svart där den är tom, vilket blir
+    // fult i utskrift — därför vit bakgrund.
+    const composeWithHeader = () => {
+      const src = gl.domElement;
+      const plan = currentPlan();
+      const headerH = 56;
+      const out = document.createElement("canvas");
+      out.width = src.width;
+      out.height = src.height + headerH;
+      const ctx = out.getContext("2d");
+      if (!ctx) return src.toDataURL("image/png");
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, out.width, out.height);
+      // Titel + subtext i övre vänstra hörnet
+      ctx.fillStyle = "#1E3A5F";
+      ctx.font = "700 24px InterVariable, Inter, system-ui, sans-serif";
+      ctx.textBaseline = "top";
+      ctx.fillText(plan.name, 16, 12);
+      ctx.fillStyle = "#3A5070";
+      ctx.font = "400 13px InterVariable, Inter, system-ui, sans-serif";
+      const active = plan.stations.find((s) => s.id === plan.activeStationId);
+      const stationName = active?.name ?? "";
+      const meta = `${stationName}  •  ${plan.hall.name}  •  ${new Date(
+        plan.updatedAt,
+      ).toLocaleDateString("sv-SE")}`;
+      ctx.fillText(meta, 16, 38);
+      ctx.drawImage(src, 0, headerH);
+      return out.toDataURL("image/png");
+    };
+
     const onExportPng = () => {
-      const dataUrl = gl.domElement.toDataURL("image/png");
+      const plan = currentPlan();
+      const dataUrl = composeWithHeader();
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = "hall-3d.png";
+      a.download = `${safeName(plan.name)}-3d.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     };
 
     const onExportPdf = async () => {
+      const plan = currentPlan();
       const dataUrl = gl.domElement.toDataURL("image/png");
       const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({ orientation: "landscape", format: "a4" });
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 12;
+      const headerH = 18;
+      // Rubrik i övre vänstra hörnet
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.text(plan.name, margin, margin + 6);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      const active = plan.stations.find((s) => s.id === plan.activeStationId);
+      const stationName = active?.name ?? "";
+      pdf.text(
+        `${stationName}  •  ${plan.hall.name}  •  ${new Date(
+          plan.updatedAt,
+        ).toLocaleDateString("sv-SE")}`,
+        margin,
+        margin + 12,
+      );
       const imgW = gl.domElement.width;
       const imgH = gl.domElement.height;
-      const ratio = Math.min(pageW / imgW, pageH / imgH);
+      const availW = pageW - margin * 2;
+      const availH = pageH - margin * 2 - headerH;
+      const ratio = Math.min(availW / imgW, availH / imgH);
       const w = imgW * ratio;
       const h = imgH * ratio;
-      pdf.addImage(dataUrl, "PNG", (pageW - w) / 2, (pageH - h) / 2, w, h);
-      pdf.save("hall-3d.pdf");
+      pdf.addImage(
+        dataUrl,
+        "PNG",
+        margin + (availW - w) / 2,
+        margin + headerH + (availH - h) / 2,
+        w,
+        h,
+      );
+      pdf.save(`${safeName(plan.name)}-3d.pdf`);
     };
 
     const pdfWrapper = () => { void onExportPdf(); };

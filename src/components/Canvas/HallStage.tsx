@@ -43,7 +43,14 @@ export function HallStage({ className, onStageReady }: Props) {
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
   const [stageScale, setStageScale] = useState(1);
   const [fitScale, setFitScale] = useState(1);
-  const [fitOffset, setFitOffset] = useState({ x: 0, y: 0 });
+  /**
+   * När containern är liggande men hallen är stående (eller vice versa)
+   * roterar vi hallen 90° så dess långsida följer containerns långsida.
+   * Detta gör att hela skärmbredden används även när telefonen läggs på
+   * sidan. Koordinater i hall-space förblir oförändrade; bara den yttre
+   * Group:en roteras.
+   */
+  const [hallRotated, setHallRotated] = useState(false);
 
   type EditingNote = { id: string; x: number; y: number; text: string };
   const [editingNote, setEditingNote] = useState<EditingNote | null>(null);
@@ -74,28 +81,44 @@ export function HallStage({ className, onStageReady }: Props) {
     };
   }, []);
 
-  // Räkna ut skala och offset så hallen passar in med lite padding
+  // Räkna ut skala och rotation så hallens långsida hamnar längs
+  // containerns långsida. På en liggande iPhone med en stående hall
+  // ger det en 90°-rotation som fyller hela skärmbredden.
   useEffect(() => {
     const padding = 48;
-    const pxPerM = computePixelsPerMeter(
+    const normalPxPerM = computePixelsPerMeter(
       size.width,
       size.height,
       plan.hall.widthM,
       plan.hall.heightM,
       padding,
     );
-    setFitScale(pxPerM);
-    const hallPxW = plan.hall.widthM * pxPerM;
-    const hallPxH = plan.hall.heightM * pxPerM;
-    setFitOffset({
-      x: (size.width - hallPxW) / 2,
-      y: (size.height - hallPxH) / 2,
-    });
+    const rotatedPxPerM = computePixelsPerMeter(
+      size.width,
+      size.height,
+      plan.hall.heightM,
+      plan.hall.widthM,
+      padding,
+    );
+    const rotate = rotatedPxPerM > normalPxPerM;
+    setHallRotated(rotate);
+    setFitScale(rotate ? rotatedPxPerM : normalPxPerM);
   }, [size, plan.hall]);
 
   useEffect(() => {
     if (stageRef.current && onStageReady) onStageReady(stageRef.current);
   }, [onStageReady]);
+
+  // Hallens naturliga storlek i px (utan rotation) och dess synliga AABB
+  // efter ev. 90°-rotation. Rotationen sker kring hallens centrum som
+  // placeras i containerns mitt, så AABB-bredden blir hallens höjd vid
+  // rotation (och tvärtom).
+  const hallPxW = plan.hall.widthM * fitScale;
+  const hallPxH = plan.hall.heightM * fitScale;
+  const displayedW = hallRotated ? hallPxH : hallPxW;
+  const displayedH = hallRotated ? hallPxW : hallPxH;
+  const centerX = size.width / 2;
+  const centerY = size.height / 2;
 
   /**
    * Clamp stagePos so the hall is never fully scrolled off-screen.
@@ -104,12 +127,14 @@ export function HallStage({ className, onStageReady }: Props) {
   const clampPos = useCallback(
     (pos: { x: number; y: number }, scale: number) => {
       const margin = 60;
-      const hallPxW = plan.hall.widthM * fitScale * scale;
-      const hallPxH = plan.hall.heightM * fitScale * scale;
-      const hallLeft = pos.x + fitOffset.x * scale;
-      const hallTop = pos.y + fitOffset.y * scale;
-      const hallRight = hallLeft + hallPxW;
-      const hallBottom = hallTop + hallPxH;
+      const halfW = (displayedW * scale) / 2;
+      const halfH = (displayedH * scale) / 2;
+      const hallCX = pos.x + centerX * scale;
+      const hallCY = pos.y + centerY * scale;
+      const hallLeft = hallCX - halfW;
+      const hallTop = hallCY - halfH;
+      const hallRight = hallCX + halfW;
+      const hallBottom = hallCY + halfH;
 
       let dx = 0;
       let dy = 0;
@@ -120,7 +145,50 @@ export function HallStage({ className, onStageReady }: Props) {
 
       return { x: pos.x + dx, y: pos.y + dy };
     },
-    [fitOffset, fitScale, plan.hall, size],
+    [centerX, centerY, displayedW, displayedH, size],
+  );
+
+  /**
+   * Konvertera en punkt i container-px till hall-koordinater (meter).
+   * Omvänder stage-pan/zoom, 90°-rotationen och centrering av hallen.
+   */
+  const containerToHallM = useCallback(
+    (px: number, py: number): { xM: number; yM: number } => {
+      const stageLocalX = (px - stagePos.x) / stageScale;
+      const stageLocalY = (py - stagePos.y) / stageScale;
+      const dx = stageLocalX - centerX;
+      const dy = stageLocalY - centerY;
+      // Invers rotation: om hallRotated är +90°, snurra punkten -90°.
+      const angle = hallRotated ? -Math.PI / 2 : 0;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const hallLocalX = dx * cos - dy * sin + hallPxW / 2;
+      const hallLocalY = dx * sin + dy * cos + hallPxH / 2;
+      return { xM: hallLocalX / fitScale, yM: hallLocalY / fitScale };
+    },
+    [stagePos, stageScale, centerX, centerY, hallRotated, hallPxW, hallPxH, fitScale],
+  );
+
+  /**
+   * Konvertera en punkt i hall-koordinater (px) till container-px.
+   * Används för att placera HTML-overlays (note-editor) korrekt även
+   * när hallen är roterad.
+   */
+  const hallPxToContainer = useCallback(
+    (hallX: number, hallY: number): { x: number; y: number } => {
+      const dx = hallX - hallPxW / 2;
+      const dy = hallY - hallPxH / 2;
+      const angle = hallRotated ? Math.PI / 2 : 0;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const stageLocalX = dx * cos - dy * sin + centerX;
+      const stageLocalY = dx * sin + dy * cos + centerY;
+      return {
+        x: stagePos.x + stageLocalX * stageScale,
+        y: stagePos.y + stageLocalY * stageScale,
+      };
+    },
+    [stagePos, stageScale, centerX, centerY, hallRotated, hallPxW, hallPxH],
   );
 
   // Zoom med mushjul + trackpad-pinch
@@ -237,14 +305,9 @@ export function HallStage({ className, onStageReady }: Props) {
     if (!typeId || !containerRef.current) return;
     e.preventDefault();
     const rect = containerRef.current.getBoundingClientRect();
-    // Mus-pos relativt stage
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
-    // Konvertera till hall-koordinater (meter)
-    const hallPxX = (px - stagePos.x) / stageScale - fitOffset.x;
-    const hallPxY = (py - stagePos.y) / stageScale - fitOffset.y;
-    const xM = hallPxX / fitScale;
-    const yM = hallPxY / fitScale;
+    const { xM, yM } = containerToHallM(px, py);
     addEquipment(typeId, xM, yM);
   };
 
@@ -345,7 +408,13 @@ export function HallStage({ className, onStageReady }: Props) {
         onTouchStart={handleStageClick}
       >
         <Layer>
-          <Group x={fitOffset.x} y={fitOffset.y}>
+          <Group
+            x={centerX}
+            y={centerY}
+            offsetX={hallPxW / 2}
+            offsetY={hallPxH / 2}
+            rotation={hallRotated ? 90 : 0}
+          >
             <HallFloor hall={plan.hall} pxPerM={fitScale} title={plan.name} />
             {[...(activeStation?.equipment ?? [])]
               .sort((a, b) => (a.z ?? 0) - (b.z ?? 0))
@@ -367,7 +436,13 @@ export function HallStage({ className, onStageReady }: Props) {
         {/* Note bubbles – separate layer so they render above equipment */}
         {showNotes && (
           <Layer>
-            <Group x={fitOffset.x} y={fitOffset.y}>
+            <Group
+              x={centerX}
+              y={centerY}
+              offsetX={hallPxW / 2}
+              offsetY={hallPxH / 2}
+              rotation={hallRotated ? 90 : 0}
+            >
               {activeStation?.equipment.map((eq) => {
                 if (!eq.notes) return null;
                 const type = getEquipmentById(eq.typeId);
@@ -392,9 +467,8 @@ export function HallStage({ className, onStageReady }: Props) {
                       };
                       const bubbleCx = (eq.x + offset.x) * fitScale;
                       const bubbleCy = (eq.y + offset.y) * fitScale;
-                      const screenX = stagePos.x + (fitOffset.x + bubbleCx) * stageScale;
-                      const screenY = stagePos.y + (fitOffset.y + bubbleCy) * stageScale;
-                      setEditingNote({ id: eq.id, x: screenX, y: screenY, text: eq.notes ?? "" });
+                      const screen = hallPxToContainer(bubbleCx, bubbleCy);
+                      setEditingNote({ id: eq.id, x: screen.x, y: screen.y, text: eq.notes ?? "" });
                     }}
                   />
                 );
