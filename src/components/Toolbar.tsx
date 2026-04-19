@@ -30,6 +30,9 @@ import { PlansModal } from "./PlansModal";
 import { UserMenu } from "./Account/UserMenu";
 import { ClubPicker } from "./Account/ClubPicker";
 import { MobileDrawer } from "./MobileDrawer";
+import { useAccountStore } from "../store/useAccountStore";
+import { useHalls } from "../lib/useHalls";
+import type { HallTemplate } from "../types";
 
 type Props = {
   stageRef: React.MutableRefObject<Konva.Stage | null>;
@@ -55,6 +58,15 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   const showNotes = usePlanStore((s) => s.showNotes);
   const toggleNotes = usePlanStore((s) => s.toggleNotes);
   const toggleStudio = useStudioStore((s) => s.toggle);
+  const activeClubId = useAccountStore((s) => s.activeClubId);
+  const { halls: userHalls } = useHalls(activeClubId);
+  const userHallTemplates: HallTemplate[] = userHalls.map((h) => ({
+    id: h.id,
+    name: h.name,
+    widthM: h.width_m,
+    heightM: h.height_m,
+    isCustom: true,
+  }));
 
   // Viktigt: välj primitiva fält var för sig så att Zustand 5 inte
   // kräver egen equality-funktion (annars → "getSnapshot should be cached").
@@ -311,17 +323,31 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
             id="hall-select"
             value={plan.hall.id}
             onChange={(e) => {
-              const h = HALL_TEMPLATES.find((h) => h.id === e.target.value);
+              const id = e.target.value;
+              const h =
+                HALL_TEMPLATES.find((x) => x.id === id) ??
+                userHallTemplates.find((x) => x.id === id);
               if (h) setHall(h);
             }}
             className="h-9 min-w-[110px] max-w-[160px] truncate rounded-md border border-surface-3 bg-surface-2 px-2 text-xs font-medium outline-none focus:border-accent sm:text-sm"
             title={plan.hall.name}
           >
-            {HALL_TEMPLATES.map((h) => (
-              <option key={h.id} value={h.id}>
-                {`${h.widthM} × ${h.heightM} m`}
-              </option>
-            ))}
+            <optgroup label="Mallhallar">
+              {HALL_TEMPLATES.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {`${h.widthM} × ${h.heightM} m`}
+                </option>
+              ))}
+            </optgroup>
+            {userHallTemplates.length > 0 && (
+              <optgroup label="Mina hallar">
+                {userHallTemplates.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {`${h.name} (${h.widthM} × ${h.heightM} m)`}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
 
