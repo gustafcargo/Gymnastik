@@ -12,11 +12,16 @@
  *   • score/combo nollställs (färska siffror till startmenyn)
  *   • menyn stängs och HUD:et visas
  */
-import { Gamepad2, Dumbbell, Trophy, Timer, X, Play } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Gamepad2, Dumbbell, Trophy, Timer, X, Play, UserCircle2, Sparkles } from "lucide-react";
 import { useGameConfig, isProffsMode, type Difficulty } from "../../store/useGameConfig";
 import { useGameScore } from "../../store/useGameScore";
 import { useGameMode, type GameMode } from "../../store/useGameMode";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
+import { useAccountStore } from "../../store/useAccountStore";
+import { isMultiplayerEnabled } from "../../lib/multiplayer";
+import { FriendsSection } from "./FriendsSection";
+import { GymnastStylePanel } from "./GymnastStylePanel";
 
 type Props = {
   onStart: () => void;
@@ -34,6 +39,26 @@ export function PreGameMenu({ onStart, onExit }: Props) {
   const selfName = useMultiplayerStore((s) => s.playerName);
   const selfColor = useMultiplayerStore((s) => s.playerColor);
   const roomCode = useMultiplayerStore((s) => s.roomCode);
+  const connectLobby = useMultiplayerStore((s) => s.connectLobby);
+  const openAccount = useAccountStore((s) => s.openPanel);
+
+  const [stylePanelOpen, setStylePanelOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Anslut lobby-kanalen så vi kan se vilka vänner som är online redan
+  // innan spelet startar. Idempotent — om lobbyn redan är ansluten sker
+  // ingenting.
+  useEffect(() => {
+    if (!isMultiplayerEnabled) return;
+    void connectLobby();
+  }, [connectLobby]);
+
+  // Auto-dismiss toast efter 2.5 s.
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2500);
+    return () => window.clearTimeout(id);
+  }, [toast]);
 
   const difficulties: { id: Difficulty; label: string; hint: string; Icon: typeof Gamepad2 }[] = [
     { id: "auto",    label: "Auto",    hint: "Övningen spelas själv",        Icon: Gamepad2 },
@@ -86,21 +111,39 @@ export function PreGameMenu({ onStart, onExit }: Props) {
           }}>
             Starta spelläge
           </div>
-          <button
-            type="button"
-            onClick={onExit}
-            aria-label="Avsluta"
-            style={{
-              display: "flex", alignItems: "center", gap: 4,
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 8, padding: "5px 9px",
-              color: "#cbd5e1", fontSize: 11, fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <X size={12} /> Avsluta
-          </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => openAccount("profile")}
+              aria-label="Konto & profil"
+              title="Redigera profil, gymnast & klubb"
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 8, padding: "5px 9px",
+                color: "#cbd5e1", fontSize: 11, fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <UserCircle2 size={12} /> Profil
+            </button>
+            <button
+              type="button"
+              onClick={onExit}
+              aria-label="Avsluta"
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 8, padding: "5px 9px",
+                color: "#cbd5e1", fontSize: 11, fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <X size={12} /> Avsluta
+            </button>
+          </div>
         </div>
 
         {/* Svårighetsgrad */}
@@ -202,6 +245,36 @@ export function PreGameMenu({ onStart, onExit }: Props) {
           </div>
         </div>
 
+        {/* Utseende-editor (Profil & lag nås via toolbarens avatarknapp) */}
+        <button
+          type="button"
+          onClick={() => setStylePanelOpen(true)}
+          style={{
+            width: "100%",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            background: "rgba(236,72,153,0.15)",
+            border: "1px solid rgba(236,72,153,0.4)",
+            borderRadius: 10, padding: "10px 12px",
+            color: "#fbcfe8", fontSize: 12, fontWeight: 700,
+            cursor: "pointer",
+            marginBottom: 12,
+          }}
+        >
+          <Sparkles size={14} /> Utseende
+        </button>
+
+        {/* Vänner – online-lista + "Bjud in" när man är i rum */}
+        {isMultiplayerEnabled && (
+          <div style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 10, padding: "10px 12px",
+            marginBottom: 12,
+          }}>
+            <FriendsSection onToast={setToast} />
+          </div>
+        )}
+
         {/* Leaderboard (om multiplayer-rum) */}
         {roomCode && leaderRows.length > 1 && (
           <div style={{ marginBottom: 12 }}>
@@ -250,6 +323,25 @@ export function PreGameMenu({ onStart, onExit }: Props) {
           <Play size={16} /> Spela!
         </button>
       </div>
+
+      {toast && (
+        <div
+          role="status"
+          style={{
+            position: "fixed", top: 18, left: "50%", transform: "translateX(-50%)",
+            zIndex: 260,
+            background: "rgba(15,23,42,0.96)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: 10, padding: "8px 14px",
+            color: "#f1f5f9", fontSize: 12, fontWeight: 600,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+          }}
+        >
+          {toast}
+        </div>
+      )}
+
+      <GymnastStylePanel open={stylePanelOpen} onClose={() => setStylePanelOpen(false)} />
     </div>
   );
 }

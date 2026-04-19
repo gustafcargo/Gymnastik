@@ -83,28 +83,37 @@ export function HallStage({ className, onStageReady, onRequestAddEquipment }: Pr
     };
   }, []);
 
-  // Räkna ut skala och rotation så hallens långsida hamnar längs
-  // containerns långsida. På en liggande iPhone med en stående hall
-  // ger det en 90°-rotation som fyller hela skärmbredden.
+  // Räkna ut skala och rotation. Rotationsbeslutet tas utifrån enhetens
+  // orientering — INTE containerns aktuella proportioner — så att panels
+  // som glider in (t.ex. Egenskaper på iPad) inte vrider hallen 90°. Ett
+  // sidopanel-öppnande krymper containern i bredd men ska inte tolkas
+  // som att iPaden plötsligt är i stående läge.
   useEffect(() => {
     const padding = 48;
-    const normalPxPerM = computePixelsPerMeter(
-      size.width,
-      size.height,
-      plan.hall.widthM,
-      plan.hall.heightM,
-      padding,
-    );
-    const rotatedPxPerM = computePixelsPerMeter(
-      size.width,
-      size.height,
-      plan.hall.heightM,
-      plan.hall.widthM,
-      padding,
-    );
-    const rotate = rotatedPxPerM > normalPxPerM;
-    setHallRotated(rotate);
-    setFitScale(rotate ? rotatedPxPerM : normalPxPerM);
+    const computeRotate = () => {
+      const winLandscape = window.innerWidth > window.innerHeight;
+      const hallLandscape = plan.hall.widthM >= plan.hall.heightM;
+      return winLandscape !== hallLandscape;
+    };
+    const apply = () => {
+      const rotate = computeRotate();
+      const pxPerM = computePixelsPerMeter(
+        size.width,
+        size.height,
+        rotate ? plan.hall.heightM : plan.hall.widthM,
+        rotate ? plan.hall.widthM : plan.hall.heightM,
+        padding,
+      );
+      setHallRotated(rotate);
+      setFitScale(pxPerM);
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    window.addEventListener("orientationchange", apply);
+    return () => {
+      window.removeEventListener("resize", apply);
+      window.removeEventListener("orientationchange", apply);
+    };
   }, [size, plan.hall]);
 
   useEffect(() => {

@@ -8,24 +8,13 @@
  * en `isMultiplayerEnabled === false`-flagga så UI kan dölja multiplayer-
  * knappar utan att kasta fel.
  */
-import { createClient, type SupabaseClient, type RealtimeChannel } from "@supabase/supabase-js";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { Plan } from "../types";
+import { supabase, isSupabaseConfigured } from "./supabase";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const isMultiplayerEnabled = isSupabaseConfigured;
 
-export const isMultiplayerEnabled = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
-
-let _client: SupabaseClient | null = null;
-
-function client(): SupabaseClient | null {
-  if (_client) return _client;
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
-  _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    realtime: { params: { eventsPerSecond: 20 } },
-  });
-  return _client;
-}
+const client = supabase;
 
 export type PlayerState = {
   id: string;

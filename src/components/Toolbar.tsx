@@ -27,6 +27,8 @@ import type Konva from "konva";
 import { exportStageAsPng } from "../lib/exportPng";
 import { exportStageAsPdf } from "../lib/exportPdf";
 import { PlansModal } from "./PlansModal";
+import { UserMenu } from "./Account/UserMenu";
+import { ClubPicker } from "./Account/ClubPicker";
 
 type Props = {
   stageRef: React.MutableRefObject<Konva.Stage | null>;
@@ -270,6 +272,9 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           <Sliders size={14} />
           <span className="hidden sm:inline">Studio</span>
         </button>
+
+        <ClubPicker />
+        <UserMenu />
 
         {viewMode === "3D" && (
           <button

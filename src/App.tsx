@@ -11,9 +11,13 @@ import { BottomSheet } from "./components/Mobile/BottomSheet";
 import { EquipmentEditor } from "./components/EquipmentEditor/EquipmentEditor";
 import { GymnastTuningPanel } from "./components/GymnastTuningPanel";
 import { ExerciseStudio } from "./components/ExerciseStudio/ExerciseStudio";
+import { AccountPanel } from "./components/Account/AccountPanel";
 import { useStudioStore } from "./store/useStudioStore";
 import { useMultiplayerStore } from "./store/useMultiplayerStore";
 import { isMultiplayerEnabled } from "./lib/multiplayer";
+import { useProfileSync } from "./lib/useProfileSync";
+import { useFriendsSync } from "./lib/useFriendsSync";
+import { usePlanCloudSync } from "./lib/usePlanCloudSync";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { usePlanStore } from "./store/usePlanStore";
@@ -128,6 +132,9 @@ class ThreeDErrorBoundary extends Component<
 
 export default function App() {
   useKeyboardShortcuts();
+  useProfileSync();
+  useFriendsSync();
+  usePlanCloudSync();
   const stageRef = useRef<Konva.Stage | null>(null);
 
   // Three layout tiers:
@@ -246,6 +253,7 @@ export default function App() {
         </main>
         <GymnastTuningPanel />
         <ExerciseStudio open={studioOpen} onClose={() => setStudioOpen(false)} />
+        <AccountPanel />
       </div>
     );
   }
@@ -387,6 +395,7 @@ export default function App() {
 
       <GymnastTuningPanel />
       <ExerciseStudio open={studioOpen} onClose={() => setStudioOpen(false)} />
+      <AccountPanel />
     </div>
   );
 }

@@ -28,7 +28,11 @@ export function A4CropGuide({ containerRef }: Props) {
       if (!node) return;
       const r = node.getBoundingClientRect();
       if (r.width < 20 || r.height < 20) return;
-      const orient = orientationForAspect(r.width, r.height);
+      // Orienteringen ska följa ENHETEN, inte den tillfälligt ändrade
+      // container-bredden när en egenskapspanel glider in. Annars skulle
+      // A4-ramen växla till stående så fort användaren öppnar panelen,
+      // vilket upplevs som att vyn "vrider sig".
+      const orient = orientationForAspect(window.innerWidth, window.innerHeight);
       const layout = a4Layout(orient);
       const contentAspect = layout.contentAspect;
       const cAspect = r.width / r.height;
@@ -46,9 +50,11 @@ export function A4CropGuide({ containerRef }: Props) {
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
+    window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
     return () => {
       ro.disconnect();
+      window.removeEventListener("resize", update);
       window.removeEventListener("orientationchange", update);
     };
   }, [containerRef]);

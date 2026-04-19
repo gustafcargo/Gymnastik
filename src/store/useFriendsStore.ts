@@ -15,6 +15,9 @@ export type Friend = {
   buddyCode: string;  // 4-siffrig kod som vännen delade med oss
   savedName?: string; // lokalt alias (vi sparar senaste sedda name också)
   addedAt: number;
+  /** Supabase user-id när vi lyckats resolva buddy-koden mot en profil.
+   *  Används av useFriendsSync för att skriva relationen mot DB. */
+  userId?: string;
 };
 
 type FriendsState = {
