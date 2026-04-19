@@ -16,6 +16,7 @@ import { useStudioStore } from "./store/useStudioStore";
 import { useMultiplayerStore } from "./store/useMultiplayerStore";
 import { isMultiplayerEnabled } from "./lib/multiplayer";
 import { useProfileSync } from "./lib/useProfileSync";
+import { usePlanCloudSync } from "./lib/usePlanCloudSync";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { usePlanStore } from "./store/usePlanStore";
@@ -131,6 +132,7 @@ class ThreeDErrorBoundary extends Component<
 export default function App() {
   useKeyboardShortcuts();
   useProfileSync();
+  usePlanCloudSync();
   const stageRef = useRef<Konva.Stage | null>(null);
 
   // Three layout tiers:
