@@ -57,15 +57,41 @@ export function useClubs() {
   const createClub = useCallback(async (name: string) => {
     const c = supabase();
     if (!c || !user) throw new Error("Inte inloggad");
+    // Sanity: verifiera att klienten har en aktiv session innan vi försöker
+    // insertet. Annars skickas requesten med bara anon-key och RLS-policyn
+    // "clubs: any insert" (to authenticated) matchar inte → 42501 blir ett
+    // kryptiskt "new row violates row-level security policy".
+    const sess = await c.auth.getSession();
+    if (!sess.data.session) {
+      throw new Error(
+        "Din inloggning verkar ha gått ut. Logga ut och in igen och försök på nytt.",
+      );
+    }
     const { data, error: err } = await c
       .from("clubs")
       .insert({ name: name.trim(), created_by: user.id })
       .select("id")
       .single();
     if (err) {
+      // Diagnostik för mobil (devtools svårt): visa uid-mismatch direkt i
+      // felmeddelandet så vi ser *varför* RLS blockerade. Om servern ser en
+      // annan uid (eller null) än klientens user.id har vi grejen.
+      let diag = "";
+      try {
+        const { data: meData } = await c.auth.getUser();
+        const serverUid = meData.user?.id ?? "null";
+        const clientUid = user.id;
+        if (serverUid !== clientUid) {
+          diag = ` (server ser ${serverUid.slice(0, 8)}…, klienten skickar ${clientUid.slice(0, 8)}…)`;
+        } else {
+          diag = ` (server ser ${serverUid.slice(0, 8)}…)`;
+        }
+      } catch {
+        /* ignore */
+      }
       throw sbError(
-        err,
-        "Kunde inte skapa förening. Kör migrationen i Supabase och försök igen.",
+        { ...err, message: (err.message || "") + diag },
+        "Kunde inte skapa förening." + diag,
         "clubs.createClub",
       );
     }
