@@ -5,6 +5,7 @@ import type Konva from "konva";
 import { HallFloor, HallChrome } from "./HallFloor";
 import { EquipmentNode } from "./EquipmentNode";
 import { EquipmentNoteBubble } from "./EquipmentNoteBubble";
+import { A4CropGuide } from "../A4CropGuide";
 import { usePlanStore } from "../../store/usePlanStore";
 import { computePixelsPerMeter } from "../../lib/geometry";
 import { computeStackInfo } from "../../lib/stackGroups";
@@ -369,6 +370,8 @@ export function HallStage({ className, onStageReady }: Props) {
           />
         </div>
       )}
+
+      <A4CropGuide containerRef={containerRef} />
 
       {isDragOver && (
         <div className="pointer-events-none absolute inset-0 z-20 rounded-sm border-4 border-dashed border-accent/70 bg-accent/5" />

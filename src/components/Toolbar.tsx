@@ -123,6 +123,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
     await withClearedSelection(async () => {
       await exportStageAsPng(
         stage,
+        plan,
         `${plan.name.replace(/[^\w\-]+/g, "_")}.png`,
       );
     });
