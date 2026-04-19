@@ -18,7 +18,8 @@ type Props = {
 
 const DIM_OFFSET = 22;
 const ARROW = 6;
-const TITLE_Y = -48;
+// Title sits well above the dimension line so they don't visually touch.
+const TITLE_Y = -72;
 const LABEL_FONT_SIZE = 11;
 
 /**

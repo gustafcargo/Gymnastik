@@ -76,6 +76,8 @@ export type PlacedEquipment = {
   orientation?: EquipmentOrientation;
   /** Förskjutning (meter) av anteckningsbubblan relativt redskapets centrum. */
   noteOffset?: { x: number; y: number };
+  /** Storlek (pixlar) på anteckningsbubblan. Standard: fast storlek. */
+  noteSize?: { w: number; h: number };
   /** Om redskapet skapades från en sparad mall, dess mall-id. */
   templateId?: string;
   /** Gymnaster kopplade till redskapet (visas i 3D-vyn). */

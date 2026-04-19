@@ -9,15 +9,40 @@ export function downloadDataUrl(dataUrl: string, filename: string) {
   document.body.removeChild(link);
 }
 
-export function exportStageAsPng(
+/**
+ * Komponerar stage:ns canvas ovanpå en vit bakgrund så att PNG:n inte får
+ * genomskinliga områden (vilket renderas svart i många PDF- och bild-
+ * visare). Retur: data URL till PNG med vit bakgrund.
+ */
+export async function stageToWhitePngDataUrl(
+  stage: Konva.Stage,
+  pixelRatio = 2,
+): Promise<string> {
+  stage.draw();
+  const stageUrl = stage.toDataURL({ pixelRatio, mimeType: "image/png" });
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Kunde inte ladda stage-bild"));
+    img.src = stageUrl;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return stageUrl;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
+export async function exportStageAsPng(
   stage: Konva.Stage,
   filename: string,
   pixelRatio = 2,
 ) {
-  // Force all layers (including conditionally-mounted note bubbles layer) to
-  // flush their canvases before capture so nothing is stale or missing.
-  stage.draw();
-  const url = stage.toDataURL({ pixelRatio, mimeType: "image/png" });
+  const url = await stageToWhitePngDataUrl(stage, pixelRatio);
   downloadDataUrl(url, filename);
   return url;
 }

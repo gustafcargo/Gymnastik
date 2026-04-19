@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Copy, Plus, Trash2, X } from "lucide-react";
 import { usePlanStore } from "../store/usePlanStore";
 import type { Plan } from "../types";
 
@@ -9,6 +9,7 @@ export function PlansModal({ onClose }: Props) {
   const listSavedPlans = usePlanStore((s) => s.listSavedPlans);
   const loadPlan = usePlanStore((s) => s.loadPlan);
   const deleteSavedPlan = usePlanStore((s) => s.deleteSavedPlan);
+  const duplicateSavedPlan = usePlanStore((s) => s.duplicateSavedPlan);
   const newPlan = usePlanStore((s) => s.newPlan);
   const currentId = usePlanStore((s) => s.plan.id);
 
@@ -66,6 +67,17 @@ export function PlansModal({ onClose }: Props) {
                   {" · "}
                   {new Date(p.updatedAt).toLocaleDateString("sv-SE")}
                 </div>
+              </button>
+              <button
+                type="button"
+                className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-surface-2 hover:text-slate-700"
+                title="Kopiera pass"
+                onClick={() => {
+                  duplicateSavedPlan(p.id);
+                  setTick((t) => t + 1);
+                }}
+              >
+                <Copy size={16} />
               </button>
               <button
                 type="button"
