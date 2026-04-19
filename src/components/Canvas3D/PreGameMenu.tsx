@@ -12,11 +12,12 @@
  *   • score/combo nollställs (färska siffror till startmenyn)
  *   • menyn stängs och HUD:et visas
  */
-import { Gamepad2, Dumbbell, Trophy, Timer, X, Play } from "lucide-react";
+import { Gamepad2, Dumbbell, Trophy, Timer, X, Play, UserCircle2 } from "lucide-react";
 import { useGameConfig, isProffsMode, type Difficulty } from "../../store/useGameConfig";
 import { useGameScore } from "../../store/useGameScore";
 import { useGameMode, type GameMode } from "../../store/useGameMode";
 import { useMultiplayerStore } from "../../store/useMultiplayerStore";
+import { useAccountStore } from "../../store/useAccountStore";
 
 type Props = {
   onStart: () => void;
@@ -34,6 +35,7 @@ export function PreGameMenu({ onStart, onExit }: Props) {
   const selfName = useMultiplayerStore((s) => s.playerName);
   const selfColor = useMultiplayerStore((s) => s.playerColor);
   const roomCode = useMultiplayerStore((s) => s.roomCode);
+  const openAccount = useAccountStore((s) => s.openPanel);
 
   const difficulties: { id: Difficulty; label: string; hint: string; Icon: typeof Gamepad2 }[] = [
     { id: "auto",    label: "Auto",    hint: "Övningen spelas själv",        Icon: Gamepad2 },
@@ -86,21 +88,39 @@ export function PreGameMenu({ onStart, onExit }: Props) {
           }}>
             Starta spelläge
           </div>
-          <button
-            type="button"
-            onClick={onExit}
-            aria-label="Avsluta"
-            style={{
-              display: "flex", alignItems: "center", gap: 4,
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 8, padding: "5px 9px",
-              color: "#cbd5e1", fontSize: 11, fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            <X size={12} /> Avsluta
-          </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => openAccount("profile")}
+              aria-label="Konto & profil"
+              title="Redigera profil, gymnast & klubb"
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 8, padding: "5px 9px",
+                color: "#cbd5e1", fontSize: 11, fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <UserCircle2 size={12} /> Profil
+            </button>
+            <button
+              type="button"
+              onClick={onExit}
+              aria-label="Avsluta"
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 8, padding: "5px 9px",
+                color: "#cbd5e1", fontSize: 11, fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <X size={12} /> Avsluta
+            </button>
+          </div>
         </div>
 
         {/* Svårighetsgrad */}
