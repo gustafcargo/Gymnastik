@@ -132,6 +132,14 @@ type PlanState = {
   gameMode: boolean;
   /** True när planen har osparade ändringar. */
   isDirty: boolean;
+  /**
+   * Snapshot av planen som den såg ut vid senaste load/save. Används för
+   * två saker: (1) detektera att namnet ändrats sedan senaste commit →
+   * Spara skapar då en NY plan i stället för att skriva över; (2) kunna
+   * återställa den gamla planen till sitt sparade tillstånd om användaren
+   * byter namn (annars läcker autosave-ändringarna in i det gamla passet).
+   */
+  lastCommittedSnapshot: Plan | null;
 };
 
 type PlanActions = {
@@ -281,13 +289,19 @@ export const usePlanStore = create<PlanStore>()(
       showNotes: true,
       gameMode: initialGameMode(),
       isDirty: false,
+      lastCommittedSnapshot: null,
 
       newPlan: (name) =>
         set(() => {
           const plan = createPlan(name);
           setActivePlanId(plan.id);
           savePlanStorage(plan);
-          return { plan, selectedEquipmentId: null, isDirty: false };
+          return {
+            plan,
+            selectedEquipmentId: null,
+            isDirty: false,
+            lastCommittedSnapshot: null,
+          };
         }),
 
       loadPlan: (id) =>
@@ -295,7 +309,14 @@ export const usePlanStore = create<PlanStore>()(
           const p = getPlan(id);
           if (!p) return {};
           setActivePlanId(p.id);
-          return { plan: p, selectedEquipmentId: null, isDirty: false };
+          return {
+            plan: p,
+            selectedEquipmentId: null,
+            isDirty: false,
+            // Bara committade pass listas/laddas → p är committad, använd
+            // den som baslinje för att detektera namnändring.
+            lastCommittedSnapshot: JSON.parse(JSON.stringify(p)) as Plan,
+          };
         }),
 
       listSavedPlans: () => listPlans(),
@@ -349,10 +370,40 @@ export const usePlanStore = create<PlanStore>()(
 
       savePlan: () =>
         set((state) => {
+          const prev = state.lastCommittedSnapshot;
+          const nameChanged =
+            prev !== null && prev.id === state.plan.id && prev.name !== state.plan.name;
+          if (nameChanged && prev) {
+            // Användaren bytte namn på ett redan sparat pass → tolka som
+            // "spara som". Gör nuvarande in-memory-plan till ett nytt pass
+            // med nytt id och restaurera det gamla passets snapshot till
+            // storage (autosave har redan hunnit skriva över det med
+            // nya ändringar som egentligen hör till det nya passet).
+            const newId = nanoid();
+            const newPlan: Plan = {
+              ...state.plan,
+              id: newId,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
+            savePlanStorage(prev);
+            commitPlanStorage(prev.id);
+            savePlanStorage(newPlan);
+            commitPlanStorage(newId);
+            setActivePlanId(newId);
+            return {
+              plan: newPlan,
+              isDirty: false,
+              lastCommittedSnapshot: JSON.parse(JSON.stringify(newPlan)) as Plan,
+            };
+          }
           savePlanStorage(state.plan);
           commitPlanStorage(state.plan.id);
           setActivePlanId(state.plan.id);
-          return { isDirty: false };
+          return {
+            isDirty: false,
+            lastCommittedSnapshot: JSON.parse(JSON.stringify(state.plan)) as Plan,
+          };
         }),
 
       addEquipment: (typeId, xM, yM) => {

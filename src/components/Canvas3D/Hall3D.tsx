@@ -1149,27 +1149,52 @@ export function Hall3D({ className }: Props) {
   const cameraResetRef  = useRef(false);
   // Touch-orbit: dragning + pinch påverkar yaw-offset, pitch och avstånd.
   // Initieras från useViewport så kameran håller sin vinkel över unmounts
-  // (2D↔3D, breakpoint-byten, spelläge). Vi skriver tillbaka vid unmount
-  // och med jämna mellanrum medan HUDen är aktiv.
+  // (2D↔3D, breakpoint-byten). Sync till store sker periodiskt och vid
+  // unmount — men INTE medan spelläget är aktivt, då spelets kamera
+  // (GameGymnast3D) skriver 0/0/1 i samma ref och skulle annars blanka
+  // ut editorns sparade vinkel.
   const cameraOrbitRef  = useRef<{ yaw: number; pitch: number; distScale: number }>(
     { ...useViewport.getState().orbit },
   );
+  // Snapshot av editorns orbit precis när spelläget slås på, så vi kan
+  // återställa den när spelet avslutas.
+  const savedEditorOrbitRef = useRef<{ yaw: number; pitch: number; distScale: number } | null>(null);
   useEffect(() => {
     const saved = useViewport.getState().orbit;
     cameraOrbitRef.current.yaw = saved.yaw;
     cameraOrbitRef.current.pitch = saved.pitch;
     cameraOrbitRef.current.distScale = saved.distScale;
-    const syncToStore = () => useViewport.getState().setOrbit({
-      yaw: cameraOrbitRef.current.yaw,
-      pitch: cameraOrbitRef.current.pitch,
-      distScale: cameraOrbitRef.current.distScale,
-    });
+    const syncToStore = () => {
+      if (usePlanStore.getState().gameMode) return;
+      useViewport.getState().setOrbit({
+        yaw: cameraOrbitRef.current.yaw,
+        pitch: cameraOrbitRef.current.pitch,
+        distScale: cameraOrbitRef.current.distScale,
+      });
+    };
     const iv = window.setInterval(syncToStore, 500);
     return () => {
       window.clearInterval(iv);
       syncToStore();
     };
   }, []);
+  // När spelläget togglar: spara editorns orbit innan spelet startar,
+  // återställ den när spelet stängs.
+  useEffect(() => {
+    if (gameMode) {
+      savedEditorOrbitRef.current = {
+        yaw: cameraOrbitRef.current.yaw,
+        pitch: cameraOrbitRef.current.pitch,
+        distScale: cameraOrbitRef.current.distScale,
+      };
+    } else if (savedEditorOrbitRef.current) {
+      cameraOrbitRef.current.yaw = savedEditorOrbitRef.current.yaw;
+      cameraOrbitRef.current.pitch = savedEditorOrbitRef.current.pitch;
+      cameraOrbitRef.current.distScale = savedEditorOrbitRef.current.distScale;
+      useViewport.getState().setOrbit({ ...savedEditorOrbitRef.current });
+      savedEditorOrbitRef.current = null;
+    }
+  }, [gameMode]);
   const [nearEquipment, setNearEquipment] = useState<string | null>(null);
   const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);

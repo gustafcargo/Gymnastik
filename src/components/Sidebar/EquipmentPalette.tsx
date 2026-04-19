@@ -13,6 +13,7 @@ import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { useCustomEquipmentStore } from "../../store/useCustomEquipmentStore";
 import { CustomEquipmentModal } from "../CustomEquipmentModal";
 import { formatMeters } from "../../lib/geometry";
+import { useActiveHallInventory } from "../../lib/useActiveHallInventory";
 
 type Props = {
   /** Called after an item is added – use to close the palette on mobile. */
@@ -33,10 +34,15 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
   const removeTemplate = useSavedEquipmentStore((s) => s.removeTemplate);
   const customTypes = useCustomEquipmentStore((s) => s.customTypes);
   const removeCustomType = useCustomEquipmentStore((s) => s.removeCustomType);
+  // När passets hall är en riktig (användar-skapad) hall: begränsa paletten
+  // till redskap som finns i hallens inventarie. För mallhallar är filtret
+  // null = visa allt.
+  const allowedIds = useActiveHallInventory();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return EQUIPMENT_CATALOG.filter((t) => {
+      if (allowedIds && !allowedIds.has(t.id)) return false;
       if (activeCategory && t.category !== activeCategory) return false;
       if (!q) return true;
       return (
@@ -45,17 +51,18 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
         (t.description ?? "").toLowerCase().includes(q)
       );
     });
-  }, [query, activeCategory]);
+  }, [query, activeCategory, allowedIds]);
 
   const filteredCustom = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (activeCategory && activeCategory !== "eget") return [];
-    return customTypes.filter((t) =>
-      !q ||
-      t.name.toLowerCase().includes(q) ||
-      (t.description ?? "").toLowerCase().includes(q),
-    );
-  }, [query, activeCategory, customTypes]);
+    return customTypes.filter((t) => {
+      if (allowedIds && !allowedIds.has(t.id)) return false;
+      return !q ||
+        t.name.toLowerCase().includes(q) ||
+        (t.description ?? "").toLowerCase().includes(q);
+    });
+  }, [query, activeCategory, customTypes, allowedIds]);
 
   const grouped = useMemo(() => {
     const g: Record<string, EquipmentType[]> = {};

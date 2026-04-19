@@ -4,6 +4,7 @@ import { useAccountStore } from "../../store/useAccountStore";
 import { useHalls, useInventory } from "../../lib/useHalls";
 import { useCapabilities } from "../../lib/useCapabilities";
 import { EQUIPMENT_CATALOG } from "../../catalog/equipment";
+import { useCustomEquipmentStore } from "../../store/useCustomEquipmentStore";
 
 export function HallsTab() {
   const activeClubId = useAccountStore((s) => s.activeClubId);
@@ -155,6 +156,7 @@ function InventorySection({
   canEdit: boolean;
 }) {
   const { rows, upsertItem, moveItem } = useInventory(hallId);
+  const customTypes = useCustomEquipmentStore((s) => s.customTypes);
   const [typeId, setTypeId] = useState<string>("");
   const [qty, setQty] = useState(1);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -162,11 +164,18 @@ function InventorySection({
 
   const otherHalls = allHalls.filter((h) => h.id !== hallId);
 
+  // Slå ihop statisk katalog + användarens egna redskap. Annars hittar man
+  // inte sina custom-redskap i inventarieväljaren.
+  const pickableTypes = useMemo(
+    () => [...EQUIPMENT_CATALOG, ...customTypes],
+    [customTypes],
+  );
+
   const typeName = useMemo(() => {
     const m = new Map<string, string>();
-    for (const t of EQUIPMENT_CATALOG) m.set(t.id, t.name);
+    for (const t of pickableTypes) m.set(t.id, t.name);
     return m;
-  }, []);
+  }, [pickableTypes]);
 
   const addItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -284,7 +293,7 @@ function InventorySection({
               className="flex-1 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-100"
             >
               <option value="">— Välj redskap —</option>
-              {EQUIPMENT_CATALOG.map((t) => (
+              {pickableTypes.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>

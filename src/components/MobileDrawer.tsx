@@ -37,6 +37,8 @@ import { useAuth } from "../lib/useAuth";
 import { useClubs } from "../lib/useClubs";
 import { useMultiplayerStore } from "../store/useMultiplayerStore";
 import { HALL_TEMPLATES } from "../catalog/halls";
+import { useHalls } from "../lib/useHalls";
+import type { HallTemplate } from "../types";
 
 type Props = {
   open: boolean;
@@ -87,6 +89,14 @@ export function MobileDrawer({
 
   const { user, signOut } = useAuth();
   const { clubs } = useClubs();
+  const { halls: userHalls } = useHalls(activeClubId);
+  const userHallTemplates: HallTemplate[] = userHalls.map((h) => ({
+    id: h.id,
+    name: h.name,
+    widthM: h.width_m,
+    heightM: h.height_m,
+    isCustom: true,
+  }));
   const playerName = useMultiplayerStore((s) => s.playerName);
   const playerColor = useMultiplayerStore((s) => s.playerColor);
 
@@ -249,18 +259,30 @@ export function MobileDrawer({
                   <select
                     value={plan.hall.id}
                     onChange={(e) => {
-                      const h = HALL_TEMPLATES.find(
-                        (h) => h.id === e.target.value,
-                      );
+                      const id = e.target.value;
+                      const h =
+                        HALL_TEMPLATES.find((x) => x.id === id) ??
+                        userHallTemplates.find((x) => x.id === id);
                       if (h) setHall(h);
                     }}
                     className="mt-1 w-full rounded-md border border-surface-3 bg-surface-2 px-2 py-2 text-sm outline-none focus:border-accent"
                   >
-                    {HALL_TEMPLATES.map((h) => (
-                      <option key={h.id} value={h.id}>
-                        {`${h.widthM} × ${h.heightM} m`}
-                      </option>
-                    ))}
+                    <optgroup label="Mallhallar">
+                      {HALL_TEMPLATES.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {`${h.widthM} × ${h.heightM} m`}
+                        </option>
+                      ))}
+                    </optgroup>
+                    {userHallTemplates.length > 0 && (
+                      <optgroup label="Mina hallar">
+                        {userHallTemplates.map((h) => (
+                          <option key={h.id} value={h.id}>
+                            {`${h.name} (${h.widthM} × ${h.heightM} m)`}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
               </Section>
