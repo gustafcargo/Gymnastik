@@ -48,6 +48,38 @@ class SilentR3FBoundary extends Component<
   }
 }
 
+/**
+ * Pre-flight WebGL-sanity: three.js kraschar på äldre iPads med
+ * "null is not an object (evaluating 'G.indexOf')" när getParameter
+ * returnerar null (WebGLCapabilities läser VERSION-strängen och
+ * anropar .indexOf direkt). Kör samma anrop själva i en throwaway-
+ * canvas — om det fallerar monterar vi inte R3F alls, utan visar
+ * ett vänligt meddelande istället för att krascha och bounce:a till
+ * error-boundaryn.
+ */
+function isWebGLHealthy(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl =
+      (canvas.getContext("webgl2") as WebGLRenderingContext | null) ||
+      (canvas.getContext("webgl") as WebGLRenderingContext | null) ||
+      (canvas.getContext(
+        "experimental-webgl",
+      ) as WebGLRenderingContext | null);
+    if (!gl) return false;
+    const version = gl.getParameter(gl.VERSION);
+    if (!version || typeof version !== "string") return false;
+    const sl = gl.getParameter(gl.SHADING_LANGUAGE_VERSION);
+    if (!sl || typeof sl !== "string") return false;
+    const exts = gl.getSupportedExtensions();
+    if (!Array.isArray(exts)) return false;
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Export helpers
 // ---------------------------------------------------------------------------
@@ -455,11 +487,45 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
     // skalar vi ner källan om den är större än MAX_EXPORT_DIM, och
     // använder toBlob + object-URL istället för toDataURL (base64
     // allokerar ~4/3× källans pixelvolym i strängform).
-    const MAX_EXPORT_DIM = 2400;
+    //
+    // Touch-enheter (iPad) har strängare minnesbudget → något lägre
+    // tak + lägre DPR-bump. Desktop renderas skarpare.
+    const isTouch =
+      typeof matchMedia === "function" &&
+      matchMedia("(pointer: coarse)").matches;
+    const MAX_EXPORT_DIM = isTouch ? 2400 : 3200;
 
     const computeScale = (srcW: number, srcH: number) => {
       const longest = Math.max(srcW, srcH);
       return longest > MAX_EXPORT_DIM ? MAX_EXPORT_DIM / longest : 1;
+    };
+
+    // Renderar scenen med tillfälligt högre pixel ratio så att
+    // framebufferten vi snapshottar blir skarpare än default R3F-
+    // rendering (som ofta är begränsad till dpr=1-2 för prestanda).
+    // Restorerar originalet i en finally.
+    const withHiResRender = <T,>(fn: () => T): T => {
+      const origPR = gl.getPixelRatio();
+      const origSize = new THREE.Vector2();
+      gl.getSize(origSize);
+      const targetPR = isTouch
+        ? Math.max(origPR, 2)
+        : Math.max(origPR, 2.5);
+      const bumped = targetPR > origPR + 0.01;
+      try {
+        if (bumped) {
+          gl.setPixelRatio(targetPR);
+          gl.setSize(origSize.x, origSize.y, false);
+        }
+        gl.render(scene, camera);
+        return fn();
+      } finally {
+        if (bumped) {
+          gl.setPixelRatio(origPR);
+          gl.setSize(origSize.x, origSize.y, false);
+          gl.render(scene, camera);
+        }
+      }
     };
 
     // Returnerar en ny canvas; Source-kopiering via drawImage stöder
@@ -525,7 +591,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
     const onExportPng = () => {
       try {
         const plan = currentPlan();
-        const out = composeWithHeader();
+        const out = withHiResRender(() => composeWithHeader());
         if (!out) return;
         out.toBlob((blob) => {
           if (!blob) return;
@@ -539,7 +605,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
     const onExportPdf = async () => {
       try {
         const plan = currentPlan();
-        const out = composeForPdf();
+        const out = withHiResRender(() => composeForPdf());
         if (!out) return;
         const { jsPDF } = await import("jspdf");
         const pdf = new jsPDF({
@@ -667,6 +733,10 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
         const noteOffZ = isDraggingNote
           ? draggingNoteRef.current!.offZ
           : (eq.noteOffset?.y ?? -(type.heightM / 2 + 0.6));
+        // Matcha 2D-bubblans bredd/höjd om användaren ändrat storlek där,
+        // annars använd samma default som 2D-editorn (130 × 56 CSS-px).
+        const noteW = Math.max(15, eq.noteSize?.w ?? 130);
+        const noteH = Math.max(24, eq.noteSize?.h ?? 56);
 
         // Tilt transforms (inside equipment group, pre-rotation)
         const physH = type.physicalHeightM;
@@ -873,9 +943,9 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
                         padding: "7px",
                         fontSize: "11px",
                         color: "#374151",
-                        width: "130px",
+                        width: `${noteW}px`,
                         minWidth: "15px",
-                        minHeight: "56px",
+                        minHeight: `${noteH}px`,
                         fontFamily: "system-ui, sans-serif",
                         resize: "both",
                         outline: "none",
@@ -913,7 +983,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
                         padding: "7px",
                         fontSize: "11px",
                         color: "#374151",
-                        width: "130px",
+                        width: `${noteW}px`,
                         minWidth: "15px",
                         fontFamily: "system-ui, sans-serif",
                         boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
@@ -1017,6 +1087,52 @@ export function Hall3D({ className }: Props) {
   const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);
   const effectsRef = useRef<EffectsHandle | null>(null);
+  const [glHealthy] = useState(() => isWebGLHealthy());
+
+  if (!glHealthy) {
+    return (
+      <div
+        className={className}
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#0F172A",
+          color: "#F1F5F9",
+          padding: "24px",
+          fontFamily: "system-ui, sans-serif",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ maxWidth: 360 }}>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
+            3D-vyn kan inte köras på den här enheten
+          </div>
+          <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 16 }}>
+            Din iPad eller webbläsare saknar WebGL-stöd som 3D-vyn kräver.
+            Använd 2D-editorn istället — den fungerar på alla enheter.
+          </div>
+          <button
+            type="button"
+            onClick={() => usePlanStore.getState().setViewMode("2D")}
+            style={{
+              background: "#2563EB",
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 16px",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Tillbaka till 2D
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={className} style={{ position: "relative" }}>
@@ -1031,8 +1147,11 @@ export function Hall3D({ className }: Props) {
         }}
         gl={{
           antialias: true,
-          powerPreference: "high-performance",
+          // "default" är mer förlåtande än "high-performance" på äldre
+          // iPads där drivrutinen annars kan neka context-creation.
+          powerPreference: "default",
           preserveDrawingBuffer: true,
+          failIfMajorPerformanceCaveat: false,
         }}
       >
         <color attach="background" args={["#DDE3E8"]} />
