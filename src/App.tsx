@@ -231,6 +231,7 @@ export default function App() {
         <HallStage
           className="absolute inset-0"
           onStageReady={handleStageReady}
+          onRequestAddEquipment={() => setPaletteOpen(true)}
         />
       )}
     </div>

@@ -14,13 +14,14 @@ import { getEquipmentById } from "../../catalog/equipment";
 type Props = {
   className?: string;
   onStageReady?: (stage: Konva.Stage) => void;
+  onRequestAddEquipment?: () => void;
 };
 
 /**
  * Canvas med idrottshallen. Hanterar zoom (mushjul + pinch), pan (drag på
  * tom yta) och är drop-target för redskap från paletten.
  */
-export function HallStage({ className, onStageReady }: Props) {
+export function HallStage({ className, onStageReady, onRequestAddEquipment }: Props) {
   const plan = usePlanStore((s) => s.plan);
   const activeStation = plan.stations.find(
     (s) => s.id === plan.activeStationId,
@@ -378,17 +379,21 @@ export function HallStage({ className, onStageReady }: Props) {
       )}
       {isEmpty && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <div className="pointer-events-auto max-w-xs rounded-2xl bg-white/85 px-5 py-4 text-center shadow-xs backdrop-blur">
+          <button
+            type="button"
+            onClick={onRequestAddEquipment}
+            className="pointer-events-auto max-w-xs rounded-2xl bg-white/85 px-5 py-4 text-center shadow-xs backdrop-blur transition hover:bg-white active:scale-[0.98]"
+          >
             <div className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-full bg-accent-soft text-accent-ink">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
             </div>
             <p className="text-sm font-semibold text-slate-700">
-              Dra ditt första redskap hit
+              Lägg till första redskapet
             </p>
             <p className="mt-0.5 text-xs text-slate-500">
-              Hämta från vänster panel eller tryck <kbd className="rounded bg-surface-2 px-1 font-mono">⌘K</kbd>.
+              Tryck här eller dra från vänster panel.
             </p>
-          </div>
+          </button>
         </div>
       )}
       <Stage
