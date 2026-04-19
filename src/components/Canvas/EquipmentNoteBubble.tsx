@@ -8,6 +8,12 @@ type Props = {
   eq: PlacedEquipment;
   type: EquipmentType;
   pxPerM: number;
+  /**
+   * true när hela hallen ritas 90° roterad för att fylla containerns
+   * långsida. Bubblan counter-roteras då med samma vinkel så texten
+   * förblir horisontellt läsbar från skärmen.
+   */
+  hallRotated?: boolean;
   onOffsetChange: (offset: { x: number; y: number }) => void;
   onSizeChange?: (size: { w: number; h: number }) => void;
   onSelect?: () => void;
@@ -70,6 +76,7 @@ export function EquipmentNoteBubble({
   eq,
   type,
   pxPerM,
+  hallRotated = false,
   onOffsetChange,
   onSizeChange,
   onSelect,
@@ -126,18 +133,16 @@ export function EquipmentNoteBubble({
     onOffsetChange({ x: cx / pxPerM - eq.x, y: cy / pxPerM - eq.y });
   };
 
-  // Resize via nedre höger hörn. Handtaget draggas fritt i layer-space,
-  // vi räknar om storleken relativt bubbelns centrum och håller centrum
-  // stilla (hörnet = center + (w/2, h/2)).
+  // Resize via nedre höger hörn. Handtaget är ett barn till bubbel-gruppen
+  // (som ev. är counter-roterad), så e.target.x()/y() är i bubbel-lokalt
+  // koordinatsystem: hörnet ligger initialt på (W, H) eftersom gruppens
+  // offsetX/Y är W/2, H/2.
   const handleResizeDragMove = (e: KonvaEventObject<DragEvent>) => {
-    const hx = e.target.x();
-    const hy = e.target.y();
-    // Hörnets position i layer-space → bredd/höjd (minst MIN)
-    const newW = Math.max(MIN_W, (hx - bubbleCx) * 2);
-    const newH = Math.max(MIN_H, (hy - bubbleCy) * 2);
+    const newW = Math.max(MIN_W, e.target.x());
+    const newH = Math.max(MIN_H, e.target.y());
     // Snappa handtaget till klampad storlek så det inte glider i väg
-    e.target.x(bubbleCx + newW / 2);
-    e.target.y(bubbleCy + newH / 2);
+    e.target.x(newW);
+    e.target.y(newH);
 
     rectRef.current?.width(newW);
     rectRef.current?.height(newH);
@@ -150,10 +155,8 @@ export function EquipmentNoteBubble({
   };
 
   const handleResizeDragEnd = (e: KonvaEventObject<DragEvent>) => {
-    const hx = e.target.x();
-    const hy = e.target.y();
-    const newW = Math.max(MIN_W, (hx - bubbleCx) * 2);
-    const newH = Math.max(MIN_H, (hy - bubbleCy) * 2);
+    const newW = Math.max(MIN_W, e.target.x());
+    const newH = Math.max(MIN_H, e.target.y());
     onSizeChange?.({ w: newW, h: newH });
   };
 
@@ -170,13 +173,16 @@ export function EquipmentNoteBubble({
         perfectDrawEnabled={false}
       />
 
-      {/* Note card – draggable, centered on (bubbleCx, bubbleCy) */}
+      {/* Note card – draggable, centered on (bubbleCx, bubbleCy). Counter-
+          roteras när hallen är 90°-roterad så att själva texten förblir
+          läsbar i skärmens riktning. */}
       <Group
         ref={groupRef}
         x={bubbleCx}
         y={bubbleCy}
         offsetX={bubbleW / 2}
         offsetY={bubbleH / 2}
+        rotation={hallRotated ? -90 : 0}
         draggable
         onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
@@ -210,31 +216,30 @@ export function EquipmentNoteBubble({
           fill="#374151"
           wrap="word"
         />
+        {/* Resize-handtag — osynligt men dragbart. Ligger i bubbel-lokala
+            koordinater (bubblans nedre-höger hörn) så det följer med
+            counter-rotationen. */}
+        {onSizeChange && (
+          <Circle
+            ref={handleRef}
+            x={bubbleW}
+            y={bubbleH}
+            radius={HANDLE_HIT}
+            fill="transparent"
+            draggable
+            onDragMove={handleResizeDragMove}
+            onDragEnd={handleResizeDragEnd}
+            onMouseEnter={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = "nwse-resize";
+            }}
+            onMouseLeave={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = "default";
+            }}
+          />
+        )}
       </Group>
-
-      {/* Resize-handtag — osynligt men dragbart. Hörnet ser ut som de
-          övriga tre rundade hörnen; användaren kan ändå greppa det för
-          att ändra storlek på rutan. */}
-      {onSizeChange && (
-        <Circle
-          ref={handleRef}
-          x={bubbleCx + bubbleW / 2}
-          y={bubbleCy + bubbleH / 2}
-          radius={HANDLE_HIT}
-          fill="transparent"
-          draggable
-          onDragMove={handleResizeDragMove}
-          onDragEnd={handleResizeDragEnd}
-          onMouseEnter={(e) => {
-            const stage = e.target.getStage();
-            if (stage) stage.container().style.cursor = "nwse-resize";
-          }}
-          onMouseLeave={(e) => {
-            const stage = e.target.getStage();
-            if (stage) stage.container().style.cursor = "default";
-          }}
-        />
-      )}
     </>
   );
 }

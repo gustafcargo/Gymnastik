@@ -117,6 +117,9 @@ function roundRectPath(
 /**
  * Ritar en anteckningsbubbla med dashed konnektorlinje till redskapet.
  * Används vid export eftersom drei:s <Html>-overlay inte syns i WebGL-snapshot.
+ * `widthCss` är bubblans CSS-bredd (matchar vad användaren ställt in i 2D/3D
+ * via resize eller default 130 px) så exporten behåller samma storlek som
+ * på skärmen.
  */
 function drawBubble(
   ctx: CanvasRenderingContext2D,
@@ -126,22 +129,23 @@ function drawBubble(
   eqCx: number,
   eqCy: number,
   dpr: number,
+  widthCss: number,
 ) {
   const FONT = 11 * dpr;
   const PX = 7 * dpr;
   const PY = 7 * dpr;
-  const DEFAULT_W = 130 * dpr;
   const MIN_W = 15 * dpr;
   const LINE = 14 * dpr;
   const RADIUS = 6 * dpr;
+  const boxWTarget = Math.max(MIN_W, widthCss * dpr);
 
   ctx.save();
   ctx.font = `${FONT}px system-ui, sans-serif`;
   ctx.textBaseline = "top";
 
   // Word-wrap varje rad (respekterar \n). Bredden matchar 2D-anteckningens
-  // default så att både editor och export känns konsistenta.
-  const availText = DEFAULT_W - PX * 2;
+  // faktiska storlek så att både editor och export känns konsistenta.
+  const availText = boxWTarget - PX * 2;
   const lines: string[] = [];
   text.split("\n").forEach((paragraph) => {
     if (!paragraph) {
@@ -162,7 +166,7 @@ function drawBubble(
     if (line) lines.push(line);
   });
 
-  const boxW = Math.max(MIN_W, DEFAULT_W);
+  const boxW = boxWTarget;
   const boxH = lines.length * LINE + PY * 2;
   const left = cx - boxW / 2;
   const top = cy - boxH / 2;
@@ -477,6 +481,8 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
         const esx = ((eqWorld.x + 1) / 2) * canvasW;
         const esy = ((1 - eqWorld.y) / 2) * canvasH;
 
+        // Respektera användarens egna storlek (samma värde som live-vyn läser)
+        const widthCss = Math.max(15, eq.noteSize?.w ?? 130);
         drawBubble(
           ctx,
           eq.notes,
@@ -485,6 +491,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
           esx + dx,
           esy + dy,
           dpr,
+          widthCss,
         );
       });
     };
