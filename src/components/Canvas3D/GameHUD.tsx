@@ -4,10 +4,10 @@
  * Touch: virtuell joystick (vänster) + hoppa-upp-knapp (höger).
  */
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, Sparkles, Volume2, VolumeX, Gamepad2, Dumbbell, Trophy, Timer, Play } from "lucide-react";
+import { X } from "lucide-react";
 import type { MountedExerciseInfo } from "./GameGymnast3D";
 import { GymnastStylePanel } from "./GymnastStylePanel";
-import { useAudioStore } from "../../store/useAudioStore";
+import { GameMenu } from "./GameMenu";
 import { useGameConfig, isProffsMode } from "../../store/useGameConfig";
 import { useGameScore } from "../../store/useGameScore";
 import { useGameMode } from "../../store/useGameMode";
@@ -42,7 +42,6 @@ type Props = {
 
 export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mountTriggerRef, speedRef, cameraResetRef, cameraOrbitRef, freeCamActive, onExit }: Props) {
   const [isTouch, setIsTouch] = useState(false);
-  const [speedDisplay, setSpeedDisplay] = useState(speedRef.current);
   const [styleOpen, setStyleOpen] = useState(false);
   // Pre-game-menyn ska alltid visas när spelläget öppnas. GameHUD monteras
   // fresh varje gång gameMode flippar till true, så useState(false) återställs
@@ -55,17 +54,7 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
   // alla poänggivande redskap (MAX_ATTEMPTS_PER_EQUIPMENT uppnått på samtliga)
   // avslutas spelet automatiskt och sammanfattningen visas.
   const failedEquipment = useGameScore((s) => s.failedEquipment);
-  const muted = useAudioStore((s) => s.muted);
-  const toggleMute = useAudioStore((s) => s.toggle);
   const difficulty = useGameConfig((s) => s.difficulty);
-  const toggleDifficulty = useGameConfig((s) => s.toggleDifficulty);
-  const gameMode = useGameMode((s) => s.gameMode);
-  const roundState = useGameMode((s) => s.roundState);
-  const lifetimeBest = useGameScore((s) => s.lifetimeBestTavling);
-  const [difficultyHintSeen, setDifficultyHintSeen] = useState<boolean>(() => {
-    try { return localStorage.getItem("gymnast-difficulty-hint-seen") === "1"; }
-    catch { return true; }
-  });
   const joyOrigin = useRef<{ x: number; y: number } | null>(null);
   const joyPointerId = useRef<number | null>(null);
   const joyKnobRef = useRef<HTMLDivElement>(null);
@@ -279,215 +268,12 @@ export function GameHUD({ nearEquipment, mountedExerciseInfo, joystickRef, mount
         <X size={14} /> Avsluta spelläge
       </button>
 
-      {/* Kamera-reset + fri kamera-indikator – övre höger under avsluta */}
-      <div style={{
-        position: "absolute", top: 52, right: 14,
-        display: "flex", flexDirection: "column", gap: 6, pointerEvents: "all",
-      }}>
-        <button
-          type="button"
-          onClick={() => { cameraResetRef.current = true; }}
-          style={{
-            display: "flex", alignItems: "center", gap: 5,
-            background: "rgba(10,18,32,0.78)", backdropFilter: "blur(6px)",
-            border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
-            color: "#f1f5f9", fontSize: 11, fontWeight: 600, padding: "5px 10px",
-            cursor: "pointer",
-          }}
-        >
-          <Camera size={13} /> Återställ kamera
-        </button>
-        {freeCamActive && (
-          <div style={{
-            background: "rgba(59,130,246,0.85)", borderRadius: 8,
-            padding: "4px 10px", color: "#fff", fontSize: 10, fontWeight: 600,
-            textAlign: "center",
-          }}>
-            Fri kamera aktiv (F)
-          </div>
-        )}
-      </div>
-
-      {/* Hastighetsreglage – övre höger under kameraknappar */}
-      <div style={{
-        position: "absolute", top: freeCamActive ? 128 : 92, right: 14,
-        background: "rgba(10,18,32,0.78)", backdropFilter: "blur(6px)",
-        border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
-        padding: "6px 10px", pointerEvents: "all", width: 140,
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#94a3b8", fontWeight: 600, marginBottom: 3 }}>
-          <span>Hastighet</span>
-          <span>{speedDisplay.toFixed(1)} m/s</span>
-        </div>
-        <input
-          type="range" min={1.5} max={5} step={0.1}
-          value={speedDisplay}
-          onChange={(e) => { const v = Number(e.target.value); setSpeedDisplay(v); speedRef.current = v; }}
-          style={{ width: "100%", accentColor: "#3B82F6", height: 4 }}
-        />
-      </div>
-
-      {/* Stil-knapp – öppnar enkel färg-/glitter-editor för barn */}
-      <button
-        type="button"
-        onClick={() => setStyleOpen(true)}
-        style={{
-          position: "absolute", top: freeCamActive ? 178 : 142, right: 14,
-          display: "flex", alignItems: "center", gap: 6,
-          background: "linear-gradient(135deg, rgba(236,72,153,0.85), rgba(168,85,247,0.85))",
-          backdropFilter: "blur(6px)",
-          border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8,
-          color: "#fff", fontSize: 11, fontWeight: 700, padding: "6px 12px",
-          cursor: "pointer", pointerEvents: "all",
-          boxShadow: "0 2px 10px rgba(168,85,247,0.35)",
-        }}
-      >
-        <Sparkles size={13} /> Stil
-      </button>
-
-      {/* Ljud-toggle – alla ljud på/av */}
-      <button
-        type="button"
-        onClick={toggleMute}
-        aria-label={muted ? "Slå på ljud" : "Stäng av ljud"}
-        style={{
-          position: "absolute", top: freeCamActive ? 214 : 178, right: 14,
-          display: "flex", alignItems: "center", gap: 6,
-          background: muted ? "rgba(100,116,139,0.78)" : "rgba(10,18,32,0.78)",
-          backdropFilter: "blur(6px)",
-          border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
-          color: "#f1f5f9", fontSize: 11, fontWeight: 600, padding: "6px 12px",
-          cursor: "pointer", pointerEvents: "all",
-        }}
-      >
-        {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
-        {muted ? "Ljud av" : "Ljud på"}
-      </button>
-
-      {/* Svårighetsgrad-toggle – auto/manuell/proffs */}
-      <div style={{
-        position: "absolute", top: freeCamActive ? 250 : 214, right: 14,
-        display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4,
-        pointerEvents: "all",
-      }}>
-        <button
-          type="button"
-          onClick={() => {
-            toggleDifficulty();
-            if (!difficultyHintSeen) {
-              setDifficultyHintSeen(true);
-              try { localStorage.setItem("gymnast-difficulty-hint-seen", "1"); } catch { /* ignore */ }
-            }
-          }}
-          aria-label={`Sv\u00e5righetsgrad: ${difficulty}. Klicka f\u00f6r att byta.`}
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background:
-              difficulty === "proffs"
-                ? "linear-gradient(135deg, rgba(245,158,11,0.92), rgba(234,88,12,0.92))"
-                : difficulty === "manuell"
-                ? "linear-gradient(135deg, rgba(34,197,94,0.88), rgba(16,185,129,0.88))"
-                : "rgba(10,18,32,0.78)",
-            backdropFilter: "blur(6px)",
-            border: `1px solid ${difficulty === "auto" ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.3)"}`,
-            borderRadius: 8,
-            color: "#f1f5f9", fontSize: 11, fontWeight: 700, padding: "6px 12px",
-            cursor: "pointer",
-            boxShadow:
-              difficulty === "proffs"
-                ? "0 2px 10px rgba(245,158,11,0.4)"
-                : difficulty === "manuell"
-                ? "0 2px 10px rgba(34,197,94,0.35)"
-                : "none",
-          }}
-        >
-          {difficulty === "proffs"
-            ? <Trophy size={13} />
-            : difficulty === "manuell"
-              ? <Dumbbell size={13} />
-              : <Gamepad2 size={13} />}
-          {difficulty === "proffs" ? "Proffs" : difficulty === "manuell" ? "Manuell" : "Auto"}
-        </button>
-        {difficulty !== "auto" && !difficultyHintSeen && (
-          <div style={{
-            background: "rgba(15,23,42,0.95)",
-            border: `1px solid ${difficulty === "proffs" ? "rgba(245,158,11,0.45)" : "rgba(34,197,94,0.4)"}`,
-            borderRadius: 6,
-            padding: "5px 9px",
-            color: "#cbd5e1", fontSize: 10, fontWeight: 500,
-            maxWidth: 200, textAlign: "right", lineHeight: 1.35,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-          }}>
-            {difficulty === "proffs"
-              ? "T\u00e4vlingsl\u00e4ge: tryck p\u00e5 hopp-knappen exakt vid r\u00e4tt \u00f6gonblick f\u00f6r po\u00e4ng"
-              : "Styr \u00f6vningen sj\u00e4lv med joysticken fram\u00e5t/bak\u00e5t"}
-          </div>
-        )}
-      </div>
-
-      {/* Tävlings-läges-toggle + starta-runda — bara synlig när proffs är valt */}
-      {isProffsMode(difficulty) && (
-        <div style={{
-          position: "absolute",
-          top: (freeCamActive ? 250 : 214) + 44,
-          right: 14,
-          display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6,
-          pointerEvents: "all",
-        }}>
-          <button
-            type="button"
-            onClick={() => useGameMode.getState().toggleGameMode()}
-            aria-label={`Spell\u00e4ge: ${gameMode}. Klicka f\u00f6r att byta.`}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: gameMode === "tavling"
-                ? "linear-gradient(135deg, rgba(239,68,68,0.92), rgba(185,28,28,0.92))"
-                : "rgba(10,18,32,0.78)",
-              backdropFilter: "blur(6px)",
-              border: `1px solid ${gameMode === "tavling" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)"}`,
-              borderRadius: 8,
-              color: "#f1f5f9", fontSize: 11, fontWeight: 700, padding: "6px 12px",
-              cursor: "pointer",
-              boxShadow: gameMode === "tavling" ? "0 2px 10px rgba(239,68,68,0.4)" : "none",
-            }}
-          >
-            <Timer size={13} />
-            {gameMode === "tavling" ? "T\u00e4vling" : "Fri"}
-          </button>
-          {gameMode === "tavling" && roundState === "idle" && (
-            <button
-              type="button"
-              onClick={() => {
-                useGameScore.getState().resetScore();
-                useGameMode.getState().startCountdown();
-              }}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: "linear-gradient(135deg, #22c55e, #16a34a)",
-                border: "1px solid rgba(255,255,255,0.3)",
-                borderRadius: 8,
-                color: "#fff", fontSize: 11, fontWeight: 800, padding: "6px 12px",
-                cursor: "pointer",
-                boxShadow: "0 2px 10px rgba(34,197,94,0.4)",
-              }}
-            >
-              <Play size={13} /> Starta runda
-            </button>
-          )}
-          {gameMode === "tavling" && lifetimeBest > 0 && roundState === "idle" && (
-            <div style={{
-              fontSize: 10, color: "#94a3b8", fontWeight: 600,
-              background: "rgba(10,18,32,0.6)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 6, padding: "3px 8px",
-            }}>
-              Personligt rekord: <span style={{ color: "#f59e0b", fontWeight: 800 }}>
-                {lifetimeBest.toLocaleString("sv-SE")}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      <GameMenu
+        speedRef={speedRef}
+        cameraResetRef={cameraResetRef}
+        freeCamActive={freeCamActive}
+        onOpenStyle={() => setStyleOpen(true)}
+      />
 
       {/* Rum-panel uppe till vänster (döljs när övningsmenyn visas där) */}
       {!mountedExerciseInfo && <RoomPanel />}
