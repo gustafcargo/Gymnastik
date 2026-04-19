@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
-import { supabase } from "./supabase";
+import { supabase, sbError } from "./supabase";
 
 export type ClubWithRole = {
   id: string;
@@ -62,7 +62,13 @@ export function useClubs() {
       .insert({ name: name.trim(), created_by: user.id })
       .select("id")
       .single();
-    if (err) throw err;
+    if (err) {
+      throw sbError(
+        err,
+        "Kunde inte skapa förening. Kör migrationen i Supabase och försök igen.",
+        "clubs.createClub",
+      );
+    }
     await refetch();
     return data.id as string;
   }, [user, refetch]);

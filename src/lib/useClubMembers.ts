@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
-import { supabase } from "./supabase";
+import { supabase, sbError } from "./supabase";
 import type { Capability, MemberRole } from "./capabilities";
 
 export type ClubMember = {
@@ -77,7 +77,7 @@ export function useClubMembers(clubId: string | null) {
       .update({ role })
       .eq("club_id", clubId)
       .eq("user_id", userId);
-    if (err) throw err;
+    if (err) throw sbError(err, "Kunde inte uppdatera roll.", "clubMembers.setRole");
     await refetch();
   }, [clubId, refetch]);
 
@@ -93,7 +93,7 @@ export function useClubMembers(clubId: string | null) {
         { club_id: clubId, user_id: userId, overrides },
         { onConflict: "club_id,user_id" },
       );
-    if (err) throw err;
+    if (err) throw sbError(err, "Kunde inte spara förmågor.", "clubMembers.setOverrides");
     await refetch();
   }, [clubId, refetch]);
 
@@ -105,7 +105,7 @@ export function useClubMembers(clubId: string | null) {
       .delete()
       .eq("club_id", clubId)
       .eq("user_id", userId);
-    if (err) throw err;
+    if (err) throw sbError(err, "Kunde inte ta bort medlem.", "clubMembers.remove");
     await refetch();
   }, [clubId, refetch]);
 
