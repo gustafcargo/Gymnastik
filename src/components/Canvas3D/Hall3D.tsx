@@ -66,20 +66,21 @@ function drawBubble(
   eqCy: number,
   dpr: number,
 ) {
-  const FONT = 12 * dpr;
-  const PX = 10 * dpr;
-  const PY = 6 * dpr;
-  const MAX_W = 220 * dpr;
-  const MIN_W = 60 * dpr;
-  const LINE = Math.round(1.45 * FONT);
-  const RADIUS = 8 * dpr;
+  const FONT = 11 * dpr;
+  const PX = 7 * dpr;
+  const PY = 7 * dpr;
+  const DEFAULT_W = 130 * dpr;
+  const MIN_W = 15 * dpr;
+  const LINE = 14 * dpr;
+  const RADIUS = 6 * dpr;
 
   ctx.save();
   ctx.font = `${FONT}px system-ui, sans-serif`;
   ctx.textBaseline = "top";
 
-  // Word-wrap varje rad (respekterar \n)
-  const availText = MAX_W - PX * 2;
+  // Word-wrap varje rad (respekterar \n). Bredden matchar 2D-anteckningens
+  // default så att både editor och export känns konsistenta.
+  const availText = DEFAULT_W - PX * 2;
   const lines: string[] = [];
   text.split("\n").forEach((paragraph) => {
     if (!paragraph) {
@@ -100,12 +101,7 @@ function drawBubble(
     if (line) lines.push(line);
   });
 
-  let contentW = MIN_W - PX * 2;
-  lines.forEach((l) => {
-    contentW = Math.max(contentW, ctx.measureText(l).width);
-  });
-  contentW = Math.min(contentW, availText);
-  const boxW = contentW + PX * 2;
+  const boxW = Math.max(MIN_W, DEFAULT_W);
   const boxH = lines.length * LINE + PY * 2;
   const left = cx - boxW / 2;
   const top = cy - boxH / 2;
@@ -120,16 +116,16 @@ function drawBubble(
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Bubbla
-  ctx.fillStyle = "rgba(255,255,255,0.96)";
-  ctx.strokeStyle = "rgba(100,116,139,0.55)";
-  ctx.lineWidth = 1.5 * dpr;
+  // Bubbla – cream + gold som i 2D
+  ctx.fillStyle = "rgba(255,251,210,0.96)";
+  ctx.strokeStyle = "#D4A820";
+  ctx.lineWidth = 1 * dpr;
   roundRectPath(ctx, left, top, boxW, boxH, RADIUS);
   ctx.fill();
   ctx.stroke();
 
   // Text
-  ctx.fillStyle = "#1e293b";
+  ctx.fillStyle = "#374151";
   lines.forEach((l, i) => {
     ctx.fillText(l, left + PX, top + PY + i * LINE);
   });
@@ -816,20 +812,21 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
                         e.stopPropagation();
                       }}
                       style={{
-                        background: "rgba(255,255,255,0.97)",
+                        background: "rgba(255,251,210,0.98)",
                         border: "2px solid #3B82F6",
-                        borderRadius: "8px",
-                        padding: "5px 10px",
-                        fontSize: "12px",
-                        color: "#1e293b",
-                        width: "160px",
-                        minWidth: "60px",
-                        minHeight: "64px",
+                        borderRadius: "6px",
+                        padding: "7px",
+                        fontSize: "11px",
+                        color: "#374151",
+                        width: "130px",
+                        minWidth: "15px",
+                        minHeight: "56px",
                         fontFamily: "system-ui, sans-serif",
                         resize: "both",
                         outline: "none",
-                        lineHeight: "1.45",
+                        lineHeight: `${14 / 11}`,
                         whiteSpace: "pre-wrap",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
                       }}
                     />
                   ) : (
@@ -855,23 +852,21 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
                         setEditingNoteId(eq.id);
                       }}
                       style={{
-                        background: "rgba(255,255,255,0.92)",
-                        border: "1.5px solid rgba(100,116,139,0.45)",
-                        borderRadius: "8px",
-                        padding: "5px 10px",
-                        fontSize: "12px",
-                        fontWeight: 450,
-                        color: "#1e293b",
-                        minWidth: "60px",
-                        maxWidth: "220px",
+                        background: "rgba(255,251,210,0.96)",
+                        border: "1px solid #D4A820",
+                        borderRadius: "6px",
+                        padding: "7px",
+                        fontSize: "11px",
+                        color: "#374151",
+                        width: "130px",
+                        minWidth: "15px",
                         fontFamily: "system-ui, sans-serif",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.14)",
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.18)",
                         wordBreak: "break-word",
                         whiteSpace: "pre-wrap",
-                        lineHeight: "1.45",
+                        lineHeight: `${14 / 11}`,
                         cursor: "grab",
                         userSelect: "none",
-                        backdropFilter: "blur(4px)",
                       }}
                     >
                       {eq.notes}

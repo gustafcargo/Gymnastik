@@ -20,7 +20,7 @@ const FONT_SIZE = 11;
 const LINE_HEIGHT = 14;
 const DEFAULT_MAX_LINES = 4;
 const DEFAULT_BUBBLE_H = BUBBLE_PADDING * 2 + LINE_HEIGHT * DEFAULT_MAX_LINES;
-const MIN_W = 40;
+const MIN_W = 15;
 const MIN_H = 24;
 // Osynlig hit-area för att kunna greppa nedre-höger hörnet. Ingen fill
 // eller stroke — hörnet ska se ut som de övriga tre rundade hörnen.
