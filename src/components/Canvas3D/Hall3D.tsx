@@ -56,13 +56,40 @@ class SilentR3FBoundary extends Component<
 }
 
 /**
+ * Yttre felgräns som fångar three.js krascher redan under Canvas:ens
+ * egen init (t.ex. `null is not an object (evaluating 'G.indexOf')` i
+ * WebGLCapabilities). SilentR3FBoundary ligger INUTI Canvas och hinner
+ * inte monteras innan init-fel slår, så utan det här skyddet bubblar
+ * krascher upp till app-nivåns error-boundary. Anropar onFail så att
+ * Hall3D kan visa sitt eget "3D inte tillgänglig"-UI med retry.
+ */
+class CanvasBootBoundary extends Component<
+  { children: ReactNode; onFail: (err: Error) => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(err: Error) {
+    console.warn("[3D] Canvas-init fallerade:", err?.message ?? err);
+    this.props.onFail(err);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/**
  * Pre-flight WebGL-sanity: three.js kraschar på äldre iPads med
  * "null is not an object (evaluating 'G.indexOf')" när getParameter
  * returnerar null (WebGLCapabilities läser VERSION-strängen och
- * anropar .indexOf direkt). Kör samma anrop själva i en throwaway-
- * canvas — om det fallerar monterar vi inte R3F alls, utan visar
- * ett vänligt meddelande istället för att krascha och bounce:a till
- * error-boundaryn.
+ * anropar .indexOf direkt). Det är den ENDA synkrona krasch som
+ * bypass:ar vår error-boundary, så det är det enda vi faktiskt
+ * behöver skydda mot här. Vi håller kollen minimal: kan vi få en
+ * GL-context + en icke-null VERSION-sträng räcker det. Att även
+ * kräva icke-null SHADING_LANGUAGE_VERSION / getSupportedExtensions
+ * gav false-negatives på äldre iPads som mycket väl klarar WebGL.
  */
 function isWebGLHealthy(): boolean {
   try {
@@ -75,13 +102,8 @@ function isWebGLHealthy(): boolean {
       ) as WebGLRenderingContext | null);
     if (!gl) return false;
     const version = gl.getParameter(gl.VERSION);
-    if (!version || typeof version !== "string") return false;
-    const sl = gl.getParameter(gl.SHADING_LANGUAGE_VERSION);
-    if (!sl || typeof sl !== "string") return false;
-    const exts = gl.getSupportedExtensions();
-    if (!Array.isArray(exts)) return false;
     gl.getExtension("WEBGL_lose_context")?.loseContext();
-    return true;
+    return typeof version === "string" && version.length > 0;
   } catch {
     return false;
   }
@@ -542,10 +564,78 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       }
     };
 
+    // Rita redskaps-etiketten (mörk pill med vit text) direkt på canvasen
+     // vid export. Samma projection som för notes: lokal punkt ovanför
+     // redskapet → skärmkoordinater.
+    const drawLabelsOnCanvas = (
+      ctx: CanvasRenderingContext2D,
+      dx: number,
+      dy: number,
+    ) => {
+      const plan = currentPlan();
+      const active = plan.stations.find((s) => s.id === plan.activeStationId);
+      if (!active) return;
+      const showLabels = usePlanStore.getState().showLabels;
+      const inGameMode = usePlanStore.getState().gameMode;
+      if (!showLabels || inGameMode) return;
+      const stackInfo = computeStackInfo(active.equipment);
+      const canvasW = gl.domElement.width;
+      const canvasH = gl.domElement.height;
+      const dpr = Math.max(1, canvasW / Math.max(1, gl.domElement.clientWidth));
+
+      const groupByEqId = new Map<string, THREE.Object3D>();
+      scene.traverse((obj) => {
+        if (obj.name && obj.name.startsWith("eq-")) {
+          groupByEqId.set(obj.name.slice(3), obj);
+        }
+      });
+
+      const FONT = 11 * dpr;
+      const PAD_X = 8 * dpr;
+      const PAD_Y = 2 * dpr;
+      const RADIUS = 5 * dpr;
+
+      ctx.save();
+      ctx.font = `600 ${FONT}px system-ui, sans-serif`;
+      ctx.textBaseline = "middle";
+
+      active.equipment.forEach((eq) => {
+        const type = getEquipmentById(eq.typeId);
+        if (!type) return;
+        const sInfo = stackInfo.get(eq.id);
+        if (sInfo && !sInfo.isLeader) return;
+        const group = groupByEqId.get(eq.id);
+        if (!group) return;
+
+        const baseLabel = eq.label ?? type.name;
+        const text =
+          sInfo && sInfo.count > 1 ? `${baseLabel} ×${sInfo.count}` : baseLabel;
+
+        const local = new THREE.Vector3(0, type.physicalHeightM + 0.28, 0);
+        const world = group.localToWorld(local.clone()).project(camera);
+        const cx = ((world.x + 1) / 2) * canvasW + dx;
+        const cy = ((1 - world.y) / 2) * canvasH + dy;
+
+        const textW = ctx.measureText(text).width;
+        const boxW = textW + PAD_X * 2;
+        const boxH = FONT + PAD_Y * 2 + 4 * dpr;
+
+        ctx.fillStyle = "rgba(15,23,42,0.82)";
+        roundRectPath(ctx, cx - boxW / 2, cy - boxH / 2, boxW, boxH, RADIUS);
+        ctx.fill();
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.textAlign = "center";
+        ctx.fillText(text, cx, cy);
+      });
+
+      ctx.restore();
+    };
+
     // Kopierar gl.domElement till en off-screen canvas (nedskalad om
-    // källan är större än MAX_EXPORT_DIM) och ritar note-bubblor över.
-    // Resultatet skickas sedan till composeA4Page som center-croppar
-    // in det i en A4-sida.
+    // källan är större än MAX_EXPORT_DIM) och ritar etiketter + note-
+    // bubblor över. Resultatet skickas sedan till composeA4Page som
+    // center-croppar in det i en A4-sida.
     const snapshotCanvas = (): HTMLCanvasElement | null => {
       const src = gl.domElement;
       const scale = computeScale(src.width, src.height);
@@ -559,6 +649,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       ctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, imgW, imgH);
       ctx.save();
       ctx.scale(scale, scale);
+      drawLabelsOnCanvas(ctx, 0, 0);
       drawNotesOnCanvas(ctx, 0, 0);
       ctx.restore();
       return out;
@@ -1063,10 +1154,30 @@ export function Hall3D({ className }: Props) {
   const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);
   const effectsRef = useRef<EffectsHandle | null>(null);
-  const [glHealthy] = useState(() => isWebGLHealthy());
+  const [glHealthy, setGlHealthy] = useState(() => isWebGLHealthy());
+  const [canvasFailed, setCanvasFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  if (!glHealthy) {
+  // En iPad som nyss vaknat ur sleep, eller vars GPU precis rivit en
+  // tidigare context, kan ge null från getParameter på första försöket
+  // men fungera fint strax efteråt. Om pre-flight-kollen fallerade,
+  // försök igen i nästa animation frame innan vi fastnar i fallback.
+  useEffect(() => {
+    if (glHealthy) return;
+    const raf = requestAnimationFrame(() => {
+      if (isWebGLHealthy()) setGlHealthy(true);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [glHealthy]);
+
+  const retry3D = () => {
+    setCanvasFailed(false);
+    setGlHealthy(isWebGLHealthy());
+    setRetryKey((k) => k + 1);
+  };
+
+  if (!glHealthy || canvasFailed) {
     return (
       <div
         className={className}
@@ -1087,25 +1198,44 @@ export function Hall3D({ className }: Props) {
             3D-vyn kan inte köras på den här enheten
           </div>
           <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 16 }}>
-            Din iPad eller webbläsare saknar WebGL-stöd som 3D-vyn kräver.
-            Använd 2D-editorn istället — den fungerar på alla enheter.
+            Din iPad eller webbläsare verkar ha tappat WebGL-stödet. Testa
+            "Försök igen" — det brukar räcka efter att enheten vaknat ur
+            viloläge. Annars fungerar 2D-editorn på alla enheter.
           </div>
-          <button
-            type="button"
-            onClick={() => usePlanStore.getState().setViewMode("2D")}
-            style={{
-              background: "#2563EB",
-              color: "#FFFFFF",
-              border: "none",
-              borderRadius: 6,
-              padding: "8px 16px",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Tillbaka till 2D
-          </button>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <button
+              type="button"
+              onClick={retry3D}
+              style={{
+                background: "#FFFFFF",
+                color: "#0F172A",
+                border: "none",
+                borderRadius: 6,
+                padding: "8px 16px",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Försök igen
+            </button>
+            <button
+              type="button"
+              onClick={() => usePlanStore.getState().setViewMode("2D")}
+              style={{
+                background: "#2563EB",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: 6,
+                padding: "8px 16px",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Tillbaka till 2D
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1114,49 +1244,54 @@ export function Hall3D({ className }: Props) {
   return (
     <div ref={containerRef} className={className} style={{ position: "relative" }}>
       {!gameMode && <A4CropGuide containerRef={containerRef} />}
-      <Canvas
-        shadows
-        dpr={[1, 2]}
-        camera={{
-          position: [cx + camDist * 0.55, camDist * 0.55, cz + camDist * 0.85],
-          fov: 38,
-          near: 0.1,
-          far: 500,
-        }}
-        gl={{
-          antialias: true,
-          // "default" är mer förlåtande än "high-performance" på äldre
-          // iPads där drivrutinen annars kan neka context-creation.
-          powerPreference: "default",
-          preserveDrawingBuffer: true,
-          failIfMajorPerformanceCaveat: false,
-        }}
+      <CanvasBootBoundary
+        key={retryKey}
+        onFail={() => setCanvasFailed(true)}
       >
-        <color attach="background" args={["#FFFFFF"]} />
-        {/* Mjuk fog: börjar först långt bortom hallen och faller ut ännu längre bort,
-            så läsbarheten i utkanterna inte försämras. */}
-        <fog attach="fog" args={["#FFFFFF", camDist * 3, camDist * 7]} />
+        <Canvas
+          shadows
+          dpr={[1, 2]}
+          camera={{
+            position: [cx + camDist * 0.55, camDist * 0.55, cz + camDist * 0.85],
+            fov: 38,
+            near: 0.1,
+            far: 500,
+          }}
+          gl={{
+            antialias: true,
+            // "default" är mer förlåtande än "high-performance" på äldre
+            // iPads där drivrutinen annars kan neka context-creation.
+            powerPreference: "default",
+            preserveDrawingBuffer: true,
+            failIfMajorPerformanceCaveat: false,
+          }}
+        >
+          <color attach="background" args={["#FFFFFF"]} />
+          {/* Mjuk fog: börjar först långt bortom hallen och faller ut ännu längre bort,
+              så läsbarheten i utkanterna inte försämras. */}
+          <fog attach="fog" args={["#FFFFFF", camDist * 3, camDist * 7]} />
 
-        <SilentR3FBoundary>
-          <Suspense fallback={null}>
-            <Environment preset="city" background={false} environmentIntensity={0.15} />
-          </Suspense>
-        </SilentR3FBoundary>
+          <SilentR3FBoundary>
+            <Suspense fallback={null}>
+              <Environment preset="city" background={false} environmentIntensity={0.15} />
+            </Suspense>
+          </SilentR3FBoundary>
 
-        <HallScene
-          W={W} H={H}
-          joystickRef={joystickRef}
-          mountTriggerRef={mountTriggerRef}
-          speedRef={speedRef}
-          cameraResetRef={cameraResetRef}
-          cameraOrbitRef={cameraOrbitRef}
-          freeCamEnabled={freeCamEnabled}
-          effectsRef={effectsRef}
-          onNearEquipment={setNearEquipment}
-          onMountedExercises={setMountedExerciseInfo}
-          onFreeCamChange={setFreeCamEnabled}
-        />
-      </Canvas>
+          <HallScene
+            W={W} H={H}
+            joystickRef={joystickRef}
+            mountTriggerRef={mountTriggerRef}
+            speedRef={speedRef}
+            cameraResetRef={cameraResetRef}
+            cameraOrbitRef={cameraOrbitRef}
+            freeCamEnabled={freeCamEnabled}
+            effectsRef={effectsRef}
+            onNearEquipment={setNearEquipment}
+            onMountedExercises={setMountedExerciseInfo}
+            onFreeCamChange={setFreeCamEnabled}
+          />
+        </Canvas>
+      </CanvasBootBoundary>
 
       {gameMode && (
         <>
