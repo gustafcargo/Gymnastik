@@ -1113,7 +1113,7 @@ export function Hall3D({ className }: Props) {
 
   return (
     <div ref={containerRef} className={className} style={{ position: "relative" }}>
-      <A4CropGuide containerRef={containerRef} />
+      {!gameMode && <A4CropGuide containerRef={containerRef} />}
       <Canvas
         shadows
         dpr={[1, 2]}
