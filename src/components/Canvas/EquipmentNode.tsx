@@ -8,6 +8,11 @@ import { EquipmentVisual } from "./EquipmentVisual";
 import { clampToHall, snap, snapRotation } from "../../lib/geometry";
 import { usePlanStore } from "../../store/usePlanStore";
 import type { StackInfo } from "../../lib/stackGroups";
+import {
+  INK,
+  LABEL_FONT_FAMILY,
+  SELECT_STROKE,
+} from "./visuals/designTokens";
 
 type Props = {
   equipment: PlacedEquipment;
@@ -96,6 +101,8 @@ export function EquipmentNode({
     showLabel && stackInfo && stackInfo.count > 1
       ? `${baseLabel} ×${stackInfo.count}`
       : baseLabel;
+  // Labels placeras under små redskap för att inte dölja silhuetten.
+  const smallEquipment = wPx < 40 || hPx < 40;
 
   return (
     <>
@@ -126,24 +133,21 @@ export function EquipmentNode({
         />
 
         {/* Label – visas om showLabels är på och (icke-matta eller stackledare).
-            listening={true} (default) means the label area also acts as a click/drag
-            target, extending the selectable zone beyond the visual shape. */}
+            Små redskap (< 40 px) får labeln under silhuetten så den inte skymmer. */}
         {showLabel && (
           <Text
             ref={textRef}
             x={wPx / 2}
-            y={hPx / 2}
+            y={smallEquipment ? hPx + 6 : hPx / 2}
             offsetX={LABEL_BOX_WIDTH / 2}
-            offsetY={LABEL_FONT_SIZE / 2}
+            offsetY={smallEquipment ? 0 : LABEL_FONT_SIZE / 2}
             width={LABEL_BOX_WIDTH}
             align="center"
             text={labelText}
             fontSize={LABEL_FONT_SIZE}
             fontStyle="600"
-            fill="#0F172A"
-            shadowColor="#FFFFFF"
-            shadowBlur={4}
-            shadowOpacity={0.7}
+            fontFamily={LABEL_FONT_FAMILY}
+            fill={INK}
             scaleX={1 / (equipment.scaleX || 1)}
             scaleY={1 / (equipment.scaleY || 1)}
           />
@@ -156,9 +160,9 @@ export function EquipmentNode({
           rotateEnabled
           resizeEnabled={false}
           enabledAnchors={[]}
-          anchorStroke="#2563EB"
-          borderStroke="#2563EB"
-          borderDash={[4, 4]}
+          anchorStroke={INK}
+          borderStroke={SELECT_STROKE}
+          borderDash={[2, 3]}
           rotateAnchorOffset={28}
         />
       )}
