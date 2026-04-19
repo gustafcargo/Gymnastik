@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Box,
+  Check,
   Download,
   FileText,
   FolderOpen,
   Gamepad2,
   Grid3x3,
   Image as ImageIcon,
+  Loader2,
   Maximize2,
   Menu,
+  Pencil,
   Plus,
   Redo2,
-  Save,
   Sliders,
   Square,
   MessageSquare,
@@ -61,7 +63,11 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "pending" | "saved">(
+    "saved",
+  );
   const exportRef = useRef<HTMLDivElement>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -72,6 +78,18 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
+
+  // Visa sparstatus när plan ändras. Auto-save sker redan i store:n; här
+  // speglar vi bara tillståndet så användaren ser att arbetet är sparat.
+  const planKey = `${plan.id}:${plan.updatedAt}`;
+  useEffect(() => {
+    setSaveState("pending");
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSaveState("saved"), 600);
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, [planKey]);
 
   const totalDuration = plan.stations.reduce(
     (acc, s) => acc + s.durationMin,
@@ -123,13 +141,18 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-gradient-to-br from-accent to-purple-500 text-white font-bold shadow-sm">
             G
           </div>
-          <input
-            type="text"
-            value={plan.name}
-            onChange={(e) => renamePlan(e.target.value)}
-            className="min-w-0 flex-1 border-b border-transparent bg-transparent text-sm font-semibold outline-none focus:border-accent sm:w-48"
-            aria-label="Passets namn"
-          />
+          <label className="group flex min-w-0 flex-1 items-center gap-1 rounded-md border border-surface-3 bg-surface-2/60 px-2 py-1 focus-within:border-accent focus-within:bg-white sm:w-48">
+            <Pencil size={12} className="shrink-0 text-slate-400 group-focus-within:text-accent" />
+            <input
+              type="text"
+              value={plan.name}
+              onChange={(e) => renamePlan(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400"
+              placeholder="Namn på passet"
+              aria-label="Passets namn"
+            />
+          </label>
+          <SaveIndicator state={saveState} />
         </div>
 
         <div className="hidden items-center gap-1 md:flex">
@@ -293,10 +316,6 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
                 >
                   <FileText size={16} /> PDF-dokument
                 </button>
-                <div className="border-t border-surface-3" />
-                <div className="flex items-center gap-2 px-3 py-2 text-xs text-slate-400">
-                  <Save size={13} /> Sparas automatiskt
-                </div>
               </div>
             )}
           </div>
@@ -304,6 +323,25 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
       </div>
       {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
     </>
+  );
+}
+
+function SaveIndicator({ state }: { state: "idle" | "pending" | "saved" }) {
+  const pending = state === "pending";
+  const label = pending ? "Sparar…" : "Sparat";
+  const Icon = pending ? Loader2 : Check;
+  return (
+    <div
+      className={
+        "flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium " +
+        (pending ? "text-amber-600" : "text-emerald-600")
+      }
+      title={pending ? "Passet sparas..." : "Passet är sparat i din webbläsare"}
+      aria-live="polite"
+    >
+      <Icon size={12} className={pending ? "animate-spin" : ""} />
+      <span className="hidden sm:inline">{label}</span>
+    </div>
   );
 }
 
