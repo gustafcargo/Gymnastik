@@ -1,9 +1,10 @@
 /**
  * useActiveHallInventory – om `plan.hall.id` är ett UUID (användar-skapad
  * hall i Supabase), slå upp redskaps-inventariet för den hallen och
- * returnera ett `Set<equipment_type_id>` som redskapspaletten kan
- * filtrera på. För de statiska mall-hallarna (liten/standard/…) finns
- * ingen koppling → returnera `null` = inget filter.
+ * returnera en `Map<equipment_type_id, quantity>` som redskapspaletten kan
+ * filtrera och räkna antal på. För de statiska mall-hallarna (liten/
+ * standard/…) finns ingen koppling → returnera `null` = inget filter,
+ * ingen antalsvisning.
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
@@ -12,20 +13,20 @@ import { usePlanStore } from "../store/usePlanStore";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function useActiveHallInventory(): Set<string> | null {
+export function useActiveHallInventory(): Map<string, number> | null {
   const hallId = usePlanStore((s) => s.plan.hall.id);
   const { user, loading } = useAuth();
-  const [allowed, setAllowed] = useState<Set<string> | null>(null);
+  const [inventory, setInventory] = useState<Map<string, number> | null>(null);
 
   useEffect(() => {
     if (loading) return;
     if (!UUID_RE.test(hallId)) {
-      setAllowed(null);
+      setInventory(null);
       return;
     }
     const c = supabase();
     if (!c || !user) {
-      setAllowed(null);
+      setInventory(null);
       return;
     }
     let cancelled = false;
@@ -38,18 +39,20 @@ export function useActiveHallInventory(): Set<string> | null {
       if (error) {
         // Tyst fallback — om läsning misslyckas låter vi paletten visa allt.
         console.warn("[useActiveHallInventory]", error.message);
-        setAllowed(null);
+        setInventory(null);
         return;
       }
-      const ids = (data ?? [])
-        .filter((r) => (r.quantity as number) > 0)
-        .map((r) => r.equipment_type_id as string);
-      setAllowed(new Set(ids));
+      const map = new Map<string, number>();
+      for (const r of data ?? []) {
+        const q = r.quantity as number;
+        if (q > 0) map.set(r.equipment_type_id as string, q);
+      }
+      setInventory(map);
     })();
     return () => {
       cancelled = true;
     };
   }, [hallId, user, loading]);
 
-  return allowed;
+  return inventory;
 }

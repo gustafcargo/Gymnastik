@@ -35,14 +35,32 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
   const customTypes = useCustomEquipmentStore((s) => s.customTypes);
   const removeCustomType = useCustomEquipmentStore((s) => s.removeCustomType);
   // När passets hall är en riktig (användar-skapad) hall: begränsa paletten
-  // till redskap som finns i hallens inventarie. För mallhallar är filtret
-  // null = visa allt.
-  const allowedIds = useActiveHallInventory();
+  // till redskap som finns i hallens inventarie och visa antal som finns
+  // kvar. För mallhallar är inventariet null = visa allt, inget antal.
+  const hallInventory = useActiveHallInventory();
+  const plan = usePlanStore((s) => s.plan);
+  const planUsage = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const st of plan.stations) {
+      for (const eq of st.equipment) {
+        m.set(eq.typeId, (m.get(eq.typeId) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [plan]);
+
+  // Returnerar antal kvar för ett redskap. null = ingen inventariebegränsning.
+  const remainingFor = (typeId: string): number | null => {
+    if (!hallInventory) return null;
+    const total = hallInventory.get(typeId) ?? 0;
+    const used = planUsage.get(typeId) ?? 0;
+    return Math.max(0, total - used);
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return EQUIPMENT_CATALOG.filter((t) => {
-      if (allowedIds && !allowedIds.has(t.id)) return false;
+      if (hallInventory && !hallInventory.has(t.id)) return false;
       if (activeCategory && t.category !== activeCategory) return false;
       if (!q) return true;
       return (
@@ -51,18 +69,18 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
         (t.description ?? "").toLowerCase().includes(q)
       );
     });
-  }, [query, activeCategory, allowedIds]);
+  }, [query, activeCategory, hallInventory]);
 
   const filteredCustom = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (activeCategory && activeCategory !== "eget") return [];
     return customTypes.filter((t) => {
-      if (allowedIds && !allowedIds.has(t.id)) return false;
+      if (hallInventory && !hallInventory.has(t.id)) return false;
       return !q ||
         t.name.toLowerCase().includes(q) ||
         (t.description ?? "").toLowerCase().includes(q);
     });
-  }, [query, activeCategory, customTypes, allowedIds]);
+  }, [query, activeCategory, customTypes, hallInventory]);
 
   const grouped = useMemo(() => {
     const g: Record<string, EquipmentType[]> = {};
@@ -179,6 +197,9 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
               {templates.map((tpl) => {
                 const baseType = getEquipmentById(tpl.baseTypeId);
                 if (!baseType) return null;
+                // När en inventarielista finns: dölj mallar som bygger på
+                // redskapstyper som inte alls finns i hallen.
+                if (hallInventory && !hallInventory.has(tpl.baseTypeId)) return null;
                 const displayType: EquipmentType = {
                   ...baseType,
                   color: tpl.customColor ?? baseType.color,
@@ -189,6 +210,7 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
                       tpl={tpl}
                       baseType={displayType}
                       compact={compact}
+                      remaining={remainingFor(tpl.baseTypeId)}
                       onActivate={() => handleTemplateActivate(tpl)}
                       onEdit={() => handleTemplateEdit(tpl)}
                       onDelete={() => removeTemplate(tpl.id)}
@@ -212,6 +234,7 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
                   <PaletteItem
                     type={item}
                     compact={compact}
+                    remaining={remainingFor(item.id)}
                     onActivate={() => handleActivate(item.id)}
                     onDelete={() => removeCustomType(item.id)}
                   />
@@ -237,6 +260,7 @@ export function EquipmentPalette({ onItemActivate, compact }: Props) {
                     <PaletteItem
                       type={item}
                       compact={compact}
+                      remaining={remainingFor(item.id)}
                       onActivate={() => handleActivate(item.id)}
                     />
                   </li>
@@ -293,6 +317,7 @@ function TemplateItem({
   onEdit,
   onDelete,
   compact,
+  remaining,
 }: {
   tpl: SavedEquipmentTemplate;
   baseType: EquipmentType;
@@ -300,22 +325,27 @@ function TemplateItem({
   onEdit: () => void;
   onDelete: () => void;
   compact?: boolean;
+  remaining: number | null;
 }) {
+  const exhausted = remaining !== null && remaining <= 0;
   return (
     <div
       className={
         "group flex w-full items-center gap-2 rounded-lg border border-accent/20 bg-accent-soft p-2 " +
+        (exhausted ? "opacity-50 " : "") +
         (compact ? "flex-col text-center" : "")
       }
     >
       <button
         type="button"
         onClick={onActivate}
+        disabled={exhausted}
         className={
-          "flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left " +
+          "flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed " +
+          (exhausted ? "" : "cursor-pointer ") +
           (compact ? "flex-col" : "")
         }
-        title={`Lägg till ${tpl.name}`}
+        title={exhausted ? `Inga fler ${baseType.name} finns i hallens inventarie` : `Lägg till ${tpl.name}`}
       >
         <div
           className={
@@ -329,7 +359,23 @@ function TemplateItem({
           <div className="truncate text-sm font-semibold text-accent-ink">
             {tpl.name}
           </div>
-          <div className="truncate text-xs text-slate-500">{baseType.name}</div>
+          <div className="truncate text-xs text-slate-500">
+            {baseType.name}
+            {remaining !== null && (
+              <>
+                {" · "}
+                <span
+                  className={
+                    exhausted
+                      ? "font-semibold text-rose-500"
+                      : "font-semibold text-slate-600"
+                  }
+                >
+                  {remaining} st
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </button>
       <div className="flex shrink-0 items-center gap-1 opacity-0 transition group-hover:opacity-100">
@@ -359,32 +405,49 @@ function PaletteItem({
   onActivate,
   onDelete,
   compact,
+  remaining,
 }: {
   type: EquipmentType;
   onActivate: () => void;
   onDelete?: () => void;
   compact?: boolean;
+  /** null = ingen inventariebegränsning, annars antal som finns kvar att lägga till. */
+  remaining: number | null;
 }) {
+  const exhausted = remaining !== null && remaining <= 0;
+
   const handleDragStart = (e: React.DragEvent<HTMLElement>) => {
+    if (exhausted) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData("application/x-gymnastik-equipment", type.id);
     e.dataTransfer.effectAllowed = "copy";
   };
 
+  const title = exhausted
+    ? `Inga fler ${type.name} finns i hallens inventarie`
+    : `Dra eller klicka för att lägga till ${type.name}`;
+
   return (
     <div
       className={
-        "group flex w-full cursor-grab items-center gap-3 rounded-lg border border-transparent bg-white p-2 text-left shadow-xs transition hover:border-accent/40 hover:bg-accent-soft active:cursor-grabbing " +
+        "group flex w-full items-center gap-3 rounded-lg border border-transparent bg-white p-2 text-left shadow-xs transition " +
+        (exhausted
+          ? "cursor-not-allowed opacity-50"
+          : "cursor-grab hover:border-accent/40 hover:bg-accent-soft active:cursor-grabbing ") +
         (compact ? "flex-col text-center" : "")
       }
-      draggable
+      draggable={!exhausted}
       onDragStart={handleDragStart}
-      title={`Dra eller klicka för att lägga till ${type.name}`}
+      title={title}
     >
       <button
         type="button"
         onClick={onActivate}
+        disabled={exhausted}
         className={
-          "flex min-w-0 flex-1 items-center gap-3 text-left " +
+          "flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed " +
           (compact ? "flex-col" : "")
         }
       >
@@ -402,6 +465,20 @@ function PaletteItem({
           </div>
           <div className="truncate text-xs text-slate-500">
             {formatMeters(type.widthM)} × {formatMeters(type.heightM)}
+            {remaining !== null && (
+              <>
+                {" · "}
+                <span
+                  className={
+                    exhausted
+                      ? "font-semibold text-rose-500"
+                      : "font-semibold text-slate-600"
+                  }
+                >
+                  {remaining} st
+                </span>
+              </>
+            )}
           </div>
         </div>
       </button>
