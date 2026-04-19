@@ -107,9 +107,12 @@ function getMatStackZ(
   return maxTop;
 }
 import {
+  commitPlan as commitPlanStorage,
   getActivePlanId,
   getPlan,
+  isCommittedPlan,
   listPlans,
+  pruneUncommittedPlans,
   savePlan as savePlanStorage,
   setActivePlanId,
   deletePlan as deletePlanStorage,
@@ -215,8 +218,12 @@ function createPlan(name = "Gymnastik"): Plan {
 }
 
 function initialPlan(): Plan {
+  // Vi startar *bara* in i ett gammalt pass om användaren uttryckligen
+  // sparat det (Ctrl/Cmd+S eller Spara-knappen). Ocommittade autosave-
+  // drafts får stanna i storage som kraschskydd under sessionen, men
+  // öppnas inte igen nästa gång appen startas — då får man ett tomt pass.
   const activeId = getActivePlanId();
-  if (activeId) {
+  if (activeId && isCommittedPlan(activeId)) {
     const saved = getPlan(activeId);
     if (saved) return saved;
   }
@@ -248,6 +255,17 @@ function withActiveStation(
     ),
     updatedAt: Date.now(),
   };
+}
+
+// Städa upp gamla autosave-drafts *innan* vi väljer startpass — annars
+// skulle getActivePlanId() peka på en ocommittad plan som sen ändå
+// ignoreras av initialPlan(), och drafts skulle ackumuleras för evigt.
+if (typeof window !== "undefined") {
+  try {
+    pruneUncommittedPlans();
+  } catch {
+    // Ignorera tyst: om storage är otillgängligt körs appen fortfarande.
+  }
 }
 
 export const usePlanStore = create<PlanStore>()(
@@ -313,6 +331,9 @@ export const usePlanStore = create<PlanStore>()(
         const firstStation = copy.stations[0];
         copy.activeStationId = firstStation?.id ?? nanoid();
         savePlanStorage(copy);
+        // Dupliceringen är en explicit användaråtgärd → kopian committas
+        // direkt så den dyker upp i Mina pass och överlever en omstart.
+        commitPlanStorage(copy.id);
         return copy.id;
       },
 
@@ -329,6 +350,7 @@ export const usePlanStore = create<PlanStore>()(
       savePlan: () =>
         set((state) => {
           savePlanStorage(state.plan);
+          commitPlanStorage(state.plan.id);
           setActivePlanId(state.plan.id);
           return { isDirty: false };
         }),
