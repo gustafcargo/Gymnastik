@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { BookmarkPlus, Copy, Pencil, Plus, RotateCw, Trash2, X } from "lucide-react";
-import { nanoid } from "nanoid";
 import { usePlanStore } from "../../store/usePlanStore";
 import { useSavedEquipmentStore } from "../../store/useSavedEquipmentStore";
 import { getEquipmentById } from "../../catalog/equipment";
@@ -8,8 +7,9 @@ import { EQUIPMENT_PARTS } from "../../catalog/equipmentParts";
 import { EQUIPMENT_PARAMS } from "../../catalog/equipmentParams";
 import { useExercisesForKind } from "../../catalog/exercises";
 import type { Exercise } from "../../catalog/exercises";
+import { equipmentTypeToCustomParts } from "../../catalog/kindToCustomParts";
 import { formatMeters } from "../../lib/geometry";
-import type { CustomEquipmentPart, GymnastConfig, EquipmentType } from "../../types";
+import type { GymnastConfig } from "../../types";
 import { CustomEquipmentModal } from "../CustomEquipmentModal";
 
 type Props = {
@@ -408,19 +408,6 @@ export function PropertyPanel({ onClose }: Props) {
       )}
     </div>
   );
-}
-
-/** Konverterar katalog-utrustningstyp till enkel CustomEquipmentPart[]-approximation. */
-function equipmentTypeToCustomParts(type: EquipmentType): CustomEquipmentPart[] {
-  // Om redan custom med delar, återanvänd dem
-  if (type.customParts?.length) return type.customParts.map(p => ({ ...p, id: nanoid(6) }));
-  // Annars: skapa grundform baserat på dimensioner
-  return [{
-    id: nanoid(6), shape: "box" as const,
-    offsetX: 0, offsetY: 0, offsetZ: 0,
-    w: type.widthM, h: type.physicalHeightM, d: type.heightM,
-    color: type.color,
-  }];
 }
 
 function PartColorsSection({

@@ -13,13 +13,10 @@ import {
 type Props = {
   hall: HallTemplate;
   pxPerM: number;
-  title?: string;
 };
 
 const DIM_OFFSET = 22;
 const ARROW = 6;
-// Title sits well above the dimension line so they don't visually touch.
-const TITLE_Y = -72;
 const LABEL_FONT_SIZE = 11;
 
 /**
@@ -27,7 +24,7 @@ const LABEL_FONT_SIZE = 11;
  * kantdimensioner. Skalstock i nedre vänstra hörn hjälper läsaren att
  * kalibrera ögat vid utskrift.
  */
-export function HallFloor({ hall, pxPerM, title }: Props) {
+export function HallFloor({ hall, pxPerM }: Props) {
   const showGrid = usePlanStore((s) => s.snapToGrid);
   const wPx = hall.widthM * pxPerM;
   const hPx = hall.heightM * pxPerM;
@@ -62,11 +59,6 @@ export function HallFloor({ hall, pxPerM, title }: Props) {
     );
   }
 
-  // 5 m skalstock (nedre vänstra hörnet, utanför hallen)
-  const scaleBarLen = 5 * pxPerM;
-  const scaleBarH = 5;
-  const scaleBarY = hPx + 24;
-
   return (
     <Group>
       {/* Papper – varm off-white, inga gradienter */}
@@ -92,22 +84,6 @@ export function HallFloor({ hall, pxPerM, title }: Props) {
         listening={false}
       />
 
-      {/* Passrubrik ovanför hallen */}
-      {title && title.trim().length > 0 && (
-        <Text
-          x={0}
-          y={TITLE_Y}
-          width={wPx}
-          align="center"
-          text={title}
-          fontSize={18}
-          fontFamily={LABEL_FONT_FAMILY}
-          fontStyle="700"
-          fill={INK}
-          listening={false}
-        />
-      )}
-
       {/* Kantdimension — topp (bredd) */}
       <DimensionLine
         orientation="horizontal"
@@ -122,9 +98,49 @@ export function HallFloor({ hall, pxPerM, title }: Props) {
         offset={-DIM_OFFSET}
         label={`${hall.heightM} m`}
       />
+    </Group>
+  );
+}
 
-      {/* Skalstock 5 m, segmenterad svart/vit */}
-      <Group x={0} y={scaleBarY}>
+/**
+ * Passrubrik + 5 m skalstock som ska stanna skärm-upprätta även när hallen
+ * roteras 90° för att fylla en liggande container. Renderas utanför den
+ * roterade Group:en i HallStage.
+ */
+export function HallChrome({
+  title,
+  displayedW,
+  displayedH,
+  pxPerM,
+}: {
+  title?: string;
+  displayedW: number;
+  displayedH: number;
+  pxPerM: number;
+}) {
+  const scaleBarLen = 5 * pxPerM;
+  const scaleBarH = 5;
+  // Rubriken ligger en bit ovanför den synliga ovankanten
+  const TITLE_GAP = 72;
+  const hasTitle = !!title && title.trim().length > 0;
+  return (
+    <Group>
+      {hasTitle && (
+        <Text
+          x={-displayedW / 2}
+          y={-displayedH / 2 - TITLE_GAP}
+          width={displayedW}
+          align="center"
+          text={title!}
+          fontSize={18}
+          fontFamily={LABEL_FONT_FAMILY}
+          fontStyle="700"
+          fill={INK}
+          listening={false}
+        />
+      )}
+      {/* Skalstock i nedre vänstra hörn, utanför hallen */}
+      <Group x={-displayedW / 2} y={displayedH / 2 + 24}>
         <Rect
           x={0}
           y={0}
