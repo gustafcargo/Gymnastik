@@ -21,6 +21,19 @@ type ViewportState = {
   orbit: { yaw: number; pitch: number; distScale: number };
   setOrbit: (o: { yaw: number; pitch: number; distScale: number }) => void;
   reset3D: () => void;
+
+  // 3D-editor-kamera: exakt position + target vid senaste
+  // användarinteraktionen. Persistas separat från orbit eftersom
+  // orbit är spelägets touch-gest-offset. null = använd default
+  // från Hall3D vid mount.
+  editorCam: {
+    position: [number, number, number];
+    target: [number, number, number];
+  } | null;
+  setEditorCam: (cam: {
+    position: [number, number, number];
+    target: [number, number, number];
+  }) => void;
 };
 
 export const useViewport = create<ViewportState>((set) => ({
@@ -34,4 +47,7 @@ export const useViewport = create<ViewportState>((set) => ({
   orbit: { yaw: 0, pitch: 0, distScale: 1 },
   setOrbit: (orbit) => set({ orbit }),
   reset3D: () => set({ orbit: { yaw: 0, pitch: 0, distScale: 1 } }),
+
+  editorCam: null,
+  setEditorCam: (editorCam) => set({ editorCam }),
 }));

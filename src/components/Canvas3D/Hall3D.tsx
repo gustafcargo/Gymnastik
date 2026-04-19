@@ -295,25 +295,37 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
   const stationRef = useRef<Station | undefined>(station);
   useEffect(() => { stationRef.current = station; }, [station]);
 
-  // ── Editor-kamera: spara/återställ över spelläget ────────────────────────
-  // GameGymnast3D skriver direkt till `camera.position` + `camera.lookAt()`
-  // under spelläget. När det avslutas står kameran där gymnasten lämnade
-  // den → editorns vy "hoppar". OrbitControls exponerar saveState()/reset()
-  // som sparar/återställer target, camera.position och zoom i ett svep
-  // (och nollställer damping-state) — det är mycket mer robust än att
-  // manuellt copy:a camera-fält, eftersom OrbitControls annars räknar
-  // om camera.position från sina egna sphericalkoordinater.
-  const savedCamRef = useRef(false);
+  // ── Editor-kamera: persistas över unmount ────────────────────────────────
+  // App.tsx returnerar OLIKA toppnivå-träd beroende på gameMode, så Hall3D
+  // unmountas och remountas varje gång spelläget togglar. OrbitControls får
+  // en fresh instans → in-component saveState/reset kan inte överleva.
+  // Lösning: skriv editor-kamerans position + target till useViewport på
+  // varje OrbitControls "change"-event (men bara när spelläget är AV, för
+  // spelets kamera skrivs också till samma camera-objekt), och läs tillbaka
+  // vid mount.
   useEffect(() => {
-    if (!orbitRef.current) return;
-    if (gameModeActive) {
-      orbitRef.current.saveState();
-      savedCamRef.current = true;
-    } else if (savedCamRef.current) {
-      orbitRef.current.reset();
-      savedCamRef.current = false;
+    const ctl = orbitRef.current;
+    if (!ctl) return;
+    // Applicera sparad kamera vid mount.
+    const saved = useViewport.getState().editorCam;
+    if (saved) {
+      camera.position.set(...saved.position);
+      ctl.target.set(...saved.target);
+      ctl.update();
     }
-  }, [gameModeActive]);
+    // Lyssna på change → persistera, men aldrig under spelläge.
+    const onChange = () => {
+      if (usePlanStore.getState().gameMode) return;
+      useViewport.getState().setEditorCam({
+        position: [camera.position.x, camera.position.y, camera.position.z],
+        target: [ctl.target.x, ctl.target.y, ctl.target.z],
+      });
+    };
+    ctl.addEventListener("change", onChange);
+    return () => {
+      ctl.removeEventListener("change", onChange);
+    };
+  }, [camera]);
 
   // ── Note bubble drag state ────────────────────────────────────────────────
   type Notedrag = {
