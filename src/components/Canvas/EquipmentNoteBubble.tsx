@@ -22,7 +22,9 @@ const DEFAULT_MAX_LINES = 4;
 const DEFAULT_BUBBLE_H = BUBBLE_PADDING * 2 + LINE_HEIGHT * DEFAULT_MAX_LINES;
 const MIN_W = 70;
 const MIN_H = 32;
-const HANDLE_R = 5;
+// Osynlig hit-area för att kunna greppa nedre-höger hörnet. Ingen fill
+// eller stroke — hörnet ska se ut som de övriga tre rundade hörnen.
+const HANDLE_HIT = 14;
 
 /** Default bubble offset: place it above-right of the equipment. */
 function defaultOffset(type: EquipmentType) {
@@ -196,18 +198,16 @@ export function EquipmentNoteBubble({
         />
       </Group>
 
-      {/* Resize-handtag (nedre höger hörn). Ligger som syskon till bubbel-
-          gruppen i layer-space så vi kan läsa dess absoluta position
-          direkt utan att kompensera för Group-offset under drag. */}
+      {/* Resize-handtag — osynligt men dragbart. Hörnet ser ut som de
+          övriga tre rundade hörnen; användaren kan ändå greppa det för
+          att ändra storlek på rutan. */}
       {onSizeChange && (
         <Circle
           ref={handleRef}
           x={bubbleCx + bubbleW / 2}
           y={bubbleCy + bubbleH / 2}
-          radius={HANDLE_R}
-          fill="#D4A820"
-          stroke="#fff"
-          strokeWidth={1}
+          radius={HANDLE_HIT}
+          fill="transparent"
           draggable
           onDragMove={handleResizeDragMove}
           onDragEnd={handleResizeDragEnd}
