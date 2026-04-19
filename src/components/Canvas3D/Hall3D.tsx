@@ -27,6 +27,117 @@ import type { Station } from "../../types";
 type Props = { className?: string };
 
 // ---------------------------------------------------------------------------
+// Export helpers
+// ---------------------------------------------------------------------------
+
+/** Ritar en rundad rektangel-kontur på en 2D-canvas. */
+function roundRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.arcTo(x + w, y, x + w, y + rr, rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.arcTo(x + w, y + h, x + w - rr, y + h, rr);
+  ctx.lineTo(x + rr, y + h);
+  ctx.arcTo(x, y + h, x, y + h - rr, rr);
+  ctx.lineTo(x, y + rr);
+  ctx.arcTo(x, y, x + rr, y, rr);
+  ctx.closePath();
+}
+
+/**
+ * Ritar en anteckningsbubbla med dashed konnektorlinje till redskapet.
+ * Används vid export eftersom drei:s <Html>-overlay inte syns i WebGL-snapshot.
+ */
+function drawBubble(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  cx: number,
+  cy: number,
+  eqCx: number,
+  eqCy: number,
+  dpr: number,
+) {
+  const FONT = 12 * dpr;
+  const PX = 10 * dpr;
+  const PY = 6 * dpr;
+  const MAX_W = 220 * dpr;
+  const MIN_W = 60 * dpr;
+  const LINE = Math.round(1.45 * FONT);
+  const RADIUS = 8 * dpr;
+
+  ctx.save();
+  ctx.font = `${FONT}px system-ui, sans-serif`;
+  ctx.textBaseline = "top";
+
+  // Word-wrap varje rad (respekterar \n)
+  const availText = MAX_W - PX * 2;
+  const lines: string[] = [];
+  text.split("\n").forEach((paragraph) => {
+    if (!paragraph) {
+      lines.push("");
+      return;
+    }
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    let line = "";
+    words.forEach((w) => {
+      const test = line ? `${line} ${w}` : w;
+      if (ctx.measureText(test).width > availText && line) {
+        lines.push(line);
+        line = w;
+      } else {
+        line = test;
+      }
+    });
+    if (line) lines.push(line);
+  });
+
+  let contentW = MIN_W - PX * 2;
+  lines.forEach((l) => {
+    contentW = Math.max(contentW, ctx.measureText(l).width);
+  });
+  contentW = Math.min(contentW, availText);
+  const boxW = contentW + PX * 2;
+  const boxH = lines.length * LINE + PY * 2;
+  const left = cx - boxW / 2;
+  const top = cy - boxH / 2;
+
+  // Dashed konnektor eq → note
+  ctx.strokeStyle = "#475569";
+  ctx.lineWidth = 1 * dpr;
+  ctx.setLineDash([5 * dpr, 4 * dpr]);
+  ctx.beginPath();
+  ctx.moveTo(eqCx, eqCy);
+  ctx.lineTo(cx, cy);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Bubbla
+  ctx.fillStyle = "rgba(255,255,255,0.96)";
+  ctx.strokeStyle = "rgba(100,116,139,0.55)";
+  ctx.lineWidth = 1.5 * dpr;
+  roundRectPath(ctx, left, top, boxW, boxH, RADIUS);
+  ctx.fill();
+  ctx.stroke();
+
+  // Text
+  ctx.fillStyle = "#1e293b";
+  lines.forEach((l, i) => {
+    ctx.fillText(l, left + PX, top + PY + i * LINE);
+  });
+
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
 // Inner scene – lives inside Canvas so it can call useThree
 // ---------------------------------------------------------------------------
 
@@ -257,6 +368,70 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
     const safeName = (s: string) =>
       s.replace(/[^\w\-]+/g, "_").slice(0, 60) || "pass";
 
+    // Rita anteckningsbubblor direkt på 2D-canvasen vid export. HTML-overlays
+    // från drei <Html> hamnar inte i WebGL-snapshoten, så vi projicerar
+    // positionen manuellt och ritar en liknande bubbla med dashed konnektor.
+    const drawNotesOnCanvas = (
+      ctx: CanvasRenderingContext2D,
+      dx: number,
+      dy: number,
+    ) => {
+      const plan = currentPlan();
+      const active = plan.stations.find((s) => s.id === plan.activeStationId);
+      if (!active) return;
+      const showNotes = usePlanStore.getState().showNotes;
+      if (!showNotes) return;
+      const stackInfo = computeStackInfo(active.equipment);
+      const canvasW = gl.domElement.width;
+      const canvasH = gl.domElement.height;
+      const dpr = Math.max(1, canvasW / Math.max(1, gl.domElement.clientWidth));
+
+      // Hitta equipment-grupper i scenen efter namn → snabbare lookup
+      const groupByEqId = new Map<string, THREE.Object3D>();
+      scene.traverse((obj) => {
+        if (obj.name && obj.name.startsWith("eq-")) {
+          groupByEqId.set(obj.name.slice(3), obj);
+        }
+      });
+
+      active.equipment.forEach((eq) => {
+        if (!eq.notes) return;
+        const type = getEquipmentById(eq.typeId);
+        if (!type) return;
+        const sInfo = stackInfo.get(eq.id);
+        if (sInfo && !sInfo.isLeader) return;
+        const group = groupByEqId.get(eq.id);
+        if (!group) return;
+
+        const noteOffX = eq.noteOffset?.x ?? type.widthM / 2 + 0.6;
+        const noteOffZ = eq.noteOffset?.y ?? -(type.heightM / 2 + 0.6);
+
+        const noteLocal = new THREE.Vector3(
+          noteOffX,
+          type.physicalHeightM + 0.5,
+          noteOffZ,
+        );
+        const noteWorld = group.localToWorld(noteLocal.clone()).project(camera);
+        const nsx = ((noteWorld.x + 1) / 2) * canvasW;
+        const nsy = ((1 - noteWorld.y) / 2) * canvasH;
+
+        const eqLocal = new THREE.Vector3(0, type.physicalHeightM * 0.7, 0);
+        const eqWorld = group.localToWorld(eqLocal.clone()).project(camera);
+        const esx = ((eqWorld.x + 1) / 2) * canvasW;
+        const esy = ((1 - eqWorld.y) / 2) * canvasH;
+
+        drawBubble(
+          ctx,
+          eq.notes,
+          nsx + dx,
+          nsy + dy,
+          esx + dx,
+          esy + dy,
+          dpr,
+        );
+      });
+    };
+
     // Komponerar 3D-canvasen på en off-screen canvas med vit header så
     // passets rubrik hamnar i övre vänstra hörnet på den exporterade
     // bilden. 3D-canvasen är normalt svart där den är tom, vilket blir
@@ -281,11 +456,23 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       ctx.font = "400 13px InterVariable, Inter, system-ui, sans-serif";
       const active = plan.stations.find((s) => s.id === plan.activeStationId);
       const stationName = active?.name ?? "";
-      const meta = `${stationName}  •  ${plan.hall.name}  •  ${new Date(
-        plan.updatedAt,
-      ).toLocaleDateString("sv-SE")}`;
-      ctx.fillText(meta, 16, 38);
+      const metaParts = [stationName, plan.hall.name].filter(Boolean);
+      ctx.fillText(metaParts.join("  •  "), 16, 38);
       ctx.drawImage(src, 0, headerH);
+      drawNotesOnCanvas(ctx, 0, headerH);
+      return out.toDataURL("image/png");
+    };
+
+    // Bild utan header för PDF-exporten (PDF:en ritar egen rubrik-text)
+    const composeForPdf = () => {
+      const src = gl.domElement;
+      const out = document.createElement("canvas");
+      out.width = src.width;
+      out.height = src.height;
+      const ctx = out.getContext("2d");
+      if (!ctx) return src.toDataURL("image/png");
+      ctx.drawImage(src, 0, 0);
+      drawNotesOnCanvas(ctx, 0, 0);
       return out.toDataURL("image/png");
     };
 
@@ -302,7 +489,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
 
     const onExportPdf = async () => {
       const plan = currentPlan();
-      const dataUrl = gl.domElement.toDataURL("image/png");
+      const dataUrl = composeForPdf();
       const { jsPDF } = await import("jspdf");
       const pdf = new jsPDF({
         orientation: "landscape",
@@ -321,13 +508,8 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       pdf.setFontSize(10);
       const active = plan.stations.find((s) => s.id === plan.activeStationId);
       const stationName = active?.name ?? "";
-      pdf.text(
-        `${stationName}  •  ${plan.hall.name}  •  ${new Date(
-          plan.updatedAt,
-        ).toLocaleDateString("sv-SE")}`,
-        margin,
-        margin + 12,
-      );
+      const metaParts = [stationName, plan.hall.name].filter(Boolean);
+      pdf.text(metaParts.join("  •  "), margin, margin + 12);
       const imgW = gl.domElement.width;
       const imgH = gl.domElement.height;
       const availW = pageW - margin * 2;
@@ -354,7 +536,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       window.removeEventListener("gymnastik:export-3d-png", onExportPng);
       window.removeEventListener("gymnastik:export-3d-pdf", pdfWrapper);
     };
-  }, [gl]);
+  }, [gl, scene, camera]);
 
   return (
     <>
@@ -641,11 +823,13 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
                         fontSize: "12px",
                         color: "#1e293b",
                         width: "160px",
+                        minWidth: "60px",
                         minHeight: "64px",
                         fontFamily: "system-ui, sans-serif",
-                        resize: "none",
+                        resize: "both",
                         outline: "none",
                         lineHeight: "1.45",
+                        whiteSpace: "pre-wrap",
                       }}
                     />
                   ) : (
@@ -678,11 +862,12 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
                         fontSize: "12px",
                         fontWeight: 450,
                         color: "#1e293b",
-                        width: "160px",
+                        minWidth: "60px",
+                        maxWidth: "220px",
                         fontFamily: "system-ui, sans-serif",
                         boxShadow: "0 4px 12px rgba(0,0,0,0.14)",
                         wordBreak: "break-word",
-                        whiteSpace: "normal",
+                        whiteSpace: "pre-wrap",
                         lineHeight: "1.45",
                         cursor: "grab",
                         userSelect: "none",
@@ -801,7 +986,9 @@ export function Hall3D({ className }: Props) {
         }}
       >
         <color attach="background" args={["#DDE3E8"]} />
-        <fog attach="fog" args={["#DDE3E8", camDist * 1.4, camDist * 3]} />
+        {/* Mjuk fog: börjar först långt bortom hallen och faller ut ännu längre bort,
+            så läsbarheten i utkanterna inte försämras. */}
+        <fog attach="fog" args={["#DDE3E8", camDist * 3, camDist * 7]} />
 
         <Suspense fallback={null}>
           <Environment preset="city" background={false} environmentIntensity={0.15} />
