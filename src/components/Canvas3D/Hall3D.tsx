@@ -608,34 +608,59 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
         const out = withHiResRender(() => composeForPdf());
         if (!out) return;
         const { jsPDF } = await import("jspdf");
+        // Välj A4-orientering som minimerar död yta runt bilden.
+        const A4_LONG = 297;
+        const A4_SHORT = 210;
+        const margin = 8;
+        const headerH = 16;
+        const imgW = out.width;
+        const imgH = out.height;
+        const candidates = [
+          {
+            orient: "landscape" as const,
+            pageW: A4_LONG,
+            pageH: A4_SHORT,
+            availW: A4_LONG - margin * 2,
+            availH: A4_SHORT - margin * 2 - headerH,
+          },
+          {
+            orient: "portrait" as const,
+            pageW: A4_SHORT,
+            pageH: A4_LONG,
+            availW: A4_SHORT - margin * 2,
+            availH: A4_LONG - margin * 2 - headerH,
+          },
+        ];
+        let best = candidates[0];
+        let bestArea = 0;
+        for (const c of candidates) {
+          const r = Math.min(c.availW / imgW, c.availH / imgH);
+          const area = imgW * r * (imgH * r);
+          if (area > bestArea) {
+            bestArea = area;
+            best = c;
+          }
+        }
         const pdf = new jsPDF({
-          orientation: "landscape",
+          orientation: best.orient,
           unit: "mm",
           format: "a4",
         });
-        const pageW = pdf.internal.pageSize.getWidth();
-        const pageH = pdf.internal.pageSize.getHeight();
-        const margin = 12;
-        const headerH = 18;
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(14);
         pdf.text(plan.name, margin, margin + 6);
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(10);
         pdf.text(plan.hall.name, margin, margin + 12);
-        const imgW = out.width;
-        const imgH = out.height;
-        const availW = pageW - margin * 2;
-        const availH = pageH - margin * 2 - headerH;
-        const ratio = Math.min(availW / imgW, availH / imgH);
+        const ratio = Math.min(best.availW / imgW, best.availH / imgH);
         const w = imgW * ratio;
         const h = imgH * ratio;
         // jsPDF accepterar canvas direkt — undviker base64-mellanled
         pdf.addImage(
           out,
           "PNG",
-          margin + (availW - w) / 2,
-          margin + headerH + (availH - h) / 2,
+          margin + (best.availW - w) / 2,
+          margin + headerH + (best.availH - h) / 2,
           w,
           h,
         );
