@@ -1,4 +1,5 @@
-import { Suspense, useRef, useEffect, useCallback, useMemo, useState } from "react";
+import { Component, Suspense, useRef, useEffect, useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import {
   Environment,
@@ -25,6 +26,27 @@ import { PROFFS_HALL, PROFFS_STATION } from "../../catalog/proffsArena";
 import type { Station } from "../../types";
 
 type Props = { className?: string };
+
+// ---------------------------------------------------------------------------
+// Tyst felgräns för icke-kritiska R3F-barn (t.ex. HDR-Environment på äldre
+// iPad/Safari där RGBE-loadern kan smälla). Vi fångar felet och renderar
+// ingenting, så 3D-vyn i övrigt är fortfarande användbar.
+// ---------------------------------------------------------------------------
+class SilentR3FBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(err: Error) {
+    console.warn("[3D] non-fatal:", err?.message ?? err);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Export helpers
@@ -979,9 +1001,11 @@ export function Hall3D({ className }: Props) {
             så läsbarheten i utkanterna inte försämras. */}
         <fog attach="fog" args={["#DDE3E8", camDist * 3, camDist * 7]} />
 
-        <Suspense fallback={null}>
-          <Environment preset="city" background={false} environmentIntensity={0.15} />
-        </Suspense>
+        <SilentR3FBoundary>
+          <Suspense fallback={null}>
+            <Environment preset="city" background={false} environmentIntensity={0.15} />
+          </Suspense>
+        </SilentR3FBoundary>
 
         <HallScene
           W={W} H={H}
