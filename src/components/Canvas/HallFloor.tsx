@@ -13,17 +13,20 @@ import {
 type Props = {
   hall: HallTemplate;
   pxPerM: number;
+  title?: string;
 };
 
 const DIM_OFFSET = 22;
 const ARROW = 6;
+const TITLE_Y = -48;
+const LABEL_FONT_SIZE = 11;
 
 /**
  * Ritar hallgolvet som ett blueprint-papper med millimeter-grid och
  * kantdimensioner. Skalstock i nedre vänstra hörn hjälper läsaren att
  * kalibrera ögat vid utskrift.
  */
-export function HallFloor({ hall, pxPerM }: Props) {
+export function HallFloor({ hall, pxPerM, title }: Props) {
   const showGrid = usePlanStore((s) => s.snapToGrid);
   const wPx = hall.widthM * pxPerM;
   const hPx = hall.heightM * pxPerM;
@@ -87,6 +90,22 @@ export function HallFloor({ hall, pxPerM }: Props) {
         strokeWidth={0.8}
         listening={false}
       />
+
+      {/* Passrubrik ovanför hallen */}
+      {title && title.trim().length > 0 && (
+        <Text
+          x={0}
+          y={TITLE_Y}
+          width={wPx}
+          align="center"
+          text={title}
+          fontSize={18}
+          fontFamily={LABEL_FONT_FAMILY}
+          fontStyle="700"
+          fill={INK}
+          listening={false}
+        />
+      )}
 
       {/* Kantdimension — topp (bredd) */}
       <DimensionLine
@@ -224,12 +243,14 @@ function DimensionLine({
             fill={PAPER}
           />
           <Text
-            x={mid - labelBoxW / 2}
-            y={perp - 6}
+            x={mid}
+            y={perp}
+            offsetX={labelBoxW / 2}
+            offsetY={LABEL_FONT_SIZE / 2}
             width={labelBoxW}
             align="center"
             text={label}
-            fontSize={11}
+            fontSize={LABEL_FONT_SIZE}
             fontFamily={LABEL_FONT_FAMILY}
             fontStyle="600"
             fill={INK_SOFT}
@@ -246,16 +267,17 @@ function DimensionLine({
           />
           <Text
             x={perp}
-            y={mid + labelBoxW / 2}
+            y={mid}
+            offsetX={labelBoxW / 2}
+            offsetY={LABEL_FONT_SIZE / 2}
+            width={labelBoxW}
+            align="center"
             text={label}
-            fontSize={11}
+            fontSize={LABEL_FONT_SIZE}
             fontFamily={LABEL_FONT_FAMILY}
             fontStyle="600"
             fill={INK_SOFT}
             rotation={-90}
-            width={labelBoxW}
-            align="center"
-            offsetX={0}
           />
         </>
       )}

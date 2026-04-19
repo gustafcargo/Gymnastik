@@ -335,7 +335,7 @@ export function HallStage({ className, onStageReady }: Props) {
       >
         <Layer>
           <Group x={fitOffset.x} y={fitOffset.y}>
-            <HallFloor hall={plan.hall} pxPerM={fitScale} />
+            <HallFloor hall={plan.hall} pxPerM={fitScale} title={plan.name} />
             {[...(activeStation?.equipment ?? [])]
               .sort((a, b) => (a.z ?? 0) - (b.z ?? 0))
               .map((eq) => (
