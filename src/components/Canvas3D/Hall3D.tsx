@@ -542,10 +542,78 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       }
     };
 
+    // Rita redskaps-etiketten (mörk pill med vit text) direkt på canvasen
+     // vid export. Samma projection som för notes: lokal punkt ovanför
+     // redskapet → skärmkoordinater.
+    const drawLabelsOnCanvas = (
+      ctx: CanvasRenderingContext2D,
+      dx: number,
+      dy: number,
+    ) => {
+      const plan = currentPlan();
+      const active = plan.stations.find((s) => s.id === plan.activeStationId);
+      if (!active) return;
+      const showLabels = usePlanStore.getState().showLabels;
+      const inGameMode = usePlanStore.getState().gameMode;
+      if (!showLabels || inGameMode) return;
+      const stackInfo = computeStackInfo(active.equipment);
+      const canvasW = gl.domElement.width;
+      const canvasH = gl.domElement.height;
+      const dpr = Math.max(1, canvasW / Math.max(1, gl.domElement.clientWidth));
+
+      const groupByEqId = new Map<string, THREE.Object3D>();
+      scene.traverse((obj) => {
+        if (obj.name && obj.name.startsWith("eq-")) {
+          groupByEqId.set(obj.name.slice(3), obj);
+        }
+      });
+
+      const FONT = 11 * dpr;
+      const PAD_X = 8 * dpr;
+      const PAD_Y = 2 * dpr;
+      const RADIUS = 5 * dpr;
+
+      ctx.save();
+      ctx.font = `600 ${FONT}px system-ui, sans-serif`;
+      ctx.textBaseline = "middle";
+
+      active.equipment.forEach((eq) => {
+        const type = getEquipmentById(eq.typeId);
+        if (!type) return;
+        const sInfo = stackInfo.get(eq.id);
+        if (sInfo && !sInfo.isLeader) return;
+        const group = groupByEqId.get(eq.id);
+        if (!group) return;
+
+        const baseLabel = eq.label ?? type.name;
+        const text =
+          sInfo && sInfo.count > 1 ? `${baseLabel} ×${sInfo.count}` : baseLabel;
+
+        const local = new THREE.Vector3(0, type.physicalHeightM + 0.28, 0);
+        const world = group.localToWorld(local.clone()).project(camera);
+        const cx = ((world.x + 1) / 2) * canvasW + dx;
+        const cy = ((1 - world.y) / 2) * canvasH + dy;
+
+        const textW = ctx.measureText(text).width;
+        const boxW = textW + PAD_X * 2;
+        const boxH = FONT + PAD_Y * 2 + 4 * dpr;
+
+        ctx.fillStyle = "rgba(15,23,42,0.82)";
+        roundRectPath(ctx, cx - boxW / 2, cy - boxH / 2, boxW, boxH, RADIUS);
+        ctx.fill();
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.textAlign = "center";
+        ctx.fillText(text, cx, cy);
+      });
+
+      ctx.restore();
+    };
+
     // Kopierar gl.domElement till en off-screen canvas (nedskalad om
-    // källan är större än MAX_EXPORT_DIM) och ritar note-bubblor över.
-    // Resultatet skickas sedan till composeA4Page som center-croppar
-    // in det i en A4-sida.
+    // källan är större än MAX_EXPORT_DIM) och ritar etiketter + note-
+    // bubblor över. Resultatet skickas sedan till composeA4Page som
+    // center-croppar in det i en A4-sida.
     const snapshotCanvas = (): HTMLCanvasElement | null => {
       const src = gl.domElement;
       const scale = computeScale(src.width, src.height);
@@ -559,6 +627,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       ctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, imgW, imgH);
       ctx.save();
       ctx.scale(scale, scale);
+      drawLabelsOnCanvas(ctx, 0, 0);
       drawNotesOnCanvas(ctx, 0, 0);
       ctx.restore();
       return out;
