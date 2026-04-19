@@ -699,13 +699,21 @@ export const usePlanStore = create<PlanStore>()(
 export const useTemporalStore = usePlanStore.temporal;
 
 /**
- * Markera planen som osparad vid varje planändring. Användaren måste
- * trycka på spara-ikonen i toolbaren för att skriva till localStorage.
+ * Markera planen som osparad + auto-persistera till localStorage vid varje
+ * planändring. Den manuella spara-knappen finns kvar för UX-klarhet, men
+ * storage hålls alltid färsk — så att en oväntad reload (iOS Safari efter
+ * "Visa bild"/"Hämta"-dialog, memory pressure, bakgrundsfliksväxling) inte
+ * tappar pågående redigeringar.
  */
 usePlanStore.subscribe((state, prev) => {
   if (state.plan === prev.plan) return;
   setActivePlanId(state.plan.id);
   if (!state.isDirty) usePlanStore.setState({ isDirty: true });
+  try {
+    savePlanStorage(state.plan);
+  } catch {
+    // LocalStorage kan vara blockerad (privat läge) — ignorera tyst.
+  }
 });
 
 /** Initial persist så att nya pass listas direkt. */

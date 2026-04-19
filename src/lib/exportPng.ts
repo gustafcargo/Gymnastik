@@ -1,4 +1,6 @@
 import type Konva from "konva";
+import type { Plan } from "../types";
+import { composeA4Page, orientationForHall } from "./a4Compose";
 
 // Exporterna körs även på iPad Safari, som har hårda minnesgränser
 // (~200–400 MB). Stora canvas + base64-dataURL får appen att krascha.
@@ -32,11 +34,8 @@ function computeScale(srcW: number, srcH: number): number {
 }
 
 /**
- * Komponerar stage:ns canvas ovanpå en vit bakgrund och returnerar en
- * HTMLCanvasElement. Vitt bakgrundsfyll behövs så att PNG:n inte får
- * genomskinliga områden (vilket renderas svart i vissa visare).
- *
- * Size-cap: om stage × pixelRatio > MAX_EXPORT_DIM skalas den ner.
+ * Ritar stagen på en vit canvas (utan A4-ramverk). Används internt när
+ * A4-kompositören tar över header/marginal-bit.
  */
 export function stageToWhitePngCanvas(
   stage: Konva.Stage,
@@ -49,8 +48,6 @@ export function stageToWhitePngCanvas(
   const outW = Math.max(1, Math.round(srcW * scale));
   const outH = Math.max(1, Math.round(srcH * scale));
 
-  // Konva stödjer att rita stagen direkt på en ctx — via toCanvas med
-  // pixelRatio får vi rasterized output utan dataURL-roundtrip.
   const stageCanvas = stage.toCanvas({ pixelRatio });
 
   const out = document.createElement("canvas");
@@ -60,14 +57,41 @@ export function stageToWhitePngCanvas(
   if (!ctx) return stageCanvas;
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, outW, outH);
-  ctx.drawImage(stageCanvas, 0, 0, stageCanvas.width, stageCanvas.height, 0, 0, outW, outH);
+  ctx.drawImage(
+    stageCanvas,
+    0,
+    0,
+    stageCanvas.width,
+    stageCanvas.height,
+    0,
+    0,
+    outW,
+    outH,
+  );
   return out;
 }
 
 /**
+ * Bygger en färdig A4-sida (vald orientering efter hallens långsida)
+ * med stagen center-croppad i ritytan + rubrik/underrubrik.
+ */
+export function stageToA4Canvas(
+  stage: Konva.Stage,
+  plan: Plan,
+  stationName: string,
+  pixelRatio = 2,
+): HTMLCanvasElement {
+  const raw = stageToWhitePngCanvas(stage, pixelRatio);
+  const orient = orientationForHall(plan.hall.widthM, plan.hall.heightM);
+  return composeA4Page(raw, {
+    orient,
+    title: plan.name,
+    subtitle: `${stationName}  •  ${plan.hall.name}`,
+  });
+}
+
+/**
  * Bakåtkompatibelt wrapper som fortfarande returnerar en data-URL.
- * Använd bara i kontexter där en string är nödvändig; annars föredra
- * `stageToWhitePngCanvas` + toBlob.
  */
 export async function stageToWhitePngDataUrl(
   stage: Konva.Stage,
@@ -79,11 +103,15 @@ export async function stageToWhitePngDataUrl(
 
 export async function exportStageAsPng(
   stage: Konva.Stage,
+  plan: Plan,
   filename: string,
   pixelRatio = 2,
 ) {
   try {
-    const canvas = stageToWhitePngCanvas(stage, pixelRatio);
+    const stationName =
+      plan.stations.find((s) => s.id === plan.activeStationId)?.name ??
+      "Station";
+    const canvas = stageToA4Canvas(stage, plan, stationName, pixelRatio);
     await new Promise<void>((resolve) => {
       canvas.toBlob((blob) => {
         if (blob) downloadBlob(blob, filename);

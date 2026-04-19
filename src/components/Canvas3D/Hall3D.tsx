@@ -24,6 +24,13 @@ import { computeStackInfo } from "../../lib/stackGroups";
 import { useGameConfig, isProffsMode } from "../../store/useGameConfig";
 import { PROFFS_HALL, PROFFS_STATION } from "../../catalog/proffsArena";
 import type { Station } from "../../types";
+import {
+  composeA4Page,
+  orientationForHall,
+  A4_LONG_MM,
+  A4_SHORT_MM,
+} from "../../lib/a4Compose";
+import { A4CropGuide } from "../A4CropGuide";
 
 type Props = { className?: string };
 
@@ -528,38 +535,11 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
       }
     };
 
-    // Returnerar en ny canvas; Source-kopiering via drawImage stöder
-    // nedskalning, så vi behöver inget mellan-canvas-steg.
-    const composeWithHeader = (): HTMLCanvasElement | null => {
-      const src = gl.domElement;
-      const plan = currentPlan();
-      const headerH = 56;
-      const scale = computeScale(src.width, src.height);
-      const imgW = Math.round(src.width * scale);
-      const imgH = Math.round(src.height * scale);
-      const out = document.createElement("canvas");
-      out.width = imgW;
-      out.height = imgH + headerH;
-      const ctx = out.getContext("2d");
-      if (!ctx) return null;
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, out.width, out.height);
-      ctx.fillStyle = "#1E3A5F";
-      ctx.font = "700 24px InterVariable, Inter, system-ui, sans-serif";
-      ctx.textBaseline = "top";
-      ctx.fillText(plan.name, 16, 12);
-      ctx.fillStyle = "#3A5070";
-      ctx.font = "400 13px InterVariable, Inter, system-ui, sans-serif";
-      ctx.fillText(plan.hall.name, 16, 38);
-      ctx.drawImage(src, 0, 0, src.width, src.height, 0, headerH, imgW, imgH);
-      ctx.save();
-      ctx.scale(scale, scale);
-      drawNotesOnCanvas(ctx, 0, headerH / scale);
-      ctx.restore();
-      return out;
-    };
-
-    const composeForPdf = (): HTMLCanvasElement | null => {
+    // Kopierar gl.domElement till en off-screen canvas (nedskalad om
+    // källan är större än MAX_EXPORT_DIM) och ritar note-bubblor över.
+    // Resultatet skickas sedan till composeA4Page som center-croppar
+    // in det i en A4-sida.
+    const snapshotCanvas = (): HTMLCanvasElement | null => {
       const src = gl.domElement;
       const scale = computeScale(src.width, src.height);
       const imgW = Math.round(src.width * scale);
@@ -591,9 +571,15 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
     const onExportPng = () => {
       try {
         const plan = currentPlan();
-        const out = withHiResRender(() => composeWithHeader());
-        if (!out) return;
-        out.toBlob((blob) => {
+        const raw = withHiResRender(() => snapshotCanvas());
+        if (!raw) return;
+        const orient = orientationForHall(plan.hall.widthM, plan.hall.heightM);
+        const page = composeA4Page(raw, {
+          orient,
+          title: plan.name,
+          subtitle: plan.hall.name,
+        });
+        page.toBlob((blob) => {
           if (!blob) return;
           downloadBlob(blob, `${safeName(plan.name)}-3d.png`);
         }, "image/png");
@@ -605,65 +591,23 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
     const onExportPdf = async () => {
       try {
         const plan = currentPlan();
-        const out = withHiResRender(() => composeForPdf());
-        if (!out) return;
+        const raw = withHiResRender(() => snapshotCanvas());
+        if (!raw) return;
+        const orient = orientationForHall(plan.hall.widthM, plan.hall.heightM);
+        const page = composeA4Page(raw, {
+          orient,
+          title: plan.name,
+          subtitle: plan.hall.name,
+        });
         const { jsPDF } = await import("jspdf");
-        // Välj A4-orientering som minimerar död yta runt bilden.
-        const A4_LONG = 297;
-        const A4_SHORT = 210;
-        const margin = 8;
-        const headerH = 16;
-        const imgW = out.width;
-        const imgH = out.height;
-        const candidates = [
-          {
-            orient: "landscape" as const,
-            pageW: A4_LONG,
-            pageH: A4_SHORT,
-            availW: A4_LONG - margin * 2,
-            availH: A4_SHORT - margin * 2 - headerH,
-          },
-          {
-            orient: "portrait" as const,
-            pageW: A4_SHORT,
-            pageH: A4_LONG,
-            availW: A4_SHORT - margin * 2,
-            availH: A4_LONG - margin * 2 - headerH,
-          },
-        ];
-        let best = candidates[0];
-        let bestArea = 0;
-        for (const c of candidates) {
-          const r = Math.min(c.availW / imgW, c.availH / imgH);
-          const area = imgW * r * (imgH * r);
-          if (area > bestArea) {
-            bestArea = area;
-            best = c;
-          }
-        }
         const pdf = new jsPDF({
-          orientation: best.orient,
+          orientation: orient,
           unit: "mm",
           format: "a4",
         });
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(14);
-        pdf.text(plan.name, margin, margin + 6);
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(10);
-        pdf.text(plan.hall.name, margin, margin + 12);
-        const ratio = Math.min(best.availW / imgW, best.availH / imgH);
-        const w = imgW * ratio;
-        const h = imgH * ratio;
-        // jsPDF accepterar canvas direkt — undviker base64-mellanled
-        pdf.addImage(
-          out,
-          "PNG",
-          margin + (best.availW - w) / 2,
-          margin + headerH + (best.availH - h) / 2,
-          w,
-          h,
-        );
+        const pw = orient === "landscape" ? A4_LONG_MM : A4_SHORT_MM;
+        const ph = orient === "landscape" ? A4_SHORT_MM : A4_LONG_MM;
+        pdf.addImage(page, "PNG", 0, 0, pw, ph);
         pdf.save(`${safeName(plan.name)}-3d.pdf`);
       } catch (err) {
         console.warn("[3D] PDF-export misslyckades:", err);
@@ -1113,6 +1057,7 @@ export function Hall3D({ className }: Props) {
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);
   const effectsRef = useRef<EffectsHandle | null>(null);
   const [glHealthy] = useState(() => isWebGLHealthy());
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   if (!glHealthy) {
     return (
@@ -1160,7 +1105,8 @@ export function Hall3D({ className }: Props) {
   }
 
   return (
-    <div className={className} style={{ position: "relative" }}>
+    <div ref={containerRef} className={className} style={{ position: "relative" }}>
+      <A4CropGuide containerRef={containerRef} />
       <Canvas
         shadows
         dpr={[1, 2]}
