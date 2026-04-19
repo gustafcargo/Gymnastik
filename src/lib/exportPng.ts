@@ -1,6 +1,6 @@
 import type Konva from "konva";
 import type { Plan } from "../types";
-import { composeA4Page, orientationForHall } from "./a4Compose";
+import { composeA4Page, orientationForAspect } from "./a4Compose";
 
 // Exporterna körs även på iPad Safari, som har hårda minnesgränser
 // (~200–400 MB). Stora canvas + base64-dataURL får appen att krascha.
@@ -72,21 +72,20 @@ export function stageToWhitePngCanvas(
 }
 
 /**
- * Bygger en färdig A4-sida (vald orientering efter hallens långsida)
- * med stagen center-croppad i ritytan + rubrik/underrubrik.
+ * Bygger en färdig A4-sida (vald orientering efter stagens synliga
+ * ritytan) med stagen center-croppad i ritytan + rubrik/underrubrik.
  */
 export function stageToA4Canvas(
   stage: Konva.Stage,
   plan: Plan,
-  stationName: string,
   pixelRatio = 2,
 ): HTMLCanvasElement {
   const raw = stageToWhitePngCanvas(stage, pixelRatio);
-  const orient = orientationForHall(plan.hall.widthM, plan.hall.heightM);
+  const orient = orientationForAspect(raw.width, raw.height);
   return composeA4Page(raw, {
     orient,
     title: plan.name,
-    subtitle: `${stationName}  •  ${plan.hall.name}`,
+    subtitle: plan.hall.name,
   });
 }
 
@@ -108,10 +107,7 @@ export async function exportStageAsPng(
   pixelRatio = 2,
 ) {
   try {
-    const stationName =
-      plan.stations.find((s) => s.id === plan.activeStationId)?.name ??
-      "Station";
-    const canvas = stageToA4Canvas(stage, plan, stationName, pixelRatio);
+    const canvas = stageToA4Canvas(stage, plan, pixelRatio);
     await new Promise<void>((resolve) => {
       canvas.toBlob((blob) => {
         if (blob) downloadBlob(blob, filename);

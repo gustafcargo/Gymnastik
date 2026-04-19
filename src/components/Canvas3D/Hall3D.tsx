@@ -26,7 +26,7 @@ import { PROFFS_HALL, PROFFS_STATION } from "../../catalog/proffsArena";
 import type { Station } from "../../types";
 import {
   composeA4Page,
-  orientationForHall,
+  orientationForAspect,
   A4_LONG_MM,
   A4_SHORT_MM,
 } from "../../lib/a4Compose";
@@ -573,7 +573,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
         const plan = currentPlan();
         const raw = withHiResRender(() => snapshotCanvas());
         if (!raw) return;
-        const orient = orientationForHall(plan.hall.widthM, plan.hall.heightM);
+        const orient = orientationForAspect(raw.width, raw.height);
         const page = composeA4Page(raw, {
           orient,
           title: plan.name,
@@ -593,7 +593,7 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
         const plan = currentPlan();
         const raw = withHiResRender(() => snapshotCanvas());
         if (!raw) return;
-        const orient = orientationForHall(plan.hall.widthM, plan.hall.heightM);
+        const orient = orientationForAspect(raw.width, raw.height);
         const page = composeA4Page(raw, {
           orient,
           title: plan.name,
@@ -1125,10 +1125,10 @@ export function Hall3D({ className }: Props) {
           failIfMajorPerformanceCaveat: false,
         }}
       >
-        <color attach="background" args={["#DDE3E8"]} />
+        <color attach="background" args={["#FFFFFF"]} />
         {/* Mjuk fog: börjar först långt bortom hallen och faller ut ännu längre bort,
             så läsbarheten i utkanterna inte försämras. */}
-        <fog attach="fog" args={["#DDE3E8", camDist * 3, camDist * 7]} />
+        <fog attach="fog" args={["#FFFFFF", camDist * 3, camDist * 7]} />
 
         <SilentR3FBoundary>
           <Suspense fallback={null}>

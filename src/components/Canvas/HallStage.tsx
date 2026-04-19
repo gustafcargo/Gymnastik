@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { Group, Layer, Stage } from "react-konva";
 import type Konva from "konva";
-import { HallFloor, HallChrome } from "./HallFloor";
+import { HallFloor } from "./HallFloor";
 import { EquipmentNode } from "./EquipmentNode";
 import { EquipmentNoteBubble } from "./EquipmentNoteBubble";
 import { A4CropGuide } from "../A4CropGuide";
@@ -413,16 +413,6 @@ export function HallStage({ className, onStageReady }: Props) {
         onTouchStart={handleStageClick}
       >
         <Layer>
-          {/* Skärm-upprätt rubrik + skalstock – stannar axel-justerade med
-              skärmen även när hallen roterats 90°. */}
-          <Group x={centerX} y={centerY}>
-            <HallChrome
-              title={plan.name}
-              displayedW={displayedW}
-              displayedH={displayedH}
-              pxPerM={fitScale}
-            />
-          </Group>
           <Group
             x={centerX}
             y={centerY}

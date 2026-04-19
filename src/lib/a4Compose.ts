@@ -30,6 +30,20 @@ export function orientationForHall(
   return widthM >= heightM ? "landscape" : "portrait";
 }
 
+/**
+ * Bestäm A4-orientering utifrån en synlig rityta (vilket är det som
+ * användaren faktiskt ser + vad exporten snapshottar). Används när
+ * hallen roteras för att fylla skärmen eller när 3D-vyn beskärs efter
+ * webbläsarfönstret — på så sätt matchar A4-orienteringen alltid det
+ * man ser inuti den streckade ramen.
+ */
+export function orientationForAspect(
+  w: number,
+  h: number,
+): A4Orientation {
+  return w >= h ? "landscape" : "portrait";
+}
+
 export function a4Layout(orient: A4Orientation): A4Layout {
   if (orient === "landscape") {
     const availW = A4_LONG_MM - A4_MARGIN_MM * 2;
