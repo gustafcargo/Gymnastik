@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { Plus, Users } from "lucide-react";
 import { useAccountStore } from "../../store/useAccountStore";
-import { useAuth } from "../../lib/useAuth";
-import { useClubs } from "../../lib/useClubs";
 import { useTeams, useTeamMembers } from "../../lib/useTeams";
+import { useCapabilities } from "../../lib/useCapabilities";
 import { InvitesSection } from "./InvitesSection";
 
 export function TeamsTab() {
   const activeClubId = useAccountStore((s) => s.activeClubId);
-  const { clubs } = useClubs();
-  const activeClub = clubs.find((c) => c.id === activeClubId) ?? null;
-  const isClubAdmin = activeClub?.role === "admin";
+  const { can } = useCapabilities(activeClubId);
+  const canManageTeams = can("manage_teams");
+  const canInvite = can("invite_members");
   const { teams, fetching, error, createTeam } = useTeams(activeClubId);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -80,7 +79,7 @@ export function TeamsTab() {
                   {active && (
                     <>
                       <TeamMembersList teamId={team.id} />
-                      <InvitesSectionForTeam teamId={team.id} isClubAdmin={Boolean(isClubAdmin)} />
+                      {canInvite && <InvitesSectionForTeam teamId={team.id} />}
                     </>
                   )}
                 </li>
@@ -90,6 +89,7 @@ export function TeamsTab() {
         )}
       </div>
 
+      {canManageTeams && (
       <form onSubmit={submit} className="flex flex-col gap-2 rounded-md border border-slate-700 bg-slate-800/40 p-3">
         <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">
           Nytt lag
@@ -114,22 +114,12 @@ export function TeamsTab() {
           <div className="text-xs text-rose-400">{createError}</div>
         )}
       </form>
+      )}
     </div>
   );
 }
 
-function InvitesSectionForTeam({
-  teamId,
-  isClubAdmin,
-}: {
-  teamId: string;
-  isClubAdmin: boolean;
-}) {
-  const { user } = useAuth();
-  const { members } = useTeamMembers(teamId);
-  const myRole = members.find((m) => m.user_id === user?.id)?.role;
-  const canManage = isClubAdmin || myRole === "coach" || myRole === "admin";
-  if (!canManage) return null;
+function InvitesSectionForTeam({ teamId }: { teamId: string }) {
   return (
     <div className="ml-5">
       <InvitesSection kind="team" teamId={teamId} canManage />

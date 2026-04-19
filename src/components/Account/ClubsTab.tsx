@@ -4,6 +4,8 @@ import { useAuth } from "../../lib/useAuth";
 import { useClubs } from "../../lib/useClubs";
 import { useAccountStore } from "../../store/useAccountStore";
 import { InvitesSection } from "./InvitesSection";
+import { CapabilitiesEditor } from "./CapabilitiesEditor";
+import { useCapabilities } from "../../lib/useCapabilities";
 
 export function ClubsTab() {
   const { user } = useAuth();
@@ -11,6 +13,7 @@ export function ClubsTab() {
   const activeClubId = useAccountStore((s) => s.activeClubId);
   const setActiveClubId = useAccountStore((s) => s.setActiveClubId);
   const activeClub = clubs.find((c) => c.id === activeClubId) ?? null;
+  const { can, role } = useCapabilities(activeClub?.id ?? null);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -95,8 +98,12 @@ export function ClubsTab() {
         <InvitesSection
           kind="club"
           clubId={activeClub.id}
-          canManage={activeClub.role === "admin"}
+          canManage={can("invite_members")}
         />
+      )}
+
+      {activeClub && role === "admin" && (
+        <CapabilitiesEditor clubId={activeClub.id} />
       )}
 
       <form onSubmit={submit} className="flex flex-col gap-2 rounded-md border border-slate-700 bg-slate-800/40 p-3">

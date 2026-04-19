@@ -750,3 +750,48 @@ end;
 $$;
 
 grant execute on function public.accept_invite(text) to authenticated;
+
+-- ---------- member_capabilities --------------------------------------------
+-- Klubb-admin kan finjustera per-medlems förmågor (redigera pass, flytta
+-- redskap, bjuda in, …). Tomt overrides → använd roll-default (hårdkodat
+-- i klienten). Enskilda bool-nycklar kan åsidosätta:
+--   edit_plans, share_plans, manage_inventory, manage_teams,
+--   manage_halls, invite_members, manage_members.
+-- (Server-side hard enforcement sköts av RLS på respektive tabell; denna
+--  tabell används för UI-guardrails.)
+
+create table if not exists public.member_capabilities (
+  club_id    uuid not null references public.clubs(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  overrides  jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (club_id, user_id)
+);
+
+create trigger member_capabilities_updated_at
+before update on public.member_capabilities
+for each row execute function public.set_updated_at();
+
+alter table public.member_capabilities enable row level security;
+
+create policy "caps: club member read"
+  on public.member_capabilities for select
+  to authenticated
+  using (public.is_club_member(club_id, auth.uid()));
+
+create policy "caps: club admin insert"
+  on public.member_capabilities for insert
+  to authenticated
+  with check (public.is_club_admin(club_id, auth.uid()));
+
+create policy "caps: club admin update"
+  on public.member_capabilities for update
+  to authenticated
+  using (public.is_club_admin(club_id, auth.uid()))
+  with check (public.is_club_admin(club_id, auth.uid()));
+
+create policy "caps: club admin delete"
+  on public.member_capabilities for delete
+  to authenticated
+  using (public.is_club_admin(club_id, auth.uid()));
+

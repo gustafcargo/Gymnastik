@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { useRecentAccounts } from "../store/useRecentAccounts";
 
 type AuthState = {
   /** true när vi fortfarande väntar på första sessionen från Supabase. */
@@ -37,6 +38,8 @@ export function useAuth() {
         session,
         user: session?.user ?? null,
       });
+      const email = session?.user?.email;
+      if (email) useRecentAccounts.getState().remember(email);
     });
     return () => {
       cancelled = true;
@@ -52,6 +55,7 @@ export function useAuth() {
       options: { emailRedirectTo: window.location.origin },
     });
     if (error) throw error;
+    useRecentAccounts.getState().remember(email);
   }, []);
 
   const signOut = useCallback(async () => {

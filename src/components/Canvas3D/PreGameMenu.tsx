@@ -245,39 +245,23 @@ export function PreGameMenu({ onStart, onExit }: Props) {
           </div>
         </div>
 
-        {/* Utseende + vänner (alltid synligt) */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-          <button
-            type="button"
-            onClick={() => setStylePanelOpen(true)}
-            style={{
-              flex: 1,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              background: "rgba(236,72,153,0.15)",
-              border: "1px solid rgba(236,72,153,0.4)",
-              borderRadius: 10, padding: "10px 12px",
-              color: "#fbcfe8", fontSize: 12, fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            <Sparkles size={14} /> Utseende
-          </button>
-          <button
-            type="button"
-            onClick={() => openAccount("profile")}
-            style={{
-              flex: 1,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              background: "rgba(59,130,246,0.15)",
-              border: "1px solid rgba(59,130,246,0.4)",
-              borderRadius: 10, padding: "10px 12px",
-              color: "#bfdbfe", fontSize: 12, fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            <UserCircle2 size={14} /> Profil & lag
-          </button>
-        </div>
+        {/* Utseende-editor (Profil & lag nås via toolbarens avatarknapp) */}
+        <button
+          type="button"
+          onClick={() => setStylePanelOpen(true)}
+          style={{
+            width: "100%",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            background: "rgba(236,72,153,0.15)",
+            border: "1px solid rgba(236,72,153,0.4)",
+            borderRadius: 10, padding: "10px 12px",
+            color: "#fbcfe8", fontSize: 12, fontWeight: 700,
+            cursor: "pointer",
+            marginBottom: 12,
+          }}
+        >
+          <Sparkles size={14} /> Utseende
+        </button>
 
         {/* Vänner – online-lista + "Bjud in" när man är i rum */}
         {isMultiplayerEnabled && (

@@ -92,6 +92,7 @@ npx supabase db push
 | `plans`                | Pass ägda av user/team/klubb |
 | `plan_shares`          | Delning av pass till klubb / lag / individ (+ can_edit) |
 | `invites`              | Mejl-inbjudan till klubb eller lag (token, 14 d) |
+| `member_capabilities`  | Per-medlems override av roll-baserade förmågor (admin-editor i klienten) |
 
 Alla tabeller har Row Level Security. Översikten över policies finns som
 kommentarer i migrationen.

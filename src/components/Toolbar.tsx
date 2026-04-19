@@ -18,17 +18,17 @@ import {
   MessageSquare,
   Tag,
   Undo2,
-  UserCircle2,
 } from "lucide-react";
 import { useStore } from "zustand";
 import { usePlanStore, useTemporalStore } from "../store/usePlanStore";
 import { useStudioStore } from "../store/useStudioStore";
-import { useAccountStore } from "../store/useAccountStore";
 import { HALL_TEMPLATES } from "../catalog/halls";
 import type Konva from "konva";
 import { exportStageAsPng } from "../lib/exportPng";
 import { exportStageAsPdf } from "../lib/exportPdf";
 import { PlansModal } from "./PlansModal";
+import { UserMenu } from "./Account/UserMenu";
+import { ClubPicker } from "./Account/ClubPicker";
 
 type Props = {
   stageRef: React.MutableRefObject<Konva.Stage | null>;
@@ -54,7 +54,6 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   const showNotes = usePlanStore((s) => s.showNotes);
   const toggleNotes = usePlanStore((s) => s.toggleNotes);
   const toggleStudio = useStudioStore((s) => s.toggle);
-  const openAccount = useAccountStore((s) => s.openPanel);
 
   // Viktigt: välj primitiva fält var för sig så att Zustand 5 inte
   // kräver egen equality-funktion (annars → "getSnapshot should be cached").
@@ -274,16 +273,8 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           <span className="hidden sm:inline">Studio</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => openAccount()}
-          className="flex h-9 items-center gap-1 rounded-md bg-surface-2 px-2 text-xs font-semibold text-slate-700 transition hover:bg-surface-3"
-          title="Konto, föreningar & hallar"
-          aria-label="Konto, föreningar & hallar"
-        >
-          <UserCircle2 size={14} />
-          <span className="hidden sm:inline">Konto</span>
-        </button>
+        <ClubPicker />
+        <UserMenu />
 
         {viewMode === "3D" && (
           <button
