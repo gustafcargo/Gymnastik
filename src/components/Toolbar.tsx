@@ -29,6 +29,7 @@ import { exportStageAsPdf } from "../lib/exportPdf";
 import { PlansModal } from "./PlansModal";
 import { UserMenu } from "./Account/UserMenu";
 import { ClubPicker } from "./Account/ClubPicker";
+import { MobileDrawer } from "./MobileDrawer";
 
 type Props = {
   stageRef: React.MutableRefObject<Konva.Stage | null>;
@@ -67,6 +68,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -152,12 +154,20 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   return (
     <>
       <div className="safe-top safe-x relative z-20 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-surface-3 bg-white px-3 py-2">
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Öppna meny"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-slate-600 hover:bg-surface-2 md:hidden"
+        >
+          <Menu size={18} />
+        </button>
         {onToggleSidebar && (
           <button
             type="button"
             onClick={onToggleSidebar}
             aria-label="Meny"
-            className="grid h-9 w-9 place-items-center rounded-md text-slate-600 hover:bg-surface-2"
+            className="hidden h-9 w-9 place-items-center rounded-md text-slate-600 hover:bg-surface-2 md:grid"
           >
             <Menu size={18} />
           </button>
@@ -245,12 +255,12 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           </IconButton>
         </div>
 
-        {/* Vy-toggle är alltid synlig (även på mobil) */}
+        {/* Vy-toggle: göms på mobil (flyttas in i drawer). */}
         <button
           type="button"
           onClick={toggleViewMode}
           className={
-            "flex h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold transition " +
+            "hidden h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold transition md:flex " +
             (viewMode === "3D"
               ? "bg-accent text-white shadow-sm"
               : "bg-surface-2 text-slate-700 hover:bg-surface-3")
@@ -265,7 +275,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
         <button
           type="button"
           onClick={toggleStudio}
-          className="flex h-9 items-center gap-1 rounded-md bg-surface-2 px-2 text-xs font-semibold text-slate-700 transition hover:bg-surface-3"
+          className="hidden h-9 items-center gap-1 rounded-md bg-surface-2 px-2 text-xs font-semibold text-slate-700 transition hover:bg-surface-3 md:flex"
           title="Öppna Övningsstudio"
           aria-label="Öppna Övningsstudio"
         >
@@ -281,7 +291,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
             type="button"
             onClick={toggleGameMode}
             className={
-              "flex h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold transition " +
+              "hidden h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold transition md:flex " +
               (gameMode
                 ? "bg-green-600 text-white shadow-sm"
                 : "bg-surface-2 text-slate-700 hover:bg-surface-3")
@@ -293,7 +303,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           </button>
         )}
 
-        <div className="relative z-10 shrink-0">
+        <div className="relative z-10 hidden shrink-0 md:block">
           <label className="sr-only" htmlFor="hall-select">
             Hallmall
           </label>
@@ -331,13 +341,13 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
           <button
             type="button"
             onClick={() => setPlansOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-surface-3 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-surface-2 active:bg-surface-3"
+            className="hidden items-center gap-1.5 rounded-md border border-surface-3 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-surface-2 active:bg-surface-3 md:flex"
             title="Mina pass"
           >
             <FolderOpen size={14} />{" "}
             <span className="hidden sm:inline">Mina pass</span>
           </button>
-          <div ref={exportRef} className="relative">
+          <div ref={exportRef} className="relative hidden md:block">
             <button
               type="button"
               onClick={() => setExportOpen((o) => !o)}
@@ -368,6 +378,13 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
         </div>
       </div>
       {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
+      <MobileDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onOpenPlans={() => setPlansOpen(true)}
+        onExportPng={handleExportPng}
+        onExportPdf={handleExportPdf}
+      />
     </>
   );
 }
