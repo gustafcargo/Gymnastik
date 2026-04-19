@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
-import { supabase } from "./supabase";
+import { supabase, sbError } from "./supabase";
 
 export type MemberRole = "admin" | "coach" | "member";
 
@@ -74,7 +74,7 @@ export function useOutgoingInvites(scope: Scope) {
     if (scope.kind === "club") row.club_id = scope.clubId;
     else row.team_id = scope.teamId;
     const { error: err } = await c.from("invites").insert(row);
-    if (err) throw err;
+    if (err) throw sbError(err, "Kunde inte skapa inbjudan.", "invites.create");
     await refetch();
   }, [user, scope, refetch]);
 
@@ -82,7 +82,7 @@ export function useOutgoingInvites(scope: Scope) {
     const c = supabase();
     if (!c || !user) throw new Error("Inte inloggad");
     const { error: err } = await c.from("invites").delete().eq("id", id);
-    if (err) throw err;
+    if (err) throw sbError(err, "Kunde inte ta bort inbjudan.", "invites.revoke");
     await refetch();
   }, [user, refetch]);
 
@@ -121,7 +121,7 @@ export function useIncomingInvites() {
     const c = supabase();
     if (!c || !user) throw new Error("Inte inloggad");
     const { data, error: err } = await c.rpc("accept_invite", { p_token: token });
-    if (err) throw err;
+    if (err) throw sbError(err, "Kunde inte acceptera inbjudan.", "invites.accept");
     await refetch();
     const row = Array.isArray(data) ? data[0] : data;
     return row as { club_id: string | null; team_id: string | null; role: MemberRole } | null;

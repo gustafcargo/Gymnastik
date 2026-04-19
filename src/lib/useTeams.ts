@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
-import { supabase } from "./supabase";
+import { supabase, sbError } from "./supabase";
 
 export type Team = {
   id: string;
@@ -55,7 +55,7 @@ export function useTeams(clubId: string | null) {
       .insert({ club_id: clubId, name: name.trim() })
       .select("id")
       .single();
-    if (err) throw err;
+    if (err) throw sbError(err, "Kunde inte skapa lag.", "teams.createTeam");
     await refetch();
     return data.id as string;
   }, [clubId, refetch]);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
-import { supabase } from "./supabase";
+import { supabase, sbError } from "./supabase";
 
 export type HallRow = {
   id: string;
@@ -61,7 +61,7 @@ export function useHalls(clubId: string | null) {
         })
         .select("id")
         .single();
-      if (err) throw err;
+      if (err) throw sbError(err, "Kunde inte skapa hall.", "halls.create");
       await refetch();
       return data.id as string;
     },
@@ -110,7 +110,7 @@ export function useInventory(hallId: string | null) {
           .delete()
           .eq("hall_id", hallId)
           .eq("equipment_type_id", equipmentTypeId);
-        if (err) throw err;
+        if (err) throw sbError(err, "Kunde inte uppdatera inventarie.", "inventory.delete");
       } else {
         const { error: err } = await c
           .from("equipment_inventory")
@@ -118,7 +118,7 @@ export function useInventory(hallId: string | null) {
             { hall_id: hallId, equipment_type_id: equipmentTypeId, quantity },
             { onConflict: "hall_id,equipment_type_id" },
           );
-        if (err) throw err;
+        if (err) throw sbError(err, "Kunde inte spara inventarie.", "inventory.upsert");
       }
       await refetch();
     },
@@ -134,7 +134,7 @@ export function useInventory(hallId: string | null) {
         p_target_hall: targetHallId,
         p_quantity: quantity,
       });
-      if (err) throw err;
+      if (err) throw sbError(err, "Kunde inte flytta inventarie.", "inventory.move");
       await refetch();
     },
     [refetch],
