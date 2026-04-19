@@ -297,32 +297,23 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
 
   // ── Editor-kamera: spara/återställ över spelläget ────────────────────────
   // GameGymnast3D skriver direkt till `camera.position` + `camera.lookAt()`
-  // och OrbitControls får `enabled=false` så dess interna state slutar
-  // uppdateras. När spelet avslutas står kameran där gymnasten lämnade
-  // den; editorn "hoppar" visuellt. Lös: snapshotta position + quaternion
-  // + orbit-target precis när spelläget slås på, återställ när det släpps.
-  const savedCamRef = useRef<{
-    pos: THREE.Vector3;
-    quat: THREE.Quaternion;
-    target: THREE.Vector3;
-  } | null>(null);
+  // under spelläget. När det avslutas står kameran där gymnasten lämnade
+  // den → editorns vy "hoppar". OrbitControls exponerar saveState()/reset()
+  // som sparar/återställer target, camera.position och zoom i ett svep
+  // (och nollställer damping-state) — det är mycket mer robust än att
+  // manuellt copy:a camera-fält, eftersom OrbitControls annars räknar
+  // om camera.position från sina egna sphericalkoordinater.
+  const savedCamRef = useRef(false);
   useEffect(() => {
+    if (!orbitRef.current) return;
     if (gameModeActive) {
-      savedCamRef.current = {
-        pos: camera.position.clone(),
-        quat: camera.quaternion.clone(),
-        target: orbitRef.current?.target.clone() ?? new THREE.Vector3(),
-      };
+      orbitRef.current.saveState();
+      savedCamRef.current = true;
     } else if (savedCamRef.current) {
-      camera.position.copy(savedCamRef.current.pos);
-      camera.quaternion.copy(savedCamRef.current.quat);
-      if (orbitRef.current) {
-        orbitRef.current.target.copy(savedCamRef.current.target);
-        orbitRef.current.update();
-      }
-      savedCamRef.current = null;
+      orbitRef.current.reset();
+      savedCamRef.current = false;
     }
-  }, [gameModeActive, camera]);
+  }, [gameModeActive]);
 
   // ── Note bubble drag state ────────────────────────────────────────────────
   type Notedrag = {
