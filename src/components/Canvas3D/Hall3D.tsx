@@ -295,6 +295,35 @@ function HallScene({ W, H, joystickRef, mountTriggerRef, speedRef, cameraResetRe
   const stationRef = useRef<Station | undefined>(station);
   useEffect(() => { stationRef.current = station; }, [station]);
 
+  // ── Editor-kamera: spara/återställ över spelläget ────────────────────────
+  // GameGymnast3D skriver direkt till `camera.position` + `camera.lookAt()`
+  // och OrbitControls får `enabled=false` så dess interna state slutar
+  // uppdateras. När spelet avslutas står kameran där gymnasten lämnade
+  // den; editorn "hoppar" visuellt. Lös: snapshotta position + quaternion
+  // + orbit-target precis när spelläget slås på, återställ när det släpps.
+  const savedCamRef = useRef<{
+    pos: THREE.Vector3;
+    quat: THREE.Quaternion;
+    target: THREE.Vector3;
+  } | null>(null);
+  useEffect(() => {
+    if (gameModeActive) {
+      savedCamRef.current = {
+        pos: camera.position.clone(),
+        quat: camera.quaternion.clone(),
+        target: orbitRef.current?.target.clone() ?? new THREE.Vector3(),
+      };
+    } else if (savedCamRef.current) {
+      camera.position.copy(savedCamRef.current.pos);
+      camera.quaternion.copy(savedCamRef.current.quat);
+      if (orbitRef.current) {
+        orbitRef.current.target.copy(savedCamRef.current.target);
+        orbitRef.current.update();
+      }
+      savedCamRef.current = null;
+    }
+  }, [gameModeActive, camera]);
+
   // ── Note bubble drag state ────────────────────────────────────────────────
   type Notedrag = {
     id: string;
@@ -1147,18 +1176,14 @@ export function Hall3D({ className }: Props) {
   const mountTriggerRef = useRef(false);
   const speedRef        = useRef(2.2);
   const cameraResetRef  = useRef(false);
-  // Touch-orbit: dragning + pinch påverkar yaw-offset, pitch och avstånd.
-  // Initieras från useViewport så kameran håller sin vinkel över unmounts
-  // (2D↔3D, breakpoint-byten). Sync till store sker periodiskt och vid
-  // unmount — men INTE medan spelläget är aktivt, då spelets kamera
-  // (GameGymnast3D) skriver 0/0/1 i samma ref och skulle annars blanka
-  // ut editorns sparade vinkel.
+  // Touch-orbit i SPELLÄGE: dragning + pinch påverkar yaw-offset, pitch
+  // och avstånd relativt gymnasten. Persistas via useViewport så vinkeln
+  // håller över unmounts. Syncen pausas under spelläget eftersom
+  // GameGymnast3D nollställer refen (0/0/1) vid start — vi vill inte
+  // skriva över det sparade värdet med nollor.
   const cameraOrbitRef  = useRef<{ yaw: number; pitch: number; distScale: number }>(
     { ...useViewport.getState().orbit },
   );
-  // Snapshot av editorns orbit precis när spelläget slås på, så vi kan
-  // återställa den när spelet avslutas.
-  const savedEditorOrbitRef = useRef<{ yaw: number; pitch: number; distScale: number } | null>(null);
   useEffect(() => {
     const saved = useViewport.getState().orbit;
     cameraOrbitRef.current.yaw = saved.yaw;
@@ -1178,23 +1203,6 @@ export function Hall3D({ className }: Props) {
       syncToStore();
     };
   }, []);
-  // När spelläget togglar: spara editorns orbit innan spelet startar,
-  // återställ den när spelet stängs.
-  useEffect(() => {
-    if (gameMode) {
-      savedEditorOrbitRef.current = {
-        yaw: cameraOrbitRef.current.yaw,
-        pitch: cameraOrbitRef.current.pitch,
-        distScale: cameraOrbitRef.current.distScale,
-      };
-    } else if (savedEditorOrbitRef.current) {
-      cameraOrbitRef.current.yaw = savedEditorOrbitRef.current.yaw;
-      cameraOrbitRef.current.pitch = savedEditorOrbitRef.current.pitch;
-      cameraOrbitRef.current.distScale = savedEditorOrbitRef.current.distScale;
-      useViewport.getState().setOrbit({ ...savedEditorOrbitRef.current });
-      savedEditorOrbitRef.current = null;
-    }
-  }, [gameMode]);
   const [nearEquipment, setNearEquipment] = useState<string | null>(null);
   const [mountedExerciseInfo, setMountedExerciseInfo] = useState<MountedExerciseInfo | null>(null);
   const [freeCamEnabled, setFreeCamEnabled] = useState(false);
