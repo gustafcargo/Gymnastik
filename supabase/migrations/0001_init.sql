@@ -420,9 +420,75 @@ create policy "inventory: club admin/coach write"
     )
   );
 
+-- RPC: flytta utrustning mellan hallar (måste vara samma klubb).
+-- Mergar kvantiteter om målet redan har samma redskapstyp; raderar
+-- källraden om hela kvantiteten flyttas.
+create or replace function public.move_inventory(
+  p_source_id  uuid,
+  p_target_hall uuid,
+  p_quantity   integer
+)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_source       public.equipment_inventory%rowtype;
+  v_source_club  uuid;
+  v_target_club  uuid;
+begin
+  if p_quantity is null or p_quantity <= 0 then
+    raise exception 'quantity must be > 0';
+  end if;
+
+  select * into v_source from public.equipment_inventory where id = p_source_id for update;
+  if not found then
+    raise exception 'source inventory row not found';
+  end if;
+  if v_source.quantity < p_quantity then
+    raise exception 'source has only % available', v_source.quantity;
+  end if;
+
+  select club_id into v_source_club from public.halls where id = v_source.hall_id;
+  select club_id into v_target_club from public.halls where id = p_target_hall;
+  if v_source_club is null or v_target_club is null or v_source_club <> v_target_club then
+    raise exception 'halls must belong to the same club';
+  end if;
+
+  -- Måste vara admin eller coach i klubben.
+  if not (
+    public.is_club_admin(v_source_club, auth.uid())
+    or exists (
+      select 1 from public.club_members cm
+      where cm.club_id = v_source_club and cm.user_id = auth.uid() and cm.role in ('admin', 'coach')
+    )
+  ) then
+    raise exception 'not allowed';
+  end if;
+
+  -- Minska källa.
+  if v_source.quantity = p_quantity then
+    delete from public.equipment_inventory where id = p_source_id;
+  else
+    update public.equipment_inventory
+      set quantity = quantity - p_quantity
+      where id = p_source_id;
+  end if;
+
+  -- Öka / skapa mål.
+  insert into public.equipment_inventory (hall_id, equipment_type_id, quantity)
+  values (p_target_hall, v_source.equipment_type_id, p_quantity)
+  on conflict (hall_id, equipment_type_id)
+  do update set quantity = public.equipment_inventory.quantity + excluded.quantity;
+end;
+$$;
+
+grant execute on function public.move_inventory(uuid, uuid, integer) to authenticated;
+
 -- ---------- plans (pass) ----------------------------------------------------
 -- Ett pass kan ägas av user, team eller club. Exactly-one-owner via CHECK.
--- `visible_to_club` låter en tränare dela team-pass med hela klubben.
+-- Delning görs via tabellen `plan_shares` nedan — där kan samma pass delas
+-- med hela klubben, valda lag, eller specifika personer (en rad per mål).
 
 create table if not exists public.plans (
   id                uuid primary key default gen_random_uuid(),
@@ -431,7 +497,6 @@ create table if not exists public.plans (
   owner_club_id     uuid references public.clubs(id) on delete cascade,
   name              text not null default 'Nytt pass',
   plan              jsonb not null default '{}'::jsonb,
-  visible_to_club   boolean not null default false,
   created_by        uuid not null references auth.users(id) on delete set null,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
@@ -450,10 +515,65 @@ create index if not exists plans_owner_user_idx on public.plans(owner_user_id);
 create index if not exists plans_owner_team_idx on public.plans(owner_team_id);
 create index if not exists plans_owner_club_idx on public.plans(owner_club_id);
 
-alter table public.plans enable row level security;
+-- ---------- plan_shares ------------------------------------------------------
+-- En rad per delningsmål. Exactly-one-target via CHECK (club/team/user).
+-- can_edit = false → bara läs; true → mål får redigera passet.
 
--- Läsning: ägare, team-medlemmar (för team-pass), klubb-medlemmar
--- (för club-pass eller visible_to_club på team-pass).
+create table if not exists public.plan_shares (
+  id          uuid primary key default gen_random_uuid(),
+  plan_id     uuid not null references public.plans(id) on delete cascade,
+  club_id     uuid references public.clubs(id) on delete cascade,
+  team_id     uuid references public.teams(id) on delete cascade,
+  user_id     uuid references auth.users(id) on delete cascade,
+  can_edit    boolean not null default false,
+  created_by  uuid not null references auth.users(id) on delete set null,
+  created_at  timestamptz not null default now(),
+  check (
+    (club_id is not null)::int
+    + (team_id is not null)::int
+    + (user_id is not null)::int = 1
+  )
+);
+
+create unique index if not exists plan_shares_club_uq
+  on public.plan_shares(plan_id, club_id) where club_id is not null;
+create unique index if not exists plan_shares_team_uq
+  on public.plan_shares(plan_id, team_id) where team_id is not null;
+create unique index if not exists plan_shares_user_uq
+  on public.plan_shares(plan_id, user_id) where user_id is not null;
+
+create index if not exists plan_shares_plan_idx on public.plan_shares(plan_id);
+
+alter table public.plans       enable row level security;
+alter table public.plan_shares enable row level security;
+
+-- Helper: kan user redigera ett pass? (Ägare eller can_edit-share.)
+create or replace function public.can_edit_plan(p_plan uuid, p_user uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.plans p
+    where p.id = p_plan
+      and (
+        p.owner_user_id = p_user
+        or (p.owner_team_id is not null and public.is_team_coach(p.owner_team_id, p_user))
+        or (p.owner_club_id is not null and public.is_club_admin(p.owner_club_id, p_user))
+      )
+  )
+  or exists (
+    select 1 from public.plan_shares s
+    where s.plan_id = p_plan
+      and s.can_edit = true
+      and (
+        s.user_id = p_user
+        or (s.team_id is not null and public.is_team_member(s.team_id, p_user))
+        or (s.club_id is not null and public.is_club_member(s.club_id, p_user))
+      )
+  );
+$$;
+
+-- Läsning: ägare + alla som passet är delat med (klubb/lag/user).
 create policy "plans: visibility read"
   on public.plans for select
   to authenticated
@@ -461,18 +581,19 @@ create policy "plans: visibility read"
     owner_user_id = auth.uid()
     or (owner_team_id is not null and public.is_team_member(owner_team_id, auth.uid()))
     or (owner_club_id is not null and public.is_club_member(owner_club_id, auth.uid()))
-    or (
-      visible_to_club
-      and owner_team_id is not null
-      and exists (
-        select 1 from public.teams t
-        where t.id = plans.owner_team_id
-          and public.is_club_member(t.club_id, auth.uid())
-      )
+    or exists (
+      select 1 from public.plan_shares s
+      where s.plan_id = plans.id
+        and (
+          s.user_id = auth.uid()
+          or (s.team_id is not null and public.is_team_member(s.team_id, auth.uid()))
+          or (s.club_id is not null and public.is_club_member(s.club_id, auth.uid()))
+        )
     )
   );
 
--- Skrivning: egna pass, team-coaches för team-pass, klubb-admins för club-pass.
+-- Skrivning: egna pass, team-coaches för team-pass, klubb-admins för club-pass,
+-- plus alla som har can_edit-share.
 create policy "plans: insert"
   on public.plans for insert
   to authenticated
@@ -488,16 +609,8 @@ create policy "plans: insert"
 create policy "plans: update"
   on public.plans for update
   to authenticated
-  using (
-    owner_user_id = auth.uid()
-    or (owner_team_id is not null and public.is_team_coach(owner_team_id, auth.uid()))
-    or (owner_club_id is not null and public.is_club_admin(owner_club_id, auth.uid()))
-  )
-  with check (
-    owner_user_id = auth.uid()
-    or (owner_team_id is not null and public.is_team_coach(owner_team_id, auth.uid()))
-    or (owner_club_id is not null and public.is_club_admin(owner_club_id, auth.uid()))
-  );
+  using (public.can_edit_plan(id, auth.uid()))
+  with check (public.can_edit_plan(id, auth.uid()));
 
 create policy "plans: delete"
   on public.plans for delete
@@ -507,6 +620,25 @@ create policy "plans: delete"
     or (owner_team_id is not null and public.is_team_coach(owner_team_id, auth.uid()))
     or (owner_club_id is not null and public.is_club_admin(owner_club_id, auth.uid()))
   );
+
+-- plan_shares RLS:
+-- - Läsning: ägare ser alla shares på sitt pass, och mål ser sin egen share.
+-- - Skrivning: bara användare som kan redigera passet.
+create policy "plan_shares: read"
+  on public.plan_shares for select
+  to authenticated
+  using (
+    public.can_edit_plan(plan_id, auth.uid())
+    or user_id = auth.uid()
+    or (team_id is not null and public.is_team_member(team_id, auth.uid()))
+    or (club_id is not null and public.is_club_member(club_id, auth.uid()))
+  );
+
+create policy "plan_shares: editor write"
+  on public.plan_shares for all
+  to authenticated
+  using (public.can_edit_plan(plan_id, auth.uid()))
+  with check (public.can_edit_plan(plan_id, auth.uid()) and created_by = auth.uid());
 
 -- ---------- invites (klubb/lag-inbjudan via e-post) -------------------------
 -- Ren tabell nu; UI-flödet skickas separat. Token är opaqe och förbrukas engångs.
