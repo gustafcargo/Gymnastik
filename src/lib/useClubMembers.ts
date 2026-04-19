@@ -26,39 +26,52 @@ export function useClubMembers(clubId: string | null) {
     if (!c || !user || !clubId) { setMembers([]); return; }
     setFetching(true);
     setError(null);
+    // Två separata queries i stället för en embed. PostgREST kan inte
+    // auto-inferera relationen club_members→profiles (båda pekar på
+    // auth.users, ingen direkt FK dem emellan) → "Could not find a
+    // relationship". Vi slår ihop i JS istället.
     const memRes = await c
       .from("club_members")
-      .select("user_id, role, profiles!inner(display_name)")
+      .select("user_id, role")
       .eq("club_id", clubId);
     if (memRes.error) {
       setError(memRes.error.message);
       setFetching(false);
       return;
     }
-    const capRes = await c
-      .from("member_capabilities")
-      .select("user_id, overrides")
-      .eq("club_id", clubId);
+    const memRows = (memRes.data ?? []) as { user_id: string; role: MemberRole }[];
+    const userIds = memRows.map((r) => r.user_id);
+
+    const [profRes, capRes] = await Promise.all([
+      userIds.length
+        ? c.from("profiles").select("user_id, display_name").in("user_id", userIds)
+        : Promise.resolve({ data: [], error: null as null | { message: string } }),
+      c.from("member_capabilities")
+        .select("user_id, overrides")
+        .eq("club_id", clubId),
+    ]);
+    if (profRes.error) {
+      setError(profRes.error.message);
+      setFetching(false);
+      return;
+    }
     if (capRes.error) {
       // Läsning av caps ska inte blockera listan.
       console.warn("[caps] kunde inte läsa overrides:", capRes.error.message);
     }
-    type MemRow = {
-      user_id: string;
-      role: MemberRole;
-      profiles: { display_name: string };
-    };
+    const nameByUser = new Map<string, string>(
+      (profRes.data ?? []).map((p) => [p.user_id as string, (p.display_name as string) ?? "Gymnast"]),
+    );
     const overridesByUser = new Map<string, Partial<Record<Capability, boolean>>>(
       (capRes.data ?? []).map((r) => [
         r.user_id as string,
         (r.overrides as Partial<Record<Capability, boolean>>) ?? {},
       ]),
     );
-    const rows = (memRes.data ?? []) as unknown as MemRow[];
-    setMembers(rows.map((r) => ({
+    setMembers(memRows.map((r) => ({
       user_id: r.user_id,
       role: r.role,
-      display_name: r.profiles.display_name,
+      display_name: nameByUser.get(r.user_id) ?? "Gymnast",
       overrides: overridesByUser.get(r.user_id) ?? {},
     })));
     setFetching(false);

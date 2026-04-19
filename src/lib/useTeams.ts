@@ -77,25 +77,34 @@ export function useTeamMembers(teamId: string | null) {
     }
     setFetching(true);
     setError(null);
-    const { data, error: err } = await c
+    // Separata queries — PostgREST hittar ingen direkt FK mellan
+    // team_members och profiles (båda pekar på auth.users).
+    const memRes = await c
       .from("team_members")
-      .select("user_id, role, profiles!inner(display_name)")
+      .select("user_id, role")
       .eq("team_id", teamId);
-    setFetching(false);
-    if (err) {
-      setError(err.message);
+    if (memRes.error) {
+      setFetching(false);
+      setError(memRes.error.message);
       return;
     }
-    type Row = {
-      user_id: string;
-      role: "admin" | "coach" | "member";
-      profiles: { display_name: string };
-    };
-    const rows = (data ?? []) as unknown as Row[];
-    setMembers(rows.map((r) => ({
+    const memRows = (memRes.data ?? []) as { user_id: string; role: "admin" | "coach" | "member" }[];
+    const userIds = memRows.map((r) => r.user_id);
+    const profRes = userIds.length
+      ? await c.from("profiles").select("user_id, display_name").in("user_id", userIds)
+      : { data: [], error: null as null | { message: string } };
+    setFetching(false);
+    if (profRes.error) {
+      setError(profRes.error.message);
+      return;
+    }
+    const nameByUser = new Map<string, string>(
+      (profRes.data ?? []).map((p) => [p.user_id as string, (p.display_name as string) ?? "Gymnast"]),
+    );
+    setMembers(memRows.map((r) => ({
       user_id: r.user_id,
       role: r.role,
-      display_name: r.profiles.display_name,
+      display_name: nameByUser.get(r.user_id) ?? "Gymnast",
     })));
   }, [user, teamId]);
 
