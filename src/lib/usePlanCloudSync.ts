@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "./useAuth";
 import { supabase } from "./supabase";
 import { usePlanStore } from "../store/usePlanStore";
+import { isCommittedPlan } from "./storage";
 import type { Plan } from "../types";
 
 export type CloudPlanMeta = {
@@ -116,9 +117,13 @@ export function usePlanCloudSync() {
       }
     };
 
-    // Initial push så molnet har senaste versionen direkt vid login.
+    // Initial push så molnet har senaste versionen direkt vid login —
+    // men bara om passet är committat (användaren har tryckt Spara). Icke-
+    // committade autosave-drafts ska aldrig läcka upp till molnet.
     const current = usePlanStore.getState();
-    if (current.plan) void pushPlan(current.plan);
+    if (current.plan && isCommittedPlan(current.plan.id)) {
+      void pushPlan(current.plan);
+    }
 
     // Subscribe: pusha när isDirty går true → false (Spara trycktes).
     const unsub = usePlanStore.subscribe((s, prev) => {
@@ -126,8 +131,13 @@ export function usePlanCloudSync() {
         void pushPlan(s.plan);
       }
       // Även när användaren byter till ett annat pass (plan.id byter)
-      // och det redan är sparat: pusha en gång så molnet har det.
-      if (prev.plan?.id !== s.plan?.id && !s.isDirty && s.plan) {
+      // och det redan är committat: pusha en gång så molnet har det.
+      if (
+        prev.plan?.id !== s.plan?.id &&
+        !s.isDirty &&
+        s.plan &&
+        isCommittedPlan(s.plan.id)
+      ) {
         void pushPlan(s.plan);
       }
     });
