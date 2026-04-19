@@ -29,6 +29,7 @@ export function HallStage({ className, onStageReady }: Props) {
   const addEquipment = usePlanStore((s) => s.addEquipment);
   const updateEquipment = usePlanStore((s) => s.updateEquipment);
   const setEquipmentNoteOffset = usePlanStore((s) => s.setEquipmentNoteOffset);
+  const setEquipmentNoteSize = usePlanStore((s) => s.setEquipmentNoteSize);
   const showNotes = usePlanStore((s) => s.showNotes);
 
   const stackInfo = useMemo(
@@ -48,19 +49,29 @@ export function HallStage({ className, onStageReady }: Props) {
   const [editingNote, setEditingNote] = useState<EditingNote | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // Observera storleksändringar
+  // Observera storleksändringar. På iOS triggar orienteringsbyten inte
+  // alltid ResizeObserver pålitligt, så vi lyssnar även på window resize
+  // + visualViewport för att säkerställa att hallen breder ut sig över
+  // hela tillgängliga ytan när användaren lägger telefonen på sidan.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => {
-      setSize({
-        width: el.clientWidth,
-        height: el.clientHeight,
-      });
-    });
+    const measure = () => {
+      setSize({ width: el.clientWidth, height: el.clientHeight });
+    };
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
-    setSize({ width: el.clientWidth, height: el.clientHeight });
-    return () => observer.disconnect();
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+      vv?.removeEventListener("resize", measure);
+    };
   }, []);
 
   // Räkna ut skala och offset så hallen passar in med lite padding
@@ -369,6 +380,9 @@ export function HallStage({ className, onStageReady }: Props) {
                     pxPerM={fitScale}
                     onOffsetChange={(offset) =>
                       setEquipmentNoteOffset(eq.id, offset)
+                    }
+                    onSizeChange={(size) =>
+                      setEquipmentNoteSize(eq.id, size)
                     }
                     onSelect={() => selectEquipment(eq.id)}
                     onStartEdit={() => {

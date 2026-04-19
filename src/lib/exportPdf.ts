@@ -1,5 +1,6 @@
 import type Konva from "konva";
 import type { Plan } from "../types";
+import { stageToWhitePngDataUrl } from "./exportPng";
 
 type Snapshot = { stationName: string; dataUrl: string };
 
@@ -21,18 +22,15 @@ export async function exportStageAsPdf(
   const availW = pageW - margin * 2;
   const availH = pageH - margin * 2 - headerHeight;
 
-  // Force all layers (including conditionally-mounted note bubbles layer) to
-  // flush their canvases before capture so nothing is stale or missing.
-  stage.draw();
-
-  const shots: Snapshot[] = snapshots ?? [
-    {
-      stationName:
-        plan.stations.find((s) => s.id === plan.activeStationId)?.name ??
-        "Station",
-      dataUrl: stage.toDataURL({ pixelRatio: 2, mimeType: "image/png" }),
-    },
-  ];
+  const shots: Snapshot[] =
+    snapshots ?? [
+      {
+        stationName:
+          plan.stations.find((s) => s.id === plan.activeStationId)?.name ??
+          "Station",
+        dataUrl: await stageToWhitePngDataUrl(stage, 2),
+      },
+    ];
 
   shots.forEach((shot, idx) => {
     if (idx > 0) pdf.addPage();

@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Box,
-  Check,
   Download,
   FileText,
   FolderOpen,
   Gamepad2,
   Grid3x3,
   Image as ImageIcon,
-  Loader2,
   Maximize2,
   Menu,
   Pencil,
   Plus,
   Redo2,
+  Save,
   Sliders,
   Square,
   MessageSquare,
@@ -39,6 +38,9 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
   const renamePlan = usePlanStore((s) => s.renamePlan);
   const setHall = usePlanStore((s) => s.setHall);
   const newPlan = usePlanStore((s) => s.newPlan);
+  const savePlan = usePlanStore((s) => s.savePlan);
+  const isDirty = usePlanStore((s) => s.isDirty);
+  const selectEquipment = usePlanStore((s) => s.selectEquipment);
   const snapToGrid = usePlanStore((s) => s.snapToGrid);
   const setSnapToGrid = usePlanStore((s) => s.setSnapToGrid);
   const viewMode = usePlanStore((s) => s.viewMode);
@@ -63,11 +65,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
-  const [saveState, setSaveState] = useState<"idle" | "pending" | "saved">(
-    "saved",
-  );
   const exportRef = useRef<HTMLDivElement>(null);
-  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -79,43 +77,68 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  // Visa sparstatus när plan ändras. Auto-save sker redan i store:n; här
-  // speglar vi bara tillståndet så användaren ser att arbetet är sparat.
-  const planKey = `${plan.id}:${plan.updatedAt}`;
+  // Ctrl/Cmd+S sparar passet explicit.
   useEffect(() => {
-    setSaveState("pending");
-    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-    savedTimerRef.current = setTimeout(() => setSaveState("saved"), 600);
-    return () => {
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        savePlan();
+      }
     };
-  }, [planKey]);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [savePlan]);
 
   const totalDuration = plan.stations.reduce(
     (acc, s) => acc + s.durationMin,
     0,
   );
 
-  const handleExportPng = () => {
+  /**
+   * Kör ett export-jobb utan att markeringen syns i bilden. Markeringen
+   * avmarkeras innan stage ritas till PNG och återställs direkt efteråt
+   * så användarens markering behålls i editorn.
+   */
+  const withClearedSelection = async (job: () => Promise<void>) => {
+    const prevSelected = usePlanStore.getState().selectedEquipmentId;
+    if (prevSelected) selectEquipment(null);
+    // Konva ritar asynkront – vänta en frame så Transformer-boxar försvinner
+    // innan vi snapshottar canvas.
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    try {
+      await job();
+    } finally {
+      if (prevSelected) selectEquipment(prevSelected);
+    }
+  };
+
+  const handleExportPng = async () => {
+    setExportOpen(false);
     if (viewMode === "3D") {
       window.dispatchEvent(new CustomEvent("gymnastik:export-3d-png"));
-    } else {
-      const stage = stageRef.current;
-      if (!stage) return;
-      exportStageAsPng(stage, `${plan.name.replace(/[^\w\-]+/g, "_")}.png`);
+      return;
     }
-    setExportOpen(false);
+    const stage = stageRef.current;
+    if (!stage) return;
+    await withClearedSelection(async () => {
+      await exportStageAsPng(
+        stage,
+        `${plan.name.replace(/[^\w\-]+/g, "_")}.png`,
+      );
+    });
   };
 
   const handleExportPdf = async () => {
+    setExportOpen(false);
     if (viewMode === "3D") {
       window.dispatchEvent(new CustomEvent("gymnastik:export-3d-pdf"));
-    } else {
-      const stage = stageRef.current;
-      if (!stage) return;
-      await exportStageAsPdf(stage, plan);
+      return;
     }
-    setExportOpen(false);
+    const stage = stageRef.current;
+    if (!stage) return;
+    await withClearedSelection(async () => {
+      await exportStageAsPdf(stage, plan);
+    });
   };
 
   const totalEquip = plan.stations.reduce(
@@ -125,7 +148,7 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
 
   return (
     <>
-      <div className="safe-top relative z-20 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-surface-3 bg-white px-3 py-2">
+      <div className="safe-top safe-x relative z-20 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-surface-3 bg-white px-3 py-2">
         {onToggleSidebar && (
           <button
             type="button"
@@ -152,7 +175,24 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
               aria-label="Passets namn"
             />
           </label>
-          <SaveIndicator state={saveState} />
+          <button
+            type="button"
+            onClick={() => savePlan()}
+            disabled={!isDirty}
+            title={isDirty ? "Spara passet" : "Passet är sparat"}
+            aria-label={isDirty ? "Spara passet" : "Passet är sparat"}
+            className={
+              "flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-semibold transition " +
+              (isDirty
+                ? "bg-accent text-white shadow-sm hover:bg-accent-ink active:opacity-80"
+                : "cursor-default bg-surface-2 text-slate-400")
+            }
+          >
+            <Save size={13} />
+            <span className="hidden sm:inline">
+              {isDirty ? "Spara" : "Sparat"}
+            </span>
+          </button>
         </div>
 
         <div className="hidden items-center gap-1 md:flex">
@@ -323,25 +363,6 @@ export function Toolbar({ stageRef, onToggleSidebar }: Props) {
       </div>
       {plansOpen && <PlansModal onClose={() => setPlansOpen(false)} />}
     </>
-  );
-}
-
-function SaveIndicator({ state }: { state: "idle" | "pending" | "saved" }) {
-  const pending = state === "pending";
-  const label = pending ? "Sparar…" : "Sparat";
-  const Icon = pending ? Loader2 : Check;
-  return (
-    <div
-      className={
-        "flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium " +
-        (pending ? "text-amber-600" : "text-emerald-600")
-      }
-      title={pending ? "Passet sparas..." : "Passet är sparat i din webbläsare"}
-      aria-live="polite"
-    >
-      <Icon size={12} className={pending ? "animate-spin" : ""} />
-      <span className="hidden sm:inline">{label}</span>
-    </div>
   );
 }
 

@@ -175,11 +175,14 @@ function UnevenBars({ w, h, selected, color }: VisualProps) {
 }
 
 // ---------------------------------------------------------------------------
-// High bar: smal rect + en centrerad räck-linje + två postcirklar
+// High bar: smal rect + räck-linje i övre delen + postcirklar
+// Linjen placeras över mitten så redskapsetiketten (som ligger centrerad) inte
+// överlagras av själva räcket.
 // ---------------------------------------------------------------------------
 function HighBar({ w, h, selected, color }: VisualProps) {
   const r = Math.min(8, Math.min(w, h) * 0.1);
   const postR = Math.max(2.5, Math.min(w, h) * 0.05);
+  const barY = h * 0.32;
   return (
     <Group>
       <Rect
@@ -190,7 +193,7 @@ function HighBar({ w, h, selected, color }: VisualProps) {
         {...strokeFor(selected)}
       />
       <Line
-        points={[w * 0.06, h * 0.5, w * 0.94, h * 0.5]}
+        points={[w * 0.06, barY, w * 0.94, barY]}
         stroke={INK_SOFT}
         strokeWidth={0.9}
         listening={false}
@@ -199,7 +202,7 @@ function HighBar({ w, h, selected, color }: VisualProps) {
         <Circle
           key={fx}
           x={w * fx}
-          y={h * 0.5}
+          y={barY}
           radius={postR}
           fill={INK}
           listening={false}

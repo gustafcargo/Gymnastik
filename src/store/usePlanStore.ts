@@ -110,7 +110,7 @@ import {
   getActivePlanId,
   getPlan,
   listPlans,
-  savePlan,
+  savePlan as savePlanStorage,
   setActivePlanId,
   deletePlan as deletePlanStorage,
 } from "../lib/storage";
@@ -127,6 +127,8 @@ type PlanState = {
   showLabels: boolean;
   showNotes: boolean;
   gameMode: boolean;
+  /** True när planen har osparade ändringar. */
+  isDirty: boolean;
 };
 
 type PlanActions = {
@@ -135,8 +137,11 @@ type PlanActions = {
   loadPlan: (id: string) => void;
   listSavedPlans: () => Plan[];
   deleteSavedPlan: (id: string) => void;
+  duplicateSavedPlan: (id: string) => string | undefined;
   renamePlan: (name: string) => void;
   setHall: (hall: HallTemplate) => void;
+  /** Spara nuvarande plan till localStorage (nollställer isDirty). */
+  savePlan: () => void;
 
   // equipment
   addEquipment: (typeId: string, xM: number, yM: number) => string | undefined;
@@ -153,6 +158,7 @@ type PlanActions = {
   duplicateEquipment: (id: string) => string | undefined;
   rotateEquipment: (id: string, deltaDeg: number) => void;
   setEquipmentNoteOffset: (id: string, offset: { x: number; y: number }) => void;
+  setEquipmentNoteSize: (id: string, size: { w: number; h: number }) => void;
 
   // gymnasts
   addGymnast: (equipmentId: string, config: Omit<GymnastConfig, "id">) => void;
@@ -256,12 +262,14 @@ export const usePlanStore = create<PlanStore>()(
       showLabels: true,
       showNotes: true,
       gameMode: initialGameMode(),
+      isDirty: false,
 
       newPlan: (name) =>
         set(() => {
           const plan = createPlan(name);
           setActivePlanId(plan.id);
-          return { plan, selectedEquipmentId: null };
+          savePlanStorage(plan);
+          return { plan, selectedEquipmentId: null, isDirty: false };
         }),
 
       loadPlan: (id) =>
@@ -269,7 +277,7 @@ export const usePlanStore = create<PlanStore>()(
           const p = getPlan(id);
           if (!p) return {};
           setActivePlanId(p.id);
-          return { plan: p, selectedEquipmentId: null };
+          return { plan: p, selectedEquipmentId: null, isDirty: false };
         }),
 
       listSavedPlans: () => listPlans(),
@@ -280,10 +288,33 @@ export const usePlanStore = create<PlanStore>()(
           if (state.plan.id === id) {
             const next = createPlan();
             setActivePlanId(next.id);
-            return { plan: next, selectedEquipmentId: null };
+            savePlanStorage(next);
+            return { plan: next, selectedEquipmentId: null, isDirty: false };
           }
           return {};
         }),
+
+      duplicateSavedPlan: (id) => {
+        const source = getPlan(id);
+        if (!source) return undefined;
+        const copy: Plan = {
+          ...source,
+          id: nanoid(),
+          name: `${source.name} (kopia)`,
+          stations: source.stations.map((st) => ({
+            ...st,
+            id: nanoid(),
+            equipment: st.equipment.map((e) => ({ ...e, id: nanoid() })),
+          })),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        // Active-station-id i kopian måste referera till den nya stationens id.
+        const firstStation = copy.stations[0];
+        copy.activeStationId = firstStation?.id ?? nanoid();
+        savePlanStorage(copy);
+        return copy.id;
+      },
 
       renamePlan: (name) =>
         set((state) => ({
@@ -294,6 +325,13 @@ export const usePlanStore = create<PlanStore>()(
         set((state) => ({
           plan: { ...state.plan, hall, updatedAt: Date.now() },
         })),
+
+      savePlan: () =>
+        set((state) => {
+          savePlanStorage(state.plan);
+          setActivePlanId(state.plan.id);
+          return { isDirty: false };
+        }),
 
       addEquipment: (typeId, xM, yM) => {
         const type = getEquipmentById(typeId);
@@ -460,6 +498,16 @@ export const usePlanStore = create<PlanStore>()(
             ...st,
             equipment: st.equipment.map((eq) =>
               eq.id === id ? { ...eq, noteOffset: offset } : eq,
+            ),
+          })),
+        })),
+
+      setEquipmentNoteSize: (id, size) =>
+        set((s) => ({
+          plan: withActiveStation(s.plan, (st) => ({
+            ...st,
+            equipment: st.equipment.map((eq) =>
+              eq.id === id ? { ...eq, noteSize: size } : eq,
             ),
           })),
         })),
@@ -651,20 +699,19 @@ export const usePlanStore = create<PlanStore>()(
 export const useTemporalStore = usePlanStore.temporal;
 
 /**
- * Autospara till localStorage vid varje planändring (debounced).
+ * Markera planen som osparad vid varje planändring. Användaren måste
+ * trycka på spara-ikonen i toolbaren för att skriva till localStorage.
  */
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
 usePlanStore.subscribe((state, prev) => {
   if (state.plan === prev.plan) return;
   setActivePlanId(state.plan.id);
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => savePlan(state.plan), 500);
+  if (!state.isDirty) usePlanStore.setState({ isDirty: true });
 });
 
 /** Initial persist så att nya pass listas direkt. */
 if (typeof window !== "undefined") {
   try {
-    savePlan(usePlanStore.getState().plan);
+    savePlanStorage(usePlanStore.getState().plan);
     setActivePlanId(usePlanStore.getState().plan.id);
   } catch (err) {
     // LocalStorage kan vara blockerad (privat läge på iOS Safari t.ex.)
